@@ -1,5 +1,3 @@
-import React from 'react'
-
 interface StatusBadgeProps {
   status: 'healthy' | 'warning' | 'critical'
   size?: 'sm' | 'md' | 'lg'
