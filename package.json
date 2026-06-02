@@ -1,31 +1,49 @@
 {
   "name": "sub-con",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "Interactive security dashboard for incident reports, attendance, and security issues in Indonesia",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently \"next dev\" \"node server.js\"",
+    "dev:frontend": "next dev",
+    "dev:backend": "node server.js",
     "build": "next build",
-    "start": "next start",
+    "start": "node server.js",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed.js"
   },
   "dependencies": {
     "next": "^14.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "socket.io-client": "^4.7.0",
+    "socket.io": "^4.7.0",
     "tailwindcss": "^3.4.0",
     "lucide-react": "^0.344.0",
-    "recharts": "^2.10.0"
+    "recharts": "^2.10.0",
+    "axios": "^1.6.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "mongoose": "^7.7.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.1.2",
+    "node-cron": "^3.0.3",
+    "cheerio": "^1.0.0-rc.12",
+    "axios-retry": "^3.4.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/express": "^4.17.21",
     "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0",
     "eslint": "^8.55.0",
-    "eslint-config-next": "^14.1.0"
+    "eslint-config-next": "^14.1.0",
+    "concurrently": "^8.2.2"
   }
 }
