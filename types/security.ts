@@ -21,7 +21,7 @@ export interface SecurityAlert {
 
 export interface NewsItem {
   id: string
-  source: 'Kompas' | 'Detik'
+  source: 'Kompas' | 'Detik' | 'Liputan6' | 'CNNIndonesia' | 'Kumparan'
   headline: string
   summary: string
   category: string

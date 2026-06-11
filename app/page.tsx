@@ -18,7 +18,7 @@ export default function Home() {
   const { data, connection, isLive, toggleLive } = useRealtimeData('dashboard')
 
   const sourceItems = useMemo(() => {
-    const grouped = { Kompas: [] as NewsItem[], Detik: [] as NewsItem[] }
+    const grouped = { Kompas: [] as NewsItem[], Detik: [] as NewsItem[], Liputan6: [] as NewsItem[], CNNIndonesia: [] as NewsItem[], Kumparan: [] as NewsItem[] }
 
     for (const update of data) {
       if (update.type === 'news') {
@@ -30,8 +30,14 @@ export default function Home() {
     return grouped
   }, [data])
 
-  const latestKompas = sourceItems.Kompas[0]
-  const latestDetik = sourceItems.Detik[0]
+  const sources = ['Kompas', 'Detik', 'Liputan6', 'CNNIndonesia', 'Kumparan'] as const
+  const sourceColors = {
+    Kompas: 'sky',
+    Detik: 'amber',
+    Liputan6: 'purple',
+    CNNIndonesia: 'red',
+    Kumparan: 'emerald',
+  } as const
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -47,7 +53,8 @@ export default function Home() {
                 <h1 className="text-4xl font-semibold tracking-tight text-white md:text-6xl">
                   Sub-Con Dashboard
                 </h1>
-                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">Kompas and Detik updates streams live as news updates.
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
+                  Kompas, Detik, Liputan6, CNNIndonesia, and Kumparan updates streams live as news updates.
                 </p>
               </div>
             </div>
@@ -72,108 +79,65 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-2">
-          <article className="rounded-[28px] border border-white/10 bg-slate-950/60 p-6 shadow-lg shadow-black/20 backdrop-blur">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-sky-300">Kompas</p>
-                <h2 className="mt-2 text-2xl font-semibold">Latest coverage</h2>
-              </div>
-              {latestKompas ? <StatusBadge status={latestKompas.status} /> : null}
-            </div>
+        <section className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+          {sources.map((source) => {
+            const items = sourceItems[source]
+            const latest = items[0]
+            const color = sourceColors[source]
 
-            {latestKompas ? (
-              <div className="mt-6 space-y-4">
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                  <p className="text-sm font-medium text-sky-200">{latestKompas.category}</p>
-                  <h3 className="mt-3 text-xl font-semibold leading-snug text-white">
-                    {latestKompas.headline}
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">{latestKompas.summary}</p>
-                  <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      {formatTime(latestKompas.timestamp)}
-                    </span>
-                    <a
-                      href={latestKompas.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-sky-200 transition hover:border-sky-400/40 hover:bg-sky-400/10"
-                    >
-                      Open source
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
+            return (
+              <article key={source} className="rounded-[28px] border border-white/10 bg-slate-950/60 p-6 shadow-lg shadow-black/20 backdrop-blur">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className={`text-sm uppercase tracking-[0.2em] text-${color}-300`}>{source}</p>
+                    <h2 className="mt-2 text-2xl font-semibold">Latest coverage</h2>
                   </div>
+                  {latest ? <StatusBadge status={latest.status} /> : null}
                 </div>
 
-                <div className="space-y-3">
-                  {sourceItems.Kompas.slice(0, 3).map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium text-white">{item.headline}</p>
-                        <span className="text-xs text-slate-400">{formatTime(item.timestamp)}</span>
+                {latest ? (
+                  <div className="mt-6 space-y-4">
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                      <p className={`text-sm font-medium text-${color}-200`}>{latest.category}</p>
+                      <h3 className="mt-3 text-xl font-semibold leading-snug text-white">
+                        {latest.headline}
+                      </h3>
+                      <p className="mt-3 text-sm leading-6 text-slate-300">{latest.summary}</p>
+                      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1">
+                          <Clock3 className="h-3.5 w-3.5" />
+                          {formatTime(latest.timestamp)}
+                        </span>
+                        <a
+                          href={latest.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-${color}-200 transition hover:border-${color}-400/40 hover:bg-${color}-400/10`}
+                        >
+                          Open source
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
                       </div>
-                      <p className="mt-2 text-sm text-slate-400">{item.summary}</p>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="mt-6 text-sm text-slate-400">Waiting for Kompas updates...</p>
-            )}
-          </article>
 
-          <article className="rounded-[28px] border border-white/10 bg-slate-950/60 p-6 shadow-lg shadow-black/20 backdrop-blur">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-amber-300">Detik</p>
-                <h2 className="mt-2 text-2xl font-semibold">Latest coverage</h2>
-              </div>
-              {latestDetik ? <StatusBadge status={latestDetik.status} /> : null}
-            </div>
-
-            {latestDetik ? (
-              <div className="mt-6 space-y-4">
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                  <p className="text-sm font-medium text-amber-200">{latestDetik.category}</p>
-                  <h3 className="mt-3 text-xl font-semibold leading-snug text-white">
-                    {latestDetik.headline}
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">{latestDetik.summary}</p>
-                  <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      {formatTime(latestDetik.timestamp)}
-                    </span>
-                    <a
-                      href={latestDetik.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-amber-200 transition hover:border-amber-400/40 hover:bg-amber-400/10"
-                    >
-                      Open source
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
+                    <div className="space-y-3">
+                      {items.slice(0, 3).map((item) => (
+                        <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="font-medium text-white">{item.headline}</p>
+                            <span className="text-xs text-slate-400">{formatTime(item.timestamp)}</span>
+                          </div>
+                          <p className="mt-2 text-sm text-slate-400">{item.summary}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-
-                <div className="space-y-3">
-                  {sourceItems.Detik.slice(0, 3).map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium text-white">{item.headline}</p>
-                        <span className="text-xs text-slate-400">{formatTime(item.timestamp)}</span>
-                      </div>
-                      <p className="mt-2 text-sm text-slate-400">{item.summary}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="mt-6 text-sm text-slate-400">Waiting for Detik updates...</p>
-            )}
-          </article>
+                ) : (
+                  <p className="mt-6 text-sm text-slate-400">Waiting for {source} updates...</p>
+                )}
+              </article>
+            )
+          })}
         </section>
 
         <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
