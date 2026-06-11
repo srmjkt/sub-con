@@ -47,8 +47,7 @@ export default function Home() {
                 <h1 className="text-4xl font-semibold tracking-tight text-white md:text-6xl">
                   Sub-Con Dashboard
                 </h1>
-                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
-                  Kompas and Detik updates now stream directly into the dashboard so the source panels are populated on load and keep refreshing in real time.
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">Kompas and Detik updates streams live as news updates.
                 </p>
               </div>
             </div>
