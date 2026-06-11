@@ -19,6 +19,17 @@ export interface SecurityAlert {
   clientId: string
 }
 
+export interface NewsItem {
+  id: string
+  source: 'Kompas' | 'Detik'
+  headline: string
+  summary: string
+  category: string
+  status: 'healthy' | 'warning' | 'critical'
+  timestamp: number
+  url: string
+}
+
 export interface ClientSecurityData {
   clientId: string
   clientName: string
@@ -30,9 +41,9 @@ export interface ClientSecurityData {
 }
 
 export interface RealtimeUpdate {
-  type: 'metric' | 'alert' | 'compliance'
+  type: 'metric' | 'alert' | 'compliance' | 'news'
   clientId: string
-  data: SecurityMetric | SecurityAlert | any
+  data: SecurityMetric | SecurityAlert | NewsItem
   timestamp: number
 }
 

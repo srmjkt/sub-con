@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { RealtimeUpdate, ConnectionState } from '@/types/security'
+import { ConnectionState, RealtimeUpdate } from '@/types/security'
 
 export function useRealtimeData(clientId: string) {
   const [data, setData] = useState<RealtimeUpdate[]>([])
@@ -14,16 +14,49 @@ export function useRealtimeData(clientId: string) {
 
   // Mock data generator for demo purposes
   const generateMockUpdate = useCallback((): RealtimeUpdate => {
-    const types = ['metric', 'alert', 'compliance'] as const
-    const type = types[Math.floor(Math.random() * types.length)]
+    const sources = ['Kompas', 'Detik'] as const
+    const source = sources[Math.floor(Math.random() * sources.length)]
+    const isKompas = source === 'Kompas'
+    const kompasStories = [
+      {
+        headline: 'Kompas: Analis pasar menyorot lonjakan aktivitas digital',
+        summary: 'Laporan terbaru menempatkan kanal digital sebagai pendorong utama trafik pagi ini.',
+        category: 'Bisnis',
+      },
+      {
+        headline: 'Kompas: Pergerakan indikator stabil di sesi pembukaan',
+        summary: 'Sinyal pasar bergerak konsisten dengan sentimen positif dari pembaca regional.',
+        category: 'Ekonomi',
+      },
+    ]
+    const detikStories = [
+      {
+        headline: 'Detik: Update cepat minat baca naik menjelang siang',
+        summary: 'Detik mencatat kenaikan interaksi untuk tema breaking news dan highlight lokal.',
+        category: 'Headline',
+      },
+      {
+        headline: 'Detik: Sorotan utama bertahan di daftar terpopuler',
+        summary: 'Konten singkat dan tajam kembali memimpin engagement di dashboard pemantauan.',
+        category: 'Trending',
+      },
+    ]
+    const storyPool = isKompas ? kompasStories : detikStories
+    const story = storyPool[Math.floor(Math.random() * storyPool.length)]
+    const status = Math.random() > 0.8 ? 'warning' : 'healthy'
     
     return {
-      type,
+      type: 'news',
       clientId,
       data: {
-        value: Math.random() * 100,
-        status: Math.random() > 0.7 ? 'warning' : 'healthy',
+        id: `${source.toLowerCase()}-${Date.now()}`,
+        source,
+        headline: story.headline,
+        summary: story.summary,
+        category: story.category,
+        status,
         timestamp: Date.now(),
+        url: isKompas ? 'https://www.kompas.com' : 'https://www.detik.com',
       },
       timestamp: Date.now(),
     }
@@ -43,6 +76,8 @@ export function useRealtimeData(clientId: string) {
       isReconnecting: false,
       lastConnectedAt: Date.now(),
     })
+
+    setData([generateMockUpdate(), generateMockUpdate()])
 
     // Simulate real-time data stream with mock data
     mockIntervalRef.current = setInterval(() => {
