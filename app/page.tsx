@@ -31,12 +31,32 @@ export default function Home() {
   }, [data])
 
   const sources = ['Kompas', 'Detik', 'Liputan6', 'CNNIndonesia', 'Kumparan'] as const
-  const sourceColors = {
-    Kompas: 'sky',
-    Detik: 'amber',
-    Liputan6: 'purple',
-    CNNIndonesia: 'red',
-    Kumparan: 'emerald',
+  const sourceClasses = {
+    Kompas: {
+      heading: 'text-sky-300',
+      category: 'text-sky-200',
+      link: 'text-sky-200 hover:border-sky-400/40 hover:bg-sky-400/10',
+    },
+    Detik: {
+      heading: 'text-amber-300',
+      category: 'text-amber-200',
+      link: 'text-amber-200 hover:border-amber-400/40 hover:bg-amber-400/10',
+    },
+    Liputan6: {
+      heading: 'text-purple-300',
+      category: 'text-purple-200',
+      link: 'text-purple-200 hover:border-purple-400/40 hover:bg-purple-400/10',
+    },
+    CNNIndonesia: {
+      heading: 'text-red-300',
+      category: 'text-red-200',
+      link: 'text-red-200 hover:border-red-400/40 hover:bg-red-400/10',
+    },
+    Kumparan: {
+      heading: 'text-emerald-300',
+      category: 'text-emerald-200',
+      link: 'text-emerald-200 hover:border-emerald-400/40 hover:bg-emerald-400/10',
+    },
   } as const
 
   return (
@@ -83,13 +103,13 @@ export default function Home() {
           {sources.map((source) => {
             const items = sourceItems[source]
             const latest = items[0]
-            const color = sourceColors[source]
+            const classes = sourceClasses[source]
 
             return (
               <article key={source} className="rounded-[28px] border border-white/10 bg-slate-950/60 p-6 shadow-lg shadow-black/20 backdrop-blur">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className={`text-sm uppercase tracking-[0.2em] text-${color}-300`}>{source}</p>
+                    <p className={`text-sm uppercase tracking-[0.2em] ${classes.heading}`}>{source}</p>
                     <h2 className="mt-2 text-2xl font-semibold">Latest coverage</h2>
                   </div>
                   {latest ? <StatusBadge status={latest.status} /> : null}
@@ -98,7 +118,7 @@ export default function Home() {
                 {latest ? (
                   <div className="mt-6 space-y-4">
                     <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                      <p className={`text-sm font-medium text-${color}-200`}>{latest.category}</p>
+                      <p className={`text-sm font-medium ${classes.category}`}>{latest.category}</p>
                       <h3 className="mt-3 text-xl font-semibold leading-snug text-white">
                         {latest.headline}
                       </h3>
@@ -112,7 +132,7 @@ export default function Home() {
                           href={latest.url}
                           target="_blank"
                           rel="noreferrer"
-                          className={`inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-${color}-200 transition hover:border-${color}-400/40 hover:bg-${color}-400/10`}
+                          className={`inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 ${classes.link} transition`}
                         >
                           Open source
                           <ExternalLink className="h-3.5 w-3.5" />
