@@ -10,12 +10,18 @@ export function useRealtimeData(clientId: string) {
     isReconnecting: false,
   })
   const [isLive, setIsLive] = useState(true)
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null)
+  const [nextPollIn, setNextPollIn] = useState<number>(0)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const countdownRef = useRef<NodeJS.Timeout | null>(null)
   const seenIdsRef = useRef<Set<string>>(new Set())
 
   const fetchNews = useCallback(async () => {
     try {
-      const response = await fetch('/api/news')
+      const response = await fetch('/api/news', {
+        // No cache headers so we always hit the network
+        cache: 'no-store',
+      })
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)
       }
@@ -31,6 +37,10 @@ export function useRealtimeData(clientId: string) {
         timestamp: number
       }> = result.items ?? []
 
+      const now = Date.now()
+      setLastFetchedAt(now)
+      setNextPollIn(10)
+
       // Only add items we haven't seen before
       const newItems = items.filter((item) => !seenIdsRef.current.has(item.id))
 
@@ -41,9 +51,9 @@ export function useRealtimeData(clientId: string) {
         }
 
         // Keep seen IDs manageable
-        if (seenIdsRef.current.size > 200) {
+        if (seenIdsRef.current.size > 300) {
           const idsArray = Array.from(seenIdsRef.current)
-          seenIdsRef.current = new Set(idsArray.slice(-100))
+          seenIdsRef.current = new Set(idsArray.slice(-150))
         }
 
         const updates: RealtimeUpdate[] = newItems.map((item) => ({
@@ -69,7 +79,6 @@ export function useRealtimeData(clientId: string) {
 
         setData((prev) => {
           const combined = [...updates, ...prev]
-          // Keep last 100 updates
           return combined.slice(0, 100)
         })
       }
@@ -77,7 +86,7 @@ export function useRealtimeData(clientId: string) {
       setConnection({
         isConnected: true,
         isReconnecting: false,
-        lastConnectedAt: Date.now(),
+        lastConnectedAt: now,
       })
     } catch (error) {
       console.error('[useRealtimeData] Fetch failed:', error)
@@ -96,21 +105,35 @@ export function useRealtimeData(clientId: string) {
         clearInterval(pollIntervalRef.current)
         pollIntervalRef.current = null
       }
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current)
+        countdownRef.current = null
+      }
+      setNextPollIn(0)
       return
     }
 
     // Initial fetch
     fetchNews()
 
-    // Poll every 30 seconds for new updates
+    // Poll every 10 seconds for fresh data
     pollIntervalRef.current = setInterval(() => {
       fetchNews()
-    }, 30000)
+    }, 10000)
+
+    // Countdown ticker every second
+    countdownRef.current = setInterval(() => {
+      setNextPollIn((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
 
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current)
         pollIntervalRef.current = null
+      }
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current)
+        countdownRef.current = null
       }
     }
   }, [isLive, fetchNews])
@@ -119,6 +142,8 @@ export function useRealtimeData(clientId: string) {
     data,
     connection,
     isLive,
+    lastFetchedAt,
+    nextPollIn,
     toggleLive: () => setIsLive((prev) => !prev),
   }
 }

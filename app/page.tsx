@@ -14,8 +14,15 @@ function formatTime(timestamp: number) {
   }).format(timestamp)
 }
 
+function formatRelativeTime(timestamp: number): string {
+  const diff = Math.floor((Date.now() - timestamp) / 1000)
+  if (diff < 5) return 'just now'
+  if (diff < 60) return `${diff}s ago`
+  return formatTime(timestamp)
+}
+
 export default function Home() {
-  const { data, connection, isLive, toggleLive } = useRealtimeData('dashboard')
+  const { data, connection, isLive, toggleLive, lastFetchedAt, nextPollIn } = useRealtimeData('dashboard')
 
   const sourceItems = useMemo(() => {
     const grouped = { Kompas: [] as NewsItem[], Detik: [] as NewsItem[], Liputan6: [] as NewsItem[], CNNIndonesia: [] as NewsItem[], Kumparan: [] as NewsItem[] }
@@ -85,9 +92,15 @@ export default function Home() {
                 <p className="mt-1 font-medium text-white">{connection.isConnected ? 'Connected' : 'Disconnected'}</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3">
-                <p className="text-slate-400">Mode</p>
-                <p className="mt-1 font-medium text-white">{isLive ? 'Live' : 'Paused'}</p>
+                <p className="text-slate-400">Next poll</p>
+                <p className="mt-1 font-mono font-medium text-white">{nextPollIn > 0 ? `${nextPollIn}s` : '...'}</p>
               </div>
+              {lastFetchedAt && (
+                <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3">
+                  <p className="text-slate-400">Last fetch</p>
+                  <p className="mt-1 font-mono font-medium text-emerald-300">{formatRelativeTime(lastFetchedAt)}</p>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={toggleLive}
