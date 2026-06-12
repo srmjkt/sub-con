@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import Parser from 'rss-parser'
+import { classifySecurityRelevance } from '@/lib/securityClassifier'
+import type { SecurityClassification } from '@/types/security'
 
 const parser = new Parser({
   timeout: 10000,
@@ -20,9 +22,9 @@ interface NewsItemRaw {
   category: string
   url: string
   timestamp: number
+  security?: SecurityClassification
 }
 
-// Track the latest timestamp we've seen per source, so we only emit genuinely new articles
 const lastEmittedTimestamps: Record<string, number> = {}
 
 function mapRssItem(
@@ -40,6 +42,9 @@ function mapRssItem(
       ? new Date(String(item.pubDate)).getTime()
       : Date.now()
 
+  // Classify security relevance
+  const classification = classifySecurityRelevance(headline, summary)
+
   return {
     id: String(item.guid ?? item.link ?? `${source}-${timestamp}`),
     source,
@@ -48,6 +53,7 @@ function mapRssItem(
     category: extractCategory(item, rawUrl),
     url: rawUrl,
     timestamp,
+    security: classification,
   }
 }
 
@@ -120,7 +126,6 @@ async function fetchSource(
     }
   }
 
-  // Deduplicate by headline
   const seen = new Set<string>()
   return allItems.filter((item) => {
     const key = item.headline.toLowerCase()
@@ -133,6 +138,7 @@ async function fetchSource(
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const requestedSource = searchParams.get('source') as SourceKey | null
+  const showAll = searchParams.get('showAll') === 'true'
 
   const sourcesToFetch: SourceKey[] = requestedSource
     ? [requestedSource]
@@ -142,18 +148,21 @@ export async function GET(request: Request) {
     sourcesToFetch.map(fetchSource),
   )
 
-  // Flatten, sort newest-first
   let allNews = results
     .flat()
     .sort((a, b) => b.timestamp - a.timestamp)
 
-  // Only return items that are genuinely newer than what we've seen before
+  // Filter: only return security-relevant items (unless showAll=true)
+  if (!showAll) {
+    allNews = allNews.filter((item) => item.security?.isRelevant === true)
+  }
+
+  // Only return items genuinely newer than what we've seen before
   const newItems = allNews.filter((item) => {
     const lastTs = lastEmittedTimestamps[item.source] ?? 0
     return item.timestamp > lastTs
   })
 
-  // Mark the latest timestamp per source
   for (const item of newItems) {
     const current = lastEmittedTimestamps[item.source] ?? 0
     if (item.timestamp > current) {
@@ -163,21 +172,37 @@ export async function GET(request: Request) {
 
   const now = Date.now()
 
+  // Summary of how many items were filtered out
+  const stats = {
+    totalFetched: results.flat().length,
+    securityFiltered: results.flat().filter((i) => i.security?.isRelevant === true).length,
+    categories: countCategories(allNews),
+  }
+
   return NextResponse.json(
     {
       items: newItems,
+      stats,
       fetchedAt: now,
       sourceTimestamps: { ...lastEmittedTimestamps },
     },
     {
       headers: {
-        // NO caching — every request fetches fresh data
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
       },
     },
   )
+}
+
+function countCategories(items: NewsItemRaw[]): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const item of items) {
+    const cat = item.security?.category ?? 'general'
+    counts[cat] = (counts[cat] || 0) + 1
+  }
+  return counts
 }
 
 export const dynamic = 'force-dynamic'
