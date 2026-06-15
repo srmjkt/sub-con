@@ -357,6 +357,18 @@ export default function Home() {
                             </span>
                           </div>
                           <p className="mt-2 text-sm text-slate-400">{item.summary}</p>
+                          <div className="mt-3 flex items-center justify-end">
+                            <a
+                              href={getArticleUrl(item)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={`inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-xs ${classes.link} transition`}
+                              title={`Open article: ${item.headline}`}
+                            >
+                              Open source
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
                         </div>
                       ))}
                     </div>
