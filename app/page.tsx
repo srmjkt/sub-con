@@ -1,10 +1,25 @@
 "use client"
 
 import { useMemo, useState } from 'react'
-import { Clock3, ExternalLink, Radio, Shield, AlertTriangle, AlertOctagon } from 'lucide-react'
+import { Clock3, ExternalLink, Shield, AlertTriangle, AlertOctagon } from 'lucide-react'
 import { StatusBadge } from '@/components/StatusBadge'
 import { useRealtimeData } from '@/hooks/useRealtimeData'
 import type { NewsItem, SecurityClassification } from '@/types/security'
+
+function isValidUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function getArticleUrl(item: NewsItem): string {
+  if (isValidUrl(item.url)) return item.url
+  // Fallback: search for the headline
+  return `https://www.google.com/search?q=${encodeURIComponent(item.headline + ' ' + item.source)}`
+}
 
 function formatTime(timestamp: number) {
   return new Intl.DateTimeFormat('en-US', {
@@ -153,7 +168,10 @@ export default function Home() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">
-                <Radio className="h-3.5 w-3.5" />
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan-400"></span>
+                </span>
                 Live security monitoring
               </div>
               <div>
@@ -171,7 +189,17 @@ export default function Home() {
               <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3">
                 <p className="text-slate-400">Connection</p>
                 <p className="mt-1 font-medium text-white">
-                  {connection.isConnected ? 'Connected' : 'Disconnected'}
+                  {connection.isConnected ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Connected
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-red-400"></span>
+                      Disconnected
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3">
@@ -295,10 +323,11 @@ export default function Home() {
                           {formatTime(latest.timestamp)}
                         </span>
                         <a
-                          href={latest.url}
+                          href={getArticleUrl(latest)}
                           target="_blank"
                           rel="noreferrer"
                           className={`inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 ${classes.link} transition`}
+                          title={`Open article: ${latest.headline}`}
                         >
                           Open source
                           <ExternalLink className="h-3.5 w-3.5" />
@@ -349,7 +378,7 @@ export default function Home() {
         </section>
 
         {/* ACTIVITY FEED */}
-        <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
+        <section id="news-feed" className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-cyan-200">
@@ -359,9 +388,17 @@ export default function Home() {
                 Latest security & safety updates
               </h2>
             </div>
-            <p className="text-sm text-slate-400">
-              Showing {displayedData.length} security updates
-            </p>
+            <div className="flex items-center gap-3">
+              {isLive && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Updating live
+                </span>
+              )}
+              <p className="text-sm text-slate-400">
+                Showing {displayedData.length} security updates
+              </p>
+            </div>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -372,7 +409,7 @@ export default function Home() {
               return (
                 <div
                   key={item.id}
-                  className="rounded-3xl border border-white/10 bg-slate-950/60 p-5"
+                  className="rounded-3xl border border-white/10 bg-slate-950/60 p-5 transition-all duration-300 hover:border-white/20"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
@@ -393,7 +430,18 @@ export default function Home() {
                   </p>
                   <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
                     <span>{item.category}</span>
-                    <span>{formatTime(item.timestamp)}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{formatRelativeTime(item.timestamp)}</span>
+                      <a
+                        href={getArticleUrl(item)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 transition"
+                        title={`Open article: ${item.headline}`}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
                   </div>
                 </div>
               )

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { ConnectionState, RealtimeUpdate } from '@/types/security'
+import { ConnectionState, RealtimeUpdate, NewsItem } from '@/types/security'
 
 export function useRealtimeData(clientId: string) {
   const [data, setData] = useState<RealtimeUpdate[]>([])
@@ -19,7 +19,6 @@ export function useRealtimeData(clientId: string) {
   const fetchNews = useCallback(async () => {
     try {
       const response = await fetch('/api/news', {
-        // No cache headers so we always hit the network
         cache: 'no-store',
       })
       if (!response.ok) {
@@ -35,13 +34,21 @@ export function useRealtimeData(clientId: string) {
         category: string
         url: string
         timestamp: number
+        security?: {
+          isRelevant: boolean
+          category: string
+          severity: string
+          confidence: number
+          tags: string[]
+          reason: string
+        }
       }> = result.items ?? []
 
       const now = Date.now()
       setLastFetchedAt(now)
       setNextPollIn(10)
 
-      // Only add items we haven't seen before
+      // Only add items we haven't seen before (client-side deduplication)
       const newItems = items.filter((item) => !seenIdsRef.current.has(item.id))
 
       if (newItems.length > 0) {
@@ -73,6 +80,7 @@ export function useRealtimeData(clientId: string) {
             status: 'healthy' as const,
             timestamp: item.timestamp,
             url: item.url,
+            security: item.security as NewsItem['security'],
           },
           timestamp: item.timestamp,
         }))

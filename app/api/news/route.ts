@@ -25,13 +25,11 @@ interface NewsItemRaw {
   security?: SecurityClassification
 }
 
-const lastEmittedTimestamps: Record<string, number> = {}
-
 function mapRssItem(
   item: Record<string, unknown>,
   source: SourceKey,
 ): NewsItemRaw {
-  const rawUrl = String(item.link ?? '')
+  let rawUrl = String(item.link ?? '')
   const headline = cleanHeadline(String(item.title ?? ''))
   const summary = stripHtml(
     String(item.contentSnippet ?? item.content ?? ''),
@@ -41,6 +39,11 @@ function mapRssItem(
     : item.pubDate
       ? new Date(String(item.pubDate)).getTime()
       : Date.now()
+
+  // Ensure URL is a valid absolute URL; fall back to a Google search for the headline
+  if (!rawUrl || !rawUrl.startsWith('http')) {
+    rawUrl = `https://www.google.com/search?q=${encodeURIComponent(headline + ' ' + source)}`
+  }
 
   // Classify security relevance
   const classification = classifySecurityRelevance(headline, summary)
@@ -157,16 +160,14 @@ export async function GET(request: Request) {
     allNews = allNews.filter((item) => item.security?.isRelevant === true)
   }
 
-  // Only return items genuinely newer than what we've seen before
-  const newItems = allNews.filter((item) => {
-    const lastTs = lastEmittedTimestamps[item.source] ?? 0
-    return item.timestamp > lastTs
-  })
-
-  for (const item of newItems) {
-    const current = lastEmittedTimestamps[item.source] ?? 0
-    if (item.timestamp > current) {
-      lastEmittedTimestamps[item.source] = item.timestamp
+  // Return latest articles (up to 5 per source) — client handles deduplication
+  const limitedNews: NewsItemRaw[] = []
+  const perSourceLimit = 5
+  const sourceCounts: Record<string, number> = {}
+  for (const item of allNews) {
+    sourceCounts[item.source] = (sourceCounts[item.source] || 0) + 1
+    if (sourceCounts[item.source] <= perSourceLimit) {
+      limitedNews.push(item)
     }
   }
 
@@ -181,10 +182,9 @@ export async function GET(request: Request) {
 
   return NextResponse.json(
     {
-      items: newItems,
+      items: limitedNews,
       stats,
       fetchedAt: now,
-      sourceTimestamps: { ...lastEmittedTimestamps },
     },
     {
       headers: {
