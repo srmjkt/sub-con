@@ -335,43 +335,46 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      {items.slice(0, 3).map((item) => (
-                        <div
-                          key={item.id}
-                          className="rounded-2xl border border-white/10 bg-white/5 p-4"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-white">
-                                {item.headline}
-                              </p>
-                              {item.security && (
-                                <div className="mt-1">
-                                  <SecurityBadge security={item.security} />
-                                </div>
-                              )}
+                    {items.length > 1 && (
+                      <div className="space-y-3">
+                        {items.slice(1, 4).map((item) => (
+                          <div
+                            key={item.id}
+                            className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-white">
+                                  {item.headline}
+                                </p>
+                                {item.security && (
+                                  <div className="mt-1">
+                                    <SecurityBadge security={item.security} />
+                                  </div>
+                                )}
+                              </div>
+                              <span className="shrink-0 text-xs text-slate-400">
+                                {formatTime(item.timestamp)}
+                              </span>
                             </div>
-                            <span className="shrink-0 text-xs text-slate-400">
-                              {formatTime(item.timestamp)}
-                            </span>
+                            <p className="mt-2 text-sm text-slate-400">{item.summary}</p>
+                            <div className="mt-3 flex items-center justify-between">
+                              <span className="text-xs text-slate-500">{item.category}</span>
+                              <a
+                                href={getArticleUrl(item)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={`inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-xs ${classes.link} transition`}
+                                title={`Open article: ${item.headline}`}
+                              >
+                                Open source
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
                           </div>
-                          <p className="mt-2 text-sm text-slate-400">{item.summary}</p>
-                          <div className="mt-3 flex items-center justify-end">
-                            <a
-                              href={getArticleUrl(item)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className={`inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-xs ${classes.link} transition`}
-                              title={`Open article: ${item.headline}`}
-                            >
-                              Open source
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="mt-6 flex flex-col items-center gap-3 text-center">
@@ -448,9 +451,10 @@ export default function Home() {
                         href={getArticleUrl(item)}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 transition"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-xs text-cyan-400 hover:border-cyan-400/40 hover:bg-cyan-400/10 hover:text-cyan-300 transition"
                         title={`Open article: ${item.headline}`}
                       >
+                        Open source
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     </div>
