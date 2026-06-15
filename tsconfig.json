@@ -29,7 +29,6 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"
