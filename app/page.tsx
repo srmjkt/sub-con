@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from 'react'
-import { Clock3, ExternalLink, Shield, AlertTriangle, AlertOctagon } from 'lucide-react'
+import { Clock3, ExternalLink, Shield, AlertTriangle, AlertOctagon, LogIn } from 'lucide-react'
 import { StatusBadge } from '@/components/StatusBadge'
 import { useRealtimeData } from '@/hooks/useRealtimeData'
 import type { NewsItem, SecurityClassification } from '@/types/security'
@@ -17,7 +17,6 @@ function isValidUrl(url: string): boolean {
 
 function getArticleUrl(item: NewsItem): string {
   if (isValidUrl(item.url)) return item.url
-  // Fallback: search for the headline
   return `https://www.google.com/search?q=${encodeURIComponent(item.headline + ' ' + item.source)}`
 }
 
@@ -186,6 +185,13 @@ export default function Home() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-sm">
+              <a
+                href="/login"
+                className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 font-medium text-cyan-100 transition hover:bg-cyan-400/20 inline-flex items-center gap-2"
+              >
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </a>
               <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3">
                 <p className="text-slate-400">Connection</p>
                 <p className="mt-1 font-medium text-white">

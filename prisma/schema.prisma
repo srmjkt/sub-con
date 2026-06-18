@@ -1,16 +1,15 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
 }
+
+// ─── Existing models (kept for RSS news) ───────────────────────────
 
 model Client {
   id        String   @id @default(uuid())
@@ -41,4 +40,146 @@ model Measurement {
   value     Float
   unit      String?
   timestamp DateTime @default(now())
+}
+
+// ─── Branch & User models ──────────────────────────────────────────
+
+model Branch {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  incidentReports  IncidentReport[]
+  attendanceRecords AttendanceRecord[]
+  trainings        Training[]
+  simulations      Simulation[]
+  mockDrills       MockDrill[]
+  inventories      Inventory[]
+}
+
+enum UserRole {
+  ADMIN
+  INPUTTER
+  VIEWER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String   // bcrypt hashed
+  role      UserRole
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // For tracking who created records
+  createdIncidentReports  IncidentReport[]
+  createdAttendanceRecords AttendanceRecord[]
+  createdTrainings        Training[]
+  createdSimulations      Simulation[]
+  createdMockDrills       MockDrill[]
+  createdInventories      Inventory[]
+}
+
+// ─── Data models ───────────────────────────────────────────────────
+
+model IncidentReport {
+  id          String   @id @default(uuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  severity    String   @default("low") // low, medium, high, critical
+  date        DateTime
+  location    String?
+  status      String   @default("open") // open, investigating, resolved, closed
+  reportedById String
+  reportedBy  User     @relation(fields: [reportedById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AttendanceRecord {
+  id           String   @id @default(uuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeName String
+  date         DateTime
+  status       String   @default("present") // present, absent, late, leave
+  notes        String?
+  recordedById String
+  recordedBy   User     @relation(fields: [recordedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Training {
+  id           String   @id @default(uuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  date         DateTime
+  duration     String?  // e.g. "2 hours"
+  participants Int      @default(0)
+  trainer      String?
+  status       String   @default("scheduled") // scheduled, completed, cancelled
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Simulation {
+  id           String   @id @default(uuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  date         DateTime
+  participants Int      @default(0)
+  scenario     String?
+  result       String?  // pass, fail, partial
+  notes        String?
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model MockDrill {
+  id           String   @id @default(uuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  date         DateTime
+  participants Int      @default(0)
+  drillType    String?  // fire, evacuation, earthquake, etc.
+  result       String?  // pass, fail, partial
+  notes        String?
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Inventory {
+  id           String   @id @default(uuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  itemName     String
+  quantity     Int      @default(0)
+  unit         String   @default("pcs")
+  category     String?  // equipment, supplies, safety, etc.
+  status       String   @default("available") // available, low, out_of_stock
+  lastUpdated  DateTime @default(now())
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
