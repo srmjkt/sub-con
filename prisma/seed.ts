@@ -43,7 +43,20 @@ async function main() {
     console.log(`✅ Admin user created: ${adminUsername} / ${adminPassword}`)
     console.log(`   Email: ${adminEmail}`)
   } else {
-    console.log(`ℹ️  Admin user already exists: ${adminEmail}`)
+    // Ensure username is set (fix for users created without username)
+    if (!existingAdmin.username || existingAdmin.username !== adminUsername) {
+      const hashedPassword = await bcrypt.hash(adminPassword, 12)
+      await prisma.user.update({
+        where: { email: adminEmail },
+        data: {
+          username: adminUsername,
+          password: hashedPassword,
+        },
+      })
+      console.log(`✅ Admin user updated: username set to '${adminUsername}', password reset`)
+    } else {
+      console.log(`ℹ️  Admin user already exists: ${adminEmail}`)
+    }
   }
 
   // Create sample branches

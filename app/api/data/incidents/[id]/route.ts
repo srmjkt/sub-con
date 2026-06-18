@@ -65,6 +65,28 @@ export async function PUT(
   const { title, description, severity, date, location, status, branchId } =
     await request.json()
 
+  // Track changes for edit history
+  const changes: { fieldName: string; oldValue: string | null; newValue: string | null }[] = []
+
+  if (title !== undefined && title.trim() !== existing.title) {
+    changes.push({ fieldName: 'title', oldValue: existing.title, newValue: title.trim() })
+  }
+  if (description !== undefined && description.trim() !== existing.description) {
+    changes.push({ fieldName: 'description', oldValue: existing.description, newValue: description.trim() })
+  }
+  if (severity !== undefined && severity !== existing.severity) {
+    changes.push({ fieldName: 'severity', oldValue: existing.severity, newValue: severity })
+  }
+  if (date !== undefined && new Date(date).toISOString() !== new Date(existing.date).toISOString()) {
+    changes.push({ fieldName: 'date', oldValue: existing.date.toISOString(), newValue: new Date(date).toISOString() })
+  }
+  if (location !== undefined && (location || null) !== existing.location) {
+    changes.push({ fieldName: 'location', oldValue: existing.location, newValue: location || null })
+  }
+  if (status !== undefined && status !== existing.status) {
+    changes.push({ fieldName: 'status', oldValue: existing.status, newValue: status })
+  }
+
   const incident = await prisma.incidentReport.update({
     where: { id },
     data: {
@@ -81,6 +103,19 @@ export async function PUT(
       reportedBy: { select: { id: true, name: true } },
     },
   })
+
+  // Save edit history
+  if (changes.length > 0) {
+    await prisma.incidentReportEdit.createMany({
+      data: changes.map((change) => ({
+        incidentReportId: id,
+        editedById: session.userId,
+        fieldName: change.fieldName,
+        oldValue: change.oldValue,
+        newValue: change.newValue,
+      })),
+    })
+  }
 
   return NextResponse.json({ incident })
 }

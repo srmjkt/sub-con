@@ -17,6 +17,20 @@ interface Incident {
   createdAt: string
 }
 
+interface EditHistory {
+  id: string
+  fieldName: string
+  oldValue: string | null
+  newValue: string | null
+  editedAt: string
+  editedBy: {
+    id: string
+    name: string
+    username: string | null
+    email: string
+  }
+}
+
 export default function InputterIncidentsPage() {
   const { user, loading: authLoading } = useAuth()
   const [incidents, setIncidents] = useState<Incident[]>([])
@@ -34,6 +48,21 @@ export default function InputterIncidentsPage() {
   const [status, setStatus] = useState("open")
   const [submitting, setSubmitting] = useState(false)
 
+  // Edit state
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [editSeverity, setEditSeverity] = useState("")
+  const [editDate, setEditDate] = useState("")
+  const [editLocation, setEditLocation] = useState("")
+  const [editStatus, setEditStatus] = useState("")
+  const [editSubmitting, setEditSubmitting] = useState(false)
+
+  // History state
+  const [historyIncidentId, setHistoryIncidentId] = useState<string | null>(null)
+  const [editHistory, setEditHistory] = useState<EditHistory[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
   async function fetchIncidents() {
     const res = await fetch("/api/data/incidents")
     const data = await res.json()
@@ -44,6 +73,80 @@ export default function InputterIncidentsPage() {
   useEffect(() => {
     if (user) fetchIncidents()
   }, [user])
+
+  async function fetchEditHistory(incidentId: string) {
+    setLoadingHistory(true)
+    const res = await fetch(`/api/data/incidents/${incidentId}/edits`)
+    const data = await res.json()
+    if (res.ok) {
+      setEditHistory(data.edits || [])
+    }
+    setLoadingHistory(false)
+  }
+
+  function openEditModal(incident: Incident) {
+    setEditingId(incident.id)
+    setEditTitle(incident.title)
+    setEditDescription(incident.description)
+    setEditSeverity(incident.severity)
+    setEditDate(incident.date.split("T")[0])
+    setEditLocation(incident.location || "")
+    setEditStatus(incident.status)
+  }
+
+  function closeEditModal() {
+    setEditingId(null)
+    setEditTitle("")
+    setEditDescription("")
+    setEditSeverity("")
+    setEditDate("")
+    setEditLocation("")
+    setEditStatus("")
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingId) return
+    setError("")
+    setEditSubmitting(true)
+
+    try {
+      const res = await fetch(`/api/data/incidents/${editingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle,
+          description: editDescription,
+          severity: editSeverity,
+          date: editDate,
+          location: editLocation,
+          status: editStatus,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || "Failed to update incident report")
+        setEditSubmitting(false)
+        return
+      }
+      setSuccess("Incident report updated successfully")
+      closeEditModal()
+      await fetchIncidents()
+    } catch {
+      setError("An error occurred")
+    }
+    setEditSubmitting(false)
+  }
+
+  function toggleHistory(incidentId: string) {
+    if (historyIncidentId === incidentId) {
+      setHistoryIncidentId(null)
+      setEditHistory([])
+    } else {
+      setHistoryIncidentId(incidentId)
+      fetchEditHistory(incidentId)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -194,6 +297,75 @@ export default function InputterIncidentsPage() {
             </section>
           )}
 
+          {/* Edit Modal */}
+          {editingId && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-slate-900 border border-white/10 rounded-[28px] p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white">Edit Incident Report</h2>
+                  <button
+                    onClick={closeEditModal}
+                    className="text-slate-400 hover:text-white transition"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <form onSubmit={handleEditSubmit} className="grid gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Title *</label>
+                    <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Description *</label>
+                    <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} required rows={3}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none resize-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Date *</label>
+                    <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} required
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Severity</label>
+                    <select value={editSeverity} onChange={(e) => setEditSeverity(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none">
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
+                    <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none">
+                      <option value="open">Open</option>
+                      <option value="investigating">Investigating</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Location</label>
+                    <input type="text" value={editLocation} onChange={(e) => setEditLocation(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none" />
+                  </div>
+                  <div className="md:col-span-2 flex gap-3">
+                    <button type="submit" disabled={editSubmitting}
+                      className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">
+                      {editSubmitting ? "Saving..." : "Save Changes"}
+                    </button>
+                    <button type="button" onClick={closeEditModal}
+                      className="rounded-2xl border border-white/10 bg-slate-950/50 px-6 py-2.5 font-medium text-slate-300 transition hover:bg-white/10">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
           {/* Incidents List */}
           <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
             <h2 className="text-lg font-semibold text-white mb-4">
@@ -209,7 +381,7 @@ export default function InputterIncidentsPage() {
                   <div key={incident.id} className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-base font-semibold text-white">{incident.title}</h3>
                           <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${severityColors[incident.severity] || severityColors.low}`}>
                             {incident.severity}
@@ -225,7 +397,58 @@ export default function InputterIncidentsPage() {
                           <span>👤 {incident.reportedBy.name}</span>
                         </div>
                       </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => openEditModal(incident)}
+                          className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => toggleHistory(incident.id)}
+                          className="rounded-xl border border-white/10 bg-slate-950/50 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+                        >
+                          {historyIncidentId === incident.id ? "Hide History" : "History"}
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Edit History */}
+                    {historyIncidentId === incident.id && (
+                      <div className="mt-4 pt-4 border-t border-white/10">
+                        <h4 className="text-sm font-semibold text-white mb-3">Edit History</h4>
+                        {loadingHistory ? (
+                          <p className="text-sm text-slate-400">Loading history...</p>
+                        ) : editHistory.length === 0 ? (
+                          <p className="text-sm text-slate-400">No edits recorded yet.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {editHistory.map((edit) => (
+                              <div key={edit.id} className="rounded-xl border border-white/5 bg-white/5 p-3 text-sm">
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <span className="font-medium text-cyan-300">{edit.fieldName}</span>
+                                  <span className="text-xs text-slate-500">
+                                    {new Date(edit.editedAt).toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="text-red-400 line-through">
+                                    {edit.oldValue || "(empty)"}
+                                  </span>
+                                  <span className="text-slate-500">→</span>
+                                  <span className="text-emerald-400">
+                                    {edit.newValue || "(empty)"}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  Edited by: {edit.editedBy.username || edit.editedBy.email}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

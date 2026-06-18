@@ -36,6 +36,11 @@ export default function ViewerIncidentsPage() {
         )},
         { key: "date", label: "Date", render: (item) => new Date(item.date as string).toLocaleDateString() },
         { key: "location", label: "Location" },
+        { key: "description", label: "Description", render: (item) => (
+          <span className="max-w-xs truncate block" title={item.description as string}>
+            {item.description as string}
+          </span>
+        )},
         { key: "reportedBy", label: "Reported By", render: (item) => {
           const rb = item.reportedBy as { name: string } | null
           return rb?.name || "-"

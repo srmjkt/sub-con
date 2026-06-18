@@ -84,6 +84,9 @@ model User {
   createdSimulations      Simulation[]
   createdMockDrills       MockDrill[]
   createdInventories      Inventory[]
+
+  // For tracking edits to incident reports
+  incidentReportEdits    IncidentReportEdit[]
 }
 
 // ─── Data models ───────────────────────────────────────────────────
@@ -102,6 +105,20 @@ model IncidentReport {
   reportedBy  User     @relation(fields: [reportedById], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  edits IncidentReportEdit[]
+}
+
+model IncidentReportEdit {
+  id               String    @id @default(uuid())
+  incidentReportId String
+  incidentReport   IncidentReport @relation(fields: [incidentReportId], references: [id], onDelete: Cascade)
+  editedById       String
+  editedBy         User       @relation(fields: [editedById], references: [id], onDelete: Cascade)
+  fieldName        String     // e.g. "title", "description", "severity", "status", "location"
+  oldValue         String?
+  newValue         String?
+  editedAt         DateTime   @default(now())
 }
 
 model AttendanceRecord {

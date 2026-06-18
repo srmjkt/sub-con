@@ -32,19 +32,31 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) return
-    async function fetchData() {
-      const [dashRes, branchesRes] = await Promise.all([
-        fetch("/api/dashboard"),
-        fetch("/api/admin/branches"),
-      ])
-      const dashData = await dashRes.json()
-      const branchesData = await branchesRes.json()
-      setStats(dashData.stats)
-      setBranches(branchesData.branches || [])
+    if (!user) {
       setLoading(false)
+      return
+    }
+    async function fetchData() {
+      try {
+        const [dashRes, branchesRes] = await Promise.all([
+          fetch("/api/dashboard"),
+          fetch("/api/admin/branches"),
+        ])
+        if (!dashRes.ok || !branchesRes.ok) {
+          throw new Error('Failed to fetch dashboard data')
+        }
+        const dashData = await dashRes.json()
+        const branchesData = await branchesRes.json()
+        setStats(dashData.stats)
+        setBranches(branchesData.branches || [])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred')
+      } finally {
+        setLoading(false)
+      }
     }
     fetchData()
   }, [user])
@@ -57,7 +69,33 @@ export default function AdminDashboard() {
     )
   }
 
-  if (!user) return null
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-white text-lg mb-4">Not authenticated</p>
+          <a href="/login" className="text-cyan-400 hover:underline">Go to login</a>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 text-lg mb-2">Error loading dashboard</p>
+          <p className="text-slate-400 text-sm mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const statCards = [
     { label: "Total Branches", value: branches.length, icon: "🏢", color: "cyan" },
