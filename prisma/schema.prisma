@@ -68,7 +68,7 @@ enum UserRole {
 model User {
   id        String   @id @default(uuid())
   name      String
-  username  String   @unique // Separate username field for login
+  username  String?  @unique // Separate username field for login (optional for backward compat)
   email     String   @unique
   password  String   // bcrypt hashed
   role      UserRole

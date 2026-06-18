@@ -17,12 +17,13 @@ export async function POST(request: Request) {
       )
     }
 
+    const searchTerm = email.trim()
     // Find user by email OR username
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { email: email.toLowerCase().trim() },
-          { username: email.trim() },
+          { email: searchTerm.toLowerCase() },
+          ...(searchTerm.includes('@') ? [] : [{ username: searchTerm }]),
         ],
       },
       select: {

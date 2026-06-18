@@ -17,11 +17,14 @@ export function useAuth() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     async function fetchUser() {
       try {
         const res = await fetch("/api/auth/me")
+        if (cancelled) return
         if (!res.ok) {
-          window.location.href = "/login"
+          setUser(null)
+          setLoading(false)
           return
         }
         const data = await res.json()
@@ -29,10 +32,11 @@ export function useAuth() {
       } catch {
         setError("Failed to fetch user")
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     fetchUser()
+    return () => { cancelled = true }
   }, [])
 
   return { user, loading, error }
