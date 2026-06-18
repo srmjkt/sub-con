@@ -73,6 +73,47 @@ async function main() {
     }
   }
 
+  // Create sample inputter and viewer users for each branch
+  const branchesList = await prisma.branch.findMany()
+  for (const branch of branchesList) {
+    const inputterEmail = `inputter-${branch.name.toLowerCase().replace(' ', '-')}@subcon.com`
+    const inputterUsername = `inputter-${branch.name.toLowerCase().replace(' ', '')}`
+    const viewerEmail = `viewer-${branch.name.toLowerCase().replace(' ', '-')}@subcon.com`
+    const viewerUsername = `viewer-${branch.name.toLowerCase().replace(' ', '')}`
+
+    const existingInputter = await prisma.user.findUnique({ where: { email: inputterEmail } })
+    if (!existingInputter) {
+      const hashedInputterPassword = await bcrypt.hash('inputter123', 12)
+      await prisma.user.create({
+        data: {
+          name: `Inputter - ${branch.name}`,
+          username: inputterUsername,
+          email: inputterEmail,
+          password: hashedInputterPassword,
+          role: 'INPUTTER',
+          branchId: branch.id,
+        },
+      })
+      console.log(`✅ Inputter created: ${inputterUsername} / inputter123 (${branch.name})`)
+    }
+
+    const existingViewer = await prisma.user.findUnique({ where: { email: viewerEmail } })
+    if (!existingViewer) {
+      const hashedViewerPassword = await bcrypt.hash('viewer123', 12)
+      await prisma.user.create({
+        data: {
+          name: `Viewer - ${branch.name}`,
+          username: viewerUsername,
+          email: viewerEmail,
+          password: hashedViewerPassword,
+          role: 'VIEWER',
+          branchId: branch.id,
+        },
+      })
+      console.log(`✅ Viewer created: ${viewerUsername} / viewer123 (${branch.name})`)
+    }
+  }
+
   console.log('🌱 Seeding complete!')
   console.log('')
   console.log('Default admin login:')
@@ -80,10 +121,13 @@ async function main() {
   console.log(`  Email:    ${adminEmail}`)
   console.log(`  Password: ${adminPassword}`)
   console.log('')
+  console.log('Sample inputter/viewer logins (for each branch):')
+  console.log('  Inputter: inputter-{branch} / inputter123')
+  console.log('  Viewer:   viewer-{branch} / viewer123')
+  console.log('')
   console.log('Next steps:')
-  console.log('1. Login as admin (use username or email)')
-  console.log('2. Create branches')
-  console.log('3. Create INPUTTER and VIEWER users for each branch')
+  console.log('1. Login as admin to manage users')
+  console.log('2. Use inputter/viewer accounts to test the system')
 }
 
 main()

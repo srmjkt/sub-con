@@ -206,6 +206,17 @@ export default function InputterIncidentsPage() {
 
   if (!user) return null
 
+  if (!user.branchId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 text-lg mb-4">No branch assigned</p>
+          <p className="text-slate-400 text-sm">Please contact an administrator to assign you to a branch.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
       <Sidebar role={user.role} branchName={user.branch?.name} />
