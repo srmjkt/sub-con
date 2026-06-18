@@ -37,6 +37,24 @@ export async function DELETE(
     )
   }
 
+  // Check if the user to delete is the original admin (admin@subcon.com)
+  const userToDelete = await prisma.user.findUnique({
+    where: { id },
+    select: { email: true },
+  })
+
+  if (!userToDelete) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+
+  // Protect the original admin from being deleted by other admins
+  if (userToDelete.email === 'admin@subcon.com' && session.email !== 'admin@subcon.com') {
+    return NextResponse.json(
+      { error: 'Cannot delete the original administrator (admin@subcon.com)' },
+      { status: 403 }
+    )
+  }
+
   try {
     await prisma.user.delete({ where: { id } })
     return NextResponse.json({ message: 'User deleted successfully' })
@@ -50,6 +68,23 @@ export async function DELETE(
       { status: 500 }
     )
   }
+}
+
+// POST bulk delete users (admin only)
+export async function POST(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession()
+  if (!session || session.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { id } = await params
+
+  // This endpoint is for bulk delete, but we're using it differently
+  // The actual bulk delete will be handled by a separate endpoint
+  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 })
 }
 
 // PATCH update a user (admin only)

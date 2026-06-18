@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 interface User {
   id: string
   name: string
+  username: string | null
   email: string
   role: "ADMIN" | "INPUTTER" | "VIEWER"
   branchId: string | null
