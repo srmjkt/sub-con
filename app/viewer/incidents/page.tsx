@@ -1,6 +1,7 @@
 "use client"
 
 import { ViewerDataPage } from "@/components/ViewerDataPage"
+import Link from "next/link"
 
 const severityColors: Record<string, string> = {
   low: "border-slate-700/50 bg-slate-900/30 text-slate-300",
@@ -23,7 +24,11 @@ export default function ViewerIncidentsPage() {
       apiEndpoint="/api/data/incidents"
       emptyMessage="No incident reports available."
       columns={[
-        { key: "title", label: "Title" },
+        { key: "title", label: "Title", render: (item) => (
+          <Link href={`/viewer/incidents/${item.id as string}`} className="text-cyan-400 hover:text-cyan-300 hover:underline font-medium">
+            {item.title as string}
+          </Link>
+        )},
         { key: "severity", label: "Severity", render: (item) => (
           <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${severityColors[item.severity as string] || ""}`}>
             {item.severity as string}

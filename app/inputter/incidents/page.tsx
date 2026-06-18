@@ -3,6 +3,7 @@
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
 import { useState, useEffect } from "react"
+import Link from "next/link"
 
 interface Incident {
   id: string
@@ -382,7 +383,9 @@ export default function InputterIncidentsPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-semibold text-white">{incident.title}</h3>
+                          <Link href={`/inputter/incidents/${incident.id}`} className="text-base font-semibold text-cyan-400 hover:text-cyan-300 hover:underline">
+                            {incident.title}
+                          </Link>
                           <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${severityColors[incident.severity] || severityColors.low}`}>
                             {incident.severity}
                           </span>
@@ -398,17 +401,23 @@ export default function InputterIncidentsPage() {
                         </div>
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button
-                          onClick={() => openEditModal(incident)}
+                        <Link
+                          href={`/inputter/incidents/${incident.id}`}
                           className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:bg-cyan-400/20"
                         >
-                          Edit
+                          View
+                        </Link>
+                        <button
+                          onClick={() => openEditModal(incident)}
+                          className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:bg-emerald-400/20"
+                        >
+                          ✏️ Edit
                         </button>
                         <button
                           onClick={() => toggleHistory(incident.id)}
                           className="rounded-xl border border-white/10 bg-slate-950/50 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
                         >
-                          {historyIncidentId === incident.id ? "Hide History" : "History"}
+                          {historyIncidentId === incident.id ? "Hide History" : "📋 History"}
                         </button>
                       </div>
                     </div>
