@@ -12,9 +12,14 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if a user with this email exists
-    const user = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    // Check if a user with this email or username exists
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: email.trim().toLowerCase() },
+          { username: email.trim() },
+        ],
+      },
       include: {
         branch: { select: { name: true } },
       },

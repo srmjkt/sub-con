@@ -2,6 +2,21 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession, hashPassword } from '@/lib/auth'
 
+const VALID_USERNAME_REGEX = /^[a-zA-Z0-9._]+$/
+
+function validateUsername(username: string): string | null {
+  if (!username || !username.trim()) {
+    return 'Username is required'
+  }
+  if (username.length < 3) {
+    return 'Username must be at least 3 characters'
+  }
+  if (!VALID_USERNAME_REGEX.test(username)) {
+    return 'Username can only contain letters, numbers, dots (.), and underscores (_)'
+  }
+  return null
+}
+
 // DELETE a user (admin only)
 export async function DELETE(
   _request: Request,
@@ -48,11 +63,18 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const { name, email, password, role, branchId } = await _request.json()
+  const { name, username, email, password, role, branchId } = await _request.json()
 
   const updateData: Record<string, unknown> = {}
 
   if (name) updateData.name = name.trim()
+  if (username !== undefined) {
+    const usernameError = validateUsername(username)
+    if (usernameError) {
+      return NextResponse.json({ error: usernameError }, { status: 400 })
+    }
+    updateData.username = username.trim()
+  }
   if (email) updateData.email = email.toLowerCase().trim()
   if (role && ['ADMIN', 'INPUTTER', 'VIEWER'].includes(role)) {
     updateData.role = role
@@ -71,6 +93,7 @@ export async function PATCH(
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
         role: true,
         branchId: true,
@@ -86,6 +109,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+      const target = (error as { meta?: { target?: string[] } }).meta?.target
+      if (target?.includes('username')) {
+        return NextResponse.json(
+          { error: 'A user with this username already exists' },
+          { status: 409 }
+        )
+      }
       return NextResponse.json(
         { error: 'A user with this email already exists' },
         { status: 409 }

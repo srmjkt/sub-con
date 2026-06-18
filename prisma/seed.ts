@@ -22,6 +22,7 @@ async function main() {
 
   // Create default admin user
   const adminEmail = 'admin@subcon.com'
+  const adminUsername = 'admin'
   const adminPassword = 'admin123'
 
   const existingAdmin = await prisma.user.findUnique({
@@ -33,12 +34,14 @@ async function main() {
     await prisma.user.create({
       data: {
         name: 'Administrator',
+        username: adminUsername,
         email: adminEmail,
         password: hashedPassword,
         role: 'ADMIN',
       },
     })
-    console.log(`✅ Admin user created: ${adminEmail} / ${adminPassword}`)
+    console.log(`✅ Admin user created: ${adminUsername} / ${adminPassword}`)
+    console.log(`   Email: ${adminEmail}`)
   } else {
     console.log(`ℹ️  Admin user already exists: ${adminEmail}`)
   }
@@ -60,11 +63,12 @@ async function main() {
   console.log('🌱 Seeding complete!')
   console.log('')
   console.log('Default admin login:')
-  console.log(`  Email: ${adminEmail}`)
+  console.log(`  Username: ${adminUsername}`)
+  console.log(`  Email:    ${adminEmail}`)
   console.log(`  Password: ${adminPassword}`)
   console.log('')
   console.log('Next steps:')
-  console.log('1. Login as admin')
+  console.log('1. Login as admin (use username or email)')
   console.log('2. Create branches')
   console.log('3. Create INPUTTER and VIEWER users for each branch')
 }

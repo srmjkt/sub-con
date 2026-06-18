@@ -2,6 +2,21 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession, hashPassword } from '@/lib/auth'
 
+const VALID_USERNAME_REGEX = /^[a-zA-Z0-9._]+$/
+
+function validateUsername(username: string): string | null {
+  if (!username || !username.trim()) {
+    return 'Username is required'
+  }
+  if (username.length < 3) {
+    return 'Username must be at least 3 characters'
+  }
+  if (!VALID_USERNAME_REGEX.test(username)) {
+    return 'Username can only contain letters, numbers, dots (.), and underscores (_)'
+  }
+  return null
+}
+
 // GET all users (admin only)
 export async function GET() {
   const session = await getSession()
@@ -13,6 +28,7 @@ export async function GET() {
     select: {
       id: true,
       name: true,
+      username: true,
       email: true,
       role: true,
       branchId: true,
@@ -34,13 +50,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { name, email, password, role, branchId } = await request.json()
+  const { name, username, email, password, role, branchId } = await request.json()
 
-  if (!name || !email || !password || !role) {
+  if (!name || !username || !email || !password || !role) {
     return NextResponse.json(
-      { error: 'Name, email, password, and role are required' },
+      { error: 'Name, username, email, password, and role are required' },
       { status: 400 }
     )
+  }
+
+  // Validate username
+  const usernameError = validateUsername(username)
+  if (usernameError) {
+    return NextResponse.json({ error: usernameError }, { status: 400 })
   }
 
   if (!['ADMIN', 'INPUTTER', 'VIEWER'].includes(role)) {
@@ -74,6 +96,7 @@ export async function POST(request: Request) {
     const user = await prisma.user.create({
       data: {
         name: name.trim(),
+        username: username.trim(),
         email: email.toLowerCase().trim(),
         password: hashedPassword,
         role,
@@ -82,6 +105,7 @@ export async function POST(request: Request) {
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
         role: true,
         branchId: true,
@@ -94,11 +118,20 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ user }, { status: 201 })
   } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'A user with this email already exists' },
-        { status: 409 }
-      )
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'P2002') {
+        const target = (error as { meta?: { target?: string[] } }).meta?.target
+        if (target?.includes('username')) {
+          return NextResponse.json(
+            { error: 'A user with this username already exists' },
+            { status: 409 }
+          )
+        }
+        return NextResponse.json(
+          { error: 'A user with this email already exists' },
+          { status: 409 }
+        )
+      }
     }
     console.error('[ADMIN] Create user error:', error)
     return NextResponse.json(

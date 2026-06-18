@@ -12,11 +12,27 @@ interface Branch {
 interface User {
   id: string
   name: string
+  username: string
   email: string
   role: "ADMIN" | "INPUTTER" | "VIEWER"
   branchId: string | null
   branch: { id: string; name: string } | null
   createdAt: string
+}
+
+const VALID_USERNAME_REGEX = /^[a-zA-Z0-9._]+$/
+
+function validateUsername(username: string): string | null {
+  if (!username || !username.trim()) {
+    return "Username is required"
+  }
+  if (username.length < 3) {
+    return "Username must be at least 3 characters"
+  }
+  if (!VALID_USERNAME_REGEX.test(username)) {
+    return "Username can only contain letters, numbers, dots (.), and underscores (_)"
+  }
+  return null
 }
 
 export default function AdminUsersPage() {
@@ -29,6 +45,7 @@ export default function AdminUsersPage() {
 
   // Form state
   const [formName, setFormName] = useState("")
+  const [formUsername, setFormUsername] = useState("")
   const [formEmail, setFormEmail] = useState("")
   const [formPassword, setFormPassword] = useState("")
   const [formRole, setFormRole] = useState<"ADMIN" | "INPUTTER" | "VIEWER">("VIEWER")
@@ -54,6 +71,14 @@ export default function AdminUsersPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setError("")
+
+    // Validate username client-side
+    const usernameError = validateUsername(formUsername)
+    if (usernameError) {
+      setError(usernameError)
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -62,6 +87,7 @@ export default function AdminUsersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formName,
+          username: formUsername,
           email: formEmail,
           password: formPassword,
           role: formRole,
@@ -135,6 +161,7 @@ export default function AdminUsersPage() {
 
   function resetForm() {
     setFormName("")
+    setFormUsername("")
     setFormEmail("")
     setFormPassword("")
     setFormRole("VIEWER")
@@ -173,7 +200,7 @@ export default function AdminUsersPage() {
                   User Management
                 </h1>
                 <p className="mt-2 text-sm text-slate-300">
-                  Create users and assign them to branches with specific roles
+                  Create users with unique usernames and assign them to branches with specific roles
                 </p>
               </div>
               <button
@@ -207,6 +234,21 @@ export default function AdminUsersPage() {
                     required
                     className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
                     placeholder="Full name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Username <span className="text-slate-500">(letters, numbers, . and _ only)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formUsername}
+                    onChange={(e) => setFormUsername(e.target.value)}
+                    required
+                    minLength={3}
+                    pattern="^[a-zA-Z0-9._]+$"
+                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
+                    placeholder="e.g. john.doe"
                   />
                 </div>
                 <div>
@@ -297,7 +339,9 @@ export default function AdminUsersPage() {
                             {u.role}
                           </span>
                         </div>
-                        <p className="text-sm text-slate-400 mt-1">{u.email}</p>
+                        <p className="text-sm text-slate-400 mt-1">
+                          <span className="text-cyan-300">@{u.username}</span> &middot; {u.email}
+                        </p>
                         {u.branch && (
                           <p className="text-xs text-slate-500 mt-1">Branch: {u.branch.name}</p>
                         )}

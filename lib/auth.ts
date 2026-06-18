@@ -78,6 +78,7 @@ export async function getAuthenticatedUser() {
     select: {
       id: true,
       name: true,
+      username: true,
       email: true,
       role: true,
       branchId: true,
