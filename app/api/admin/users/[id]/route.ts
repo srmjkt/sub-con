@@ -73,14 +73,12 @@ export async function DELETE(
 // POST bulk delete users (admin only)
 export async function POST(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  _params: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-
-  const { id } = await params
 
   // This endpoint is for bulk delete, but we're using it differently
   // The actual bulk delete will be handled by a separate endpoint

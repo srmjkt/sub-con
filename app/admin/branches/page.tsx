@@ -3,6 +3,7 @@
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
 import { useState, useEffect } from "react"
+import Link from "next/link"
 
 interface Branch {
   id: string
@@ -210,6 +211,12 @@ export default function AdminBranchesPage() {
                         >
                           Delete
                         </button>
+                        <Link
+                          href={`/admin/branches/${branch.id}/module-config`}
+                          className="rounded-xl border border-purple-400/30 bg-purple-400/10 px-3 py-2 text-sm text-purple-100 hover:bg-purple-400/20"
+                        >
+                          Customize
+                        </Link>
                       </div>
                     )}
                   </div>

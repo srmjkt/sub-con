@@ -322,6 +322,14 @@ export default function AdminUsersPage() {
             </div>
           )}
 
+          {/* Success */}
+          {success && (
+            <div className="rounded-2xl border border-emerald-700/50 bg-emerald-900/30 px-4 py-3 text-sm text-emerald-300">
+              {success}
+              <button onClick={() => setSuccess("")} className="ml-2 underline">Dismiss</button>
+            </div>
+          )}
+
           {/* Profile Edit Section */}
           {showProfileEdit && (
             <section className="rounded-[28px] border border-purple-400/20 bg-white/5 p-6 backdrop-blur">

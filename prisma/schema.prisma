@@ -57,6 +57,7 @@ model Branch {
   simulations      Simulation[]
   mockDrills       MockDrill[]
   inventories      Inventory[]
+  moduleConfigs    BranchModuleConfig[]
 }
 
 enum UserRole {
@@ -200,4 +201,34 @@ model Inventory {
   createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// ─── Custom Field Configuration ────────────────────────────────────
+
+model BranchModuleConfig {
+  id        String   @id @default(uuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  module    String   // e.g. "incidents", "attendance", "trainings", "inventory", etc.
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customFields CustomField[]
+
+  @@unique([branchId, module])
+}
+
+model CustomField {
+  id               String   @id @default(uuid())
+  moduleConfigId   String
+  moduleConfig     BranchModuleConfig @relation(fields: [moduleConfigId], references: [id], onDelete: Cascade)
+  fieldName        String   // e.g. "customField1", "notes2", etc.
+  fieldLabel       String   // e.g. "Custom Note", "Additional Info", etc.
+  fieldType        String   // "text", "textarea", "number", "date", "select"
+  isRequired       Boolean  @default(false)
+  options          String?  // JSON array for select fields: ["option1", "option2"]
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
