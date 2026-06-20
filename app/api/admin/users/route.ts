@@ -32,6 +32,7 @@ export async function GET() {
       email: true,
       role: true,
       branchId: true,
+      branchAccess: true,
       branch: {
         select: { id: true, name: true },
       },
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { name, username, email, password, role, branchId } = await request.json()
+  const { name, username, email, password, role, branchId, branchAccess } = await request.json()
 
   if (!name || !username || !email || !password || !role) {
     return NextResponse.json(
@@ -72,15 +73,35 @@ export async function POST(request: Request) {
     )
   }
 
-  // INPUTTER and VIEWER must be assigned to a branch
-  if ((role === 'INPUTTER' || role === 'VIEWER') && !branchId) {
+  // INPUTTER and VIEWER must be assigned to a branch or have branch access
+  if ((role === 'INPUTTER' || role === 'VIEWER') && !branchAccess) {
     return NextResponse.json(
-      { error: 'INPUTTER and VIEWER users must be assigned to a branch' },
+      { error: 'INPUTTER and VIEWER users must have branch access configured' },
       { status: 400 }
     )
   }
 
-  // Verify branch exists if provided
+  // Validate branch access
+  if (branchAccess && branchAccess.type === 'custom') {
+    if (!branchAccess.branchIds || branchAccess.branchIds.length === 0) {
+      return NextResponse.json(
+        { error: 'Custom branch access requires at least one branch' },
+        { status: 400 }
+      )
+    }
+    const branches = await prisma.branch.findMany({
+      where: { id: { in: branchAccess.branchIds } },
+      select: { id: true },
+    })
+    if (branches.length !== branchAccess.branchIds.length) {
+      return NextResponse.json(
+        { error: 'One or more branches not found' },
+        { status: 404 }
+      )
+    }
+  }
+
+  // Verify branch exists if provided (for single branch access)
   if (branchId) {
     const branch = await prisma.branch.findUnique({ where: { id: branchId } })
     if (!branch) {
@@ -100,7 +121,8 @@ export async function POST(request: Request) {
         email: email.toLowerCase().trim(),
         password: hashedPassword,
         role,
-        branchId: branchId || null,
+        branchId: role === 'ADMIN' ? null : branchId || null,
+        branchAccess: role === 'ADMIN' ? null : branchAccess || null,
       },
       select: {
         id: true,
@@ -109,6 +131,7 @@ export async function POST(request: Request) {
         email: true,
         role: true,
         branchId: true,
+        branchAccess: true,
         branch: {
           select: { id: true, name: true },
         },

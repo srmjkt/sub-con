@@ -17,6 +17,10 @@ interface User {
   role: "ADMIN" | "INPUTTER" | "VIEWER"
   branchId: string | null
   branch: { id: string; name: string } | null
+  branchAccess: {
+    type: "all" | "custom" | "single"
+    branchIds?: string[]
+  } | null
   createdAt: string
 }
 
@@ -53,6 +57,8 @@ export default function AdminUsersPage() {
   const [formPassword, setFormPassword] = useState("")
   const [formRole, setFormRole] = useState<"ADMIN" | "INPUTTER" | "VIEWER">("VIEWER")
   const [formBranchId, setFormBranchId] = useState("")
+  const [formBranchAccess, setFormBranchAccess] = useState<"single" | "custom" | "all">("single")
+  const [formBranchIds, setFormBranchIds] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
 
   // Profile edit state
@@ -161,7 +167,11 @@ export default function AdminUsersPage() {
           email: formEmail,
           password: formPassword,
           role: formRole,
-          branchId: formBranchId || null,
+          branchId: formRole === "ADMIN" ? null : formBranchId || null,
+          branchAccess: formRole === "ADMIN" ? null : {
+            type: formBranchAccess,
+            branchIds: formBranchAccess === "custom" ? formBranchIds : undefined,
+          },
         }),
       })
       const data = await res.json()
@@ -241,7 +251,11 @@ export default function AdminUsersPage() {
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
+        body: JSON.stringify({
+          role: newRole,
+          branchAccess: newRole === "ADMIN" ? null : undefined,
+          branchId: newRole === "ADMIN" ? null : undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -254,12 +268,12 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleBranchChange(id: string, newBranchId: string) {
+  async function handleBranchAccessChange(id: string, branchAccess: { type: "single" | "custom" | "all"; branchIds?: string[] }) {
     try {
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branchId: newBranchId || null }),
+        body: JSON.stringify({ branchAccess }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -270,6 +284,10 @@ export default function AdminUsersPage() {
     } catch {
       setError("Failed to update user")
     }
+  }
+
+  async function handleCustomBranchChange(id: string, branchIds: string[]) {
+    await handleBranchAccessChange(id, { type: "custom", branchIds })
   }
 
   function resetForm() {
@@ -279,6 +297,8 @@ export default function AdminUsersPage() {
     setFormPassword("")
     setFormRole("VIEWER")
     setFormBranchId("")
+    setFormBranchAccess("single")
+    setFormBranchIds([])
     setShowForm(false)
     setError("")
   }
@@ -287,6 +307,19 @@ export default function AdminUsersPage() {
     ADMIN: "border-purple-700/50 bg-purple-900/30 text-purple-300",
     INPUTTER: "border-cyan-700/50 bg-cyan-900/30 text-cyan-300",
     VIEWER: "border-emerald-700/50 bg-emerald-900/30 text-emerald-300",
+  }
+
+  const branchAccessLabel = (u: User) => {
+    if (u.role === "ADMIN") return "Super Admin - All Branches"
+    if (!u.branchAccess) return "Single Branch"
+    if (u.branchAccess.type === "all") return "All Branches"
+    if (u.branchAccess.type === "custom") {
+      const branchNames = branches
+        .filter((b) => u.branchAccess?.branchIds?.includes(b.id))
+        .map((b) => b.name)
+      return `Custom: ${branchNames.join(", ")}`
+    }
+    return u.branch?.name || "Single Branch"
   }
 
   if (authLoading || loading) {
@@ -507,19 +540,67 @@ export default function AdminUsersPage() {
                   </select>
                 </div>
                 {formRole !== "ADMIN" && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Branch</label>
-                    <select
-                      value={formBranchId}
-                      onChange={(e) => setFormBranchId(e.target.value)}
-                      required
-                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
-                    >
-                      <option value="">Select a branch</option>
-                      {branches.map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
+                  <div className="md:col-span-2 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Branch Access</label>
+                      <select
+                        value={formBranchAccess}
+                        onChange={(e) => setFormBranchAccess(e.target.value as "single" | "custom" | "all")}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
+                      >
+                        <option value="single">Single Branch</option>
+                        <option value="custom">Custom Branches</option>
+                        <option value="all">All Branches</option>
+                      </select>
+                    </div>
+
+                    {formBranchAccess === "single" && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Branch</label>
+                        <select
+                          value={formBranchId}
+                          onChange={(e) => setFormBranchId(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
+                        >
+                          <option value="">Select a branch</option>
+                          {branches.map((b) => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {formBranchAccess === "custom" && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Select Branches</label>
+                        <div className="grid gap-2 md:grid-cols-2">
+                          {branches.map((b) => (
+                            <label key={b.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-sm text-slate-300 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={formBranchIds.includes(b.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormBranchIds([...formBranchIds, b.id])
+                                  } else {
+                                    setFormBranchIds(formBranchIds.filter(id => id !== b.id))
+                                  }
+                                }}
+                                className="rounded border-white/20 bg-slate-950/50 text-cyan-400 focus:ring-cyan-400"
+                              />
+                              {b.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {formBranchAccess === "all" && (
+                      <div className="rounded-xl border border-emerald-700/30 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-300">
+                        This user will be able to access all branches.
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="md:col-span-2">
@@ -605,9 +686,9 @@ export default function AdminUsersPage() {
                           <p className="text-sm text-slate-400 mt-1">
                             <span className="text-cyan-300">@{u.username}</span> &middot; {u.email}
                           </p>
-                          {u.branch && (
-                            <p className="text-xs text-slate-500 mt-1">Branch: {u.branch.name}</p>
-                          )}
+                          <p className="text-xs text-slate-500 mt-1">
+                            Access: {branchAccessLabel(u)}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -622,18 +703,46 @@ export default function AdminUsersPage() {
                           <option value="VIEWER">Viewer</option>
                         </select>
 
-                        {/* Branch selector (for non-admin) */}
+                        {/* Branch access selector (for non-admin) */}
                         {u.role !== "ADMIN" && (
-                          <select
-                            value={u.branchId || ""}
-                            onChange={(e) => handleBranchChange(u.id, e.target.value)}
-                            className="rounded-xl border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-white focus:border-cyan-400/50 focus:outline-none"
-                          >
-                            <option value="">No branch</option>
-                            {branches.map((b) => (
-                              <option key={b.id} value={b.id}>{b.name}</option>
-                            ))}
-                          </select>
+                          <div className="flex flex-col gap-2">
+                            <select
+                              value={u.branchAccess?.type || "single"}
+                              onChange={(e) => {
+                                const newType = e.target.value as "single" | "custom" | "all"
+                                handleBranchAccessChange(u.id, {
+                                  type: newType,
+                                  branchIds: newType === "custom" ? (u.branchAccess?.branchIds || []) : undefined,
+                                })
+                              }}
+                              className="rounded-xl border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-white focus:border-cyan-400/50 focus:outline-none"
+                            >
+                              <option value="single">Single Branch</option>
+                              <option value="custom">Custom Branches</option>
+                              <option value="all">All Branches</option>
+                            </select>
+                            {u.branchAccess?.type === "custom" && (
+                              <div className="flex flex-col gap-1 w-40">
+                                <select
+                                  multiple
+                                  value={u.branchAccess.branchIds || []}
+                                  onChange={(e) => {
+                                    const selectedBranchIds = Array.from(e.target.selectedOptions).map(option => option.value)
+                                    handleCustomBranchChange(u.id, selectedBranchIds)
+                                  }}
+                                  className="rounded-xl border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-white focus:border-cyan-400/50 focus:outline-none"
+                                  size={3}
+                                >
+                                  {branches.map((b) => (
+                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                  ))}
+                                </select>
+                                <div className="text-xs text-slate-400">
+                                  {u.branchAccess.branchIds?.length || 0} selected
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         {/* Delete */}

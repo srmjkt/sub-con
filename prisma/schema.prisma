@@ -75,6 +75,7 @@ model User {
   role      UserRole
   branchId  String?
   branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branchAccess Json?  // { "type": "all" | "custom" | "single", "branchIds": string[] }
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

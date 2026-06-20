@@ -96,7 +96,7 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const { name, username, email, password, oldPassword, role, branchId } = await _request.json()
+  const { name, username, email, password, oldPassword, role, branchId, branchAccess } = await _request.json()
 
   const updateData: Record<string, unknown> = {}
 
@@ -111,9 +111,16 @@ export async function PATCH(
   if (email) updateData.email = email.toLowerCase().trim()
   if (role && ['ADMIN', 'INPUTTER', 'VIEWER'].includes(role)) {
     updateData.role = role
+    if (role === 'ADMIN') {
+      updateData.branchAccess = null
+      updateData.branchId = null
+    }
   }
   if (branchId !== undefined) {
     updateData.branchId = branchId || null
+  }
+  if (branchAccess !== undefined) {
+    updateData.branchAccess = branchAccess
   }
   if (password) {
     // If changing password, verify old password
@@ -156,6 +163,7 @@ export async function PATCH(
         email: true,
         role: true,
         branchId: true,
+        branchAccess: true,
         branch: {
           select: { id: true, name: true },
         },

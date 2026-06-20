@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { getBranchFilter } from '@/lib/branchAccess'
 
 // GET inventory (filtered by branch access)
 export async function GET(request: Request) {
@@ -12,15 +13,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const branchId = searchParams.get('branchId')
 
-  const where: Record<string, unknown> = {}
-  if (session.role === 'ADMIN') {
-    if (branchId) where.branchId = branchId
-  } else {
-    if (!session.branchId) {
-      return NextResponse.json({ inventory: [] })
-    }
-    where.branchId = session.branchId
-  }
+  const where: Record<string, unknown> = getBranchFilter(session, branchId)
 
   const inventory = await prisma.inventory.findMany({
     where,

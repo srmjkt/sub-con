@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { getBranchFilter } from '@/lib/branchAccess'
 
 // GET attendance records (filtered by branch access)
 export async function GET(request: Request) {
@@ -12,17 +13,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const branchId = searchParams.get('branchId')
 
-  const where: Record<string, unknown> = {}
-  if (session.role === 'ADMIN') {
-    if (branchId) where.branchId = branchId
-  } else {
-    if (!session.branchId) {
-      return NextResponse.json({ records: [] })
-    }
-    where.branchId = session.branchId
-  }
+  const where: Record<string, unknown> = getBranchFilter(session, branchId)
 
-  const records = await prisma.attendanceRecord.findMany({
+  const attendanceRecords = await prisma.attendanceRecord.findMany({
     where,
     include: {
       branch: { select: { id: true, name: true } },
@@ -31,7 +24,7 @@ export async function GET(request: Request) {
     orderBy: { date: 'desc' },
   })
 
-  return NextResponse.json({ records })
+  return NextResponse.json({ attendanceRecords })
 }
 
 // POST create attendance record (INPUTTER and ADMIN only)

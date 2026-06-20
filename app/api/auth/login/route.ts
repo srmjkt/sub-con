@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
+  SessionPayload,
   verifyPassword,
   createSessionToken,
   setSessionCookie,
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
         password: true,
         role: true,
         branchId: true,
+        branchAccess: true,
       },
     })
 
@@ -57,6 +59,7 @@ export async function POST(request: Request) {
       email: user.email,
       role: user.role,
       branchId: user.branchId,
+      branchAccess: user.branchAccess as SessionPayload['branchAccess'],
     })
 
     await setSessionCookie(token)
@@ -69,6 +72,7 @@ export async function POST(request: Request) {
         email: user.email,
         role: user.role,
         branchId: user.branchId,
+        branchAccess: user.branchAccess,
       },
     })
   } catch (error) {

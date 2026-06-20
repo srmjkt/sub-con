@@ -14,6 +14,10 @@ export interface SessionPayload {
   email: string
   role: 'ADMIN' | 'INPUTTER' | 'VIEWER'
   branchId: string | null
+  branchAccess?: {
+    type: 'all' | 'custom' | 'single'
+    branchIds?: string[]
+  } | null
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -82,6 +86,7 @@ export async function getAuthenticatedUser() {
       email: true,
       role: true,
       branchId: true,
+      branchAccess: true,
       branch: {
         select: { id: true, name: true },
       },

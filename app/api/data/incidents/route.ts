@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { getBranchFilter } from '@/lib/branchAccess'
 
 // GET incident reports (filtered by branch access)
 export async function GET(request: Request) {
@@ -12,17 +13,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const branchId = searchParams.get('branchId')
 
-  // Build where clause based on role
-  const where: Record<string, unknown> = {}
-  if (session.role === 'ADMIN') {
-    if (branchId) where.branchId = branchId
-  } else {
-    // INPUTTER and VIEWER can only see their own branch
-    if (!session.branchId) {
-      return NextResponse.json({ incidents: [] })
-    }
-    where.branchId = session.branchId
-  }
+  // Build where clause based on role and branch access
+  const where: Record<string, unknown> = getBranchFilter(session, branchId)
 
   const incidents = await prisma.incidentReport.findMany({
     where,
