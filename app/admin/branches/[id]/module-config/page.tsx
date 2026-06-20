@@ -116,7 +116,26 @@ export default function BranchModuleConfigPage() {
       const savedConfigs = configsData.configs || []
       const allConfigs = modules.map(m => {
         const existing = savedConfigs.find((c: ModuleConfig) => c.module === m.id)
-        return existing || { id: "", module: m.id, isEnabled: true, customFields: [] }
+        const defaults = DEFAULT_FIELDS[m.id] || []
+        if (existing && existing.customFields.length > 0) {
+          return existing
+        }
+        const defaultCustomFields = defaults.map((def, idx) => ({
+          id: `default-${m.id}-${idx}`,
+          fieldName: def.fieldName,
+          fieldLabel: def.fieldLabel,
+          fieldType: def.fieldType,
+          isRequired: def.isRequired,
+          options: def.fieldType === "select" ? '["option1", "option2", "option3"]' : null,
+          order: idx,
+          colSpan: def.colSpan || 1,
+        }))
+        return {
+          id: existing?.id || "",
+          module: m.id,
+          isEnabled: existing ? existing.isEnabled : true,
+          customFields: defaultCustomFields,
+        }
       })
       setConfigs(allConfigs)
     } catch (err) {
