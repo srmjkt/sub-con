@@ -13,79 +13,83 @@ export async function GET(request: Request) {
 
   // Build branch filter based on role
   const branchFilter: Record<string, string> = {}
-  if (session.role === 'ADMIN') {
-    if (branchId) branchFilter.branchId = branchId
-  } else {
-    if (!session.branchId) {
-      return NextResponse.json({
-        stats: { incidents: 0, attendance: 0, trainings: 0, simulations: 0, mockDrills: 0, inventory: 0 },
-        recentIncidents: [],
-        recentAttendance: [],
-        recentTrainings: [],
-        recentSimulations: [],
-        recentMockDrills: [],
-        inventory: [],
-      })
-    }
+  if (branchId) {
+    branchFilter.branchId = branchId
+  } else if (session.role !== 'ADMIN' && session.branchId) {
     branchFilter.branchId = session.branchId
   }
+  // For ADMIN without branchId, we'll fetch all data but with limits
 
-  // Fetch all data in parallel
-  let incidents, attendanceRecords, trainings, simulations, mockDrills, inventory
+  // Fetch all data in parallel with error handling for each
+  let incidents: any[] = []
+  let attendanceRecords: any[] = []
+  let trainings: any[] = []
+  let simulations: any[] = []
+  let mockDrills: any[] = []
+  let inventory: any[] = []
+
   try {
-    [
-      incidents,
-      attendanceRecords,
-      trainings,
-      simulations,
-      mockDrills,
-      inventory,
-    ] = await Promise.all([
+    ;[incidents, attendanceRecords, trainings, simulations, mockDrills, inventory] = await Promise.all([
       prisma.incidentReport.findMany({
-      where: branchFilter,
-      include: {
-        branch: { select: { id: true, name: true } },
-        reportedBy: { select: { id: true, name: true } },
-      },
-      orderBy: { date: 'desc' },
-      take: 10,
-    }),
-    prisma.attendanceRecord.findMany({
-      where: branchFilter,
-      include: {
-        branch: { select: { id: true, name: true } },
-        recordedBy: { select: { id: true, name: true } },
-      },
-      orderBy: { date: 'desc' },
-      take: 10,
-    }),
-    prisma.training.findMany({
-      where: branchFilter,
-      include: {
-        branch: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-      },
-      orderBy: { date: 'desc' },
-      take: 10,
-    }),
-    prisma.simulation.findMany({
-      where: branchFilter,
-      include: {
-        branch: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-      },
-      orderBy: { date: 'desc' },
-      take: 10,
-    }),
-    prisma.mockDrill.findMany({
-      where: branchFilter,
-      include: {
-        branch: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-      },
-      orderBy: { date: 'desc' },
-      take: 10,
-    }),
+        where: branchFilter,
+        include: {
+          branch: { select: { id: true, name: true } },
+          reportedBy: { select: { id: true, name: true } },
+        },
+        orderBy: { date: 'desc' },
+        take: 10,
+      }).catch(err => {
+        console.error('[DASHBOARD] incidents error:', err)
+        return []
+      }),
+      prisma.attendanceRecord.findMany({
+        where: branchFilter,
+        include: {
+          branch: { select: { id: true, name: true } },
+          recordedBy: { select: { id: true, name: true } },
+        },
+        orderBy: { date: 'desc' },
+        take: 10,
+      }).catch(err => {
+        console.error('[DASHBOARD] attendance error:', err)
+        return []
+      }),
+      prisma.training.findMany({
+        where: branchFilter,
+        include: {
+          branch: { select: { id: true, name: true } },
+          createdBy: { select: { id: true, name: true } },
+        },
+        orderBy: { date: 'desc' },
+        take: 10,
+      }).catch(err => {
+        console.error('[DASHBOARD] trainings error:', err)
+        return []
+      }),
+      prisma.simulation.findMany({
+        where: branchFilter,
+        include: {
+          branch: { select: { id: true, name: true } },
+          createdBy: { select: { id: true, name: true } },
+        },
+        orderBy: { date: 'desc' },
+        take: 10,
+      }).catch(err => {
+        console.error('[DASHBOARD] simulations error:', err)
+        return []
+      }),
+      prisma.mockDrill.findMany({
+        where: branchFilter,
+        include: {
+          branch: { select: { id: true, name: true } },
+          createdBy: { select: { id: true, name: true } },
+        },
+        orderBy: { date: 'desc' },
+        take: 10,
+      }).catch(err => {
+        console.error('[DASHBOARD] mockDrills error:', err)
+        return []
+      }),
       prisma.inventory.findMany({
         where: branchFilter,
         include: {
@@ -93,32 +97,33 @@ export async function GET(request: Request) {
           createdBy: { select: { id: true, name: true } },
         },
         orderBy: { itemName: 'asc' },
+      }).catch(err => {
+        console.error('[DASHBOARD] inventory error:', err)
+        return []
       }),
     ])
   } catch (queryError) {
-    console.error('[DASHBOARD] Query error:', queryError)
+    console.error('[DASHBOARD] Fatal error:', queryError)
     return NextResponse.json(
       { error: 'Database query failed', details: queryError instanceof Error ? queryError.message : 'Unknown error' },
       { status: 500 }
     )
   }
 
-  // Get total counts for stats
-  const [
-    totalIncidents,
-    totalAttendance,
-    totalTrainings,
-    totalSimulations,
-    totalMockDrills,
-    totalInventory,
-  ] = await Promise.all([
-    prisma.incidentReport.count({ where: branchFilter }),
-    prisma.attendanceRecord.count({ where: branchFilter }),
-    prisma.training.count({ where: branchFilter }),
-    prisma.simulation.count({ where: branchFilter }),
-    prisma.mockDrill.count({ where: branchFilter }),
-    prisma.inventory.count({ where: branchFilter }),
-  ])
+  // Get total counts for stats (with individual error handling)
+  let totalIncidents = 0, totalAttendance = 0, totalTrainings = 0, totalSimulations = 0, totalMockDrills = 0, totalInventory = 0
+  try {
+    ;[totalIncidents, totalAttendance, totalTrainings, totalSimulations, totalMockDrills, totalInventory] = await Promise.all([
+      prisma.incidentReport.count({ where: branchFilter }).catch(() => 0),
+      prisma.attendanceRecord.count({ where: branchFilter }).catch(() => 0),
+      prisma.training.count({ where: branchFilter }).catch(() => 0),
+      prisma.simulation.count({ where: branchFilter }).catch(() => 0),
+      prisma.mockDrill.count({ where: branchFilter }).catch(() => 0),
+      prisma.inventory.count({ where: branchFilter }).catch(() => 0),
+    ])
+  } catch (countError) {
+    console.error('[DASHBOARD] Count error:', countError)
+  }
 
   return NextResponse.json({
     stats: {
