@@ -18,6 +18,7 @@ interface CustomField {
   isRequired: boolean
   options: string | null
   order: number
+  colSpan?: number
 }
 
 interface ModuleConfig {
@@ -27,53 +28,53 @@ interface ModuleConfig {
   customFields: CustomField[]
 }
 
-const DEFAULT_FIELDS: Record<string, { fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean }[]> = {
+const DEFAULT_FIELDS: Record<string, { fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; colSpan?: number }[]> = {
   incidents: [
-    { fieldName: "title", fieldLabel: "Title", fieldType: "text", isRequired: true },
-    { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: true },
-    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true },
-    { fieldName: "severity", fieldLabel: "Severity", fieldType: "select", isRequired: true },
-    { fieldName: "status", fieldLabel: "Status", fieldType: "select", isRequired: true },
-    { fieldName: "location", fieldLabel: "Location", fieldType: "text", isRequired: false },
+    { fieldName: "title", fieldLabel: "Title", fieldType: "text", isRequired: true, colSpan: 1 },
+    { fieldName: "severity", fieldLabel: "Severity", fieldType: "select", isRequired: true, colSpan: 1 },
+    { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: true, colSpan: 2 },
+    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true, colSpan: 1 },
+    { fieldName: "status", fieldLabel: "Status", fieldType: "select", isRequired: true, colSpan: 1 },
+    { fieldName: "location", fieldLabel: "Location", fieldType: "text", isRequired: false, colSpan: 1 },
   ],
   attendance: [
-    { fieldName: "employeeName", fieldLabel: "Employee Name", fieldType: "text", isRequired: true },
-    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true },
-    { fieldName: "status", fieldLabel: "Status", fieldType: "select", isRequired: true },
-    { fieldName: "notes", fieldLabel: "Notes", fieldType: "textarea", isRequired: false },
+    { fieldName: "employeeName", fieldLabel: "Employee Name", fieldType: "text", isRequired: true, colSpan: 1 },
+    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true, colSpan: 1 },
+    { fieldName: "status", fieldLabel: "Status", fieldType: "select", isRequired: true, colSpan: 1 },
+    { fieldName: "notes", fieldLabel: "Notes", fieldType: "textarea", isRequired: false, colSpan: 2 },
   ],
   trainings: [
-    { fieldName: "title", fieldLabel: "Training Title", fieldType: "text", isRequired: true },
-    { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: false },
-    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true },
-    { fieldName: "duration", fieldLabel: "Duration", fieldType: "text", isRequired: false },
-    { fieldName: "trainer", fieldLabel: "Trainer", fieldType: "text", isRequired: false },
-    { fieldName: "participants", fieldLabel: "Number of Participants", fieldType: "number", isRequired: false },
+    { fieldName: "title", fieldLabel: "Training Title", fieldType: "text", isRequired: true, colSpan: 1 },
+    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true, colSpan: 1 },
+    { fieldName: "duration", fieldLabel: "Duration", fieldType: "text", isRequired: false, colSpan: 1 },
+    { fieldName: "trainer", fieldLabel: "Trainer", fieldType: "text", isRequired: false, colSpan: 1 },
+    { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: false, colSpan: 2 },
+    { fieldName: "participants", fieldLabel: "Number of Participants", fieldType: "number", isRequired: false, colSpan: 1 },
   ],
   simulations: [
-    { fieldName: "title", fieldLabel: "Simulation Title", fieldType: "text", isRequired: true },
-    { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: false },
-    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true },
-    { fieldName: "scenario", fieldLabel: "Scenario", fieldType: "text", isRequired: false },
-    { fieldName: "participants", fieldLabel: "Number of Participants", fieldType: "number", isRequired: false },
-    { fieldName: "result", fieldLabel: "Result", fieldType: "select", isRequired: false },
-    { fieldName: "notes", fieldLabel: "Notes", fieldType: "textarea", isRequired: false },
+    { fieldName: "title", fieldLabel: "Simulation Title", fieldType: "text", isRequired: true, colSpan: 1 },
+    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true, colSpan: 1 },
+    { fieldName: "scenario", fieldLabel: "Scenario", fieldType: "text", isRequired: false, colSpan: 1 },
+    { fieldName: "participants", fieldLabel: "Number of Participants", fieldType: "number", isRequired: false, colSpan: 1 },
+    { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: false, colSpan: 2 },
+    { fieldName: "result", fieldLabel: "Result", fieldType: "select", isRequired: false, colSpan: 1 },
+    { fieldName: "notes", fieldLabel: "Notes", fieldType: "textarea", isRequired: false, colSpan: 2 },
   ],
   mockDrills: [
-    { fieldName: "title", fieldLabel: "Drill Title", fieldType: "text", isRequired: true },
-    { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: false },
-    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true },
-    { fieldName: "drillType", fieldLabel: "Drill Type", fieldType: "select", isRequired: true },
-    { fieldName: "participants", fieldLabel: "Number of Participants", fieldType: "number", isRequired: false },
-    { fieldName: "result", fieldLabel: "Result", fieldType: "select", isRequired: false },
-    { fieldName: "notes", fieldLabel: "Notes", fieldType: "textarea", isRequired: false },
+    { fieldName: "title", fieldLabel: "Drill Title", fieldType: "text", isRequired: true, colSpan: 1 },
+    { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true, colSpan: 1 },
+    { fieldName: "drillType", fieldLabel: "Drill Type", fieldType: "select", isRequired: true, colSpan: 1 },
+    { fieldName: "participants", fieldLabel: "Number of Participants", fieldType: "number", isRequired: false, colSpan: 1 },
+    { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: false, colSpan: 2 },
+    { fieldName: "result", fieldLabel: "Result", fieldType: "select", isRequired: false, colSpan: 1 },
+    { fieldName: "notes", fieldLabel: "Notes", fieldType: "textarea", isRequired: false, colSpan: 2 },
   ],
   inventory: [
-    { fieldName: "itemName", fieldLabel: "Item Name", fieldType: "text", isRequired: true },
-    { fieldName: "quantity", fieldLabel: "Quantity", fieldType: "number", isRequired: true },
-    { fieldName: "unit", fieldLabel: "Unit", fieldType: "text", isRequired: true },
-    { fieldName: "category", fieldLabel: "Category", fieldType: "text", isRequired: false },
-    { fieldName: "status", fieldLabel: "Status", fieldType: "select", isRequired: true },
+    { fieldName: "itemName", fieldLabel: "Item Name", fieldType: "text", isRequired: true, colSpan: 1 },
+    { fieldName: "quantity", fieldLabel: "Quantity", fieldType: "number", isRequired: true, colSpan: 1 },
+    { fieldName: "unit", fieldLabel: "Unit", fieldType: "text", isRequired: true, colSpan: 1 },
+    { fieldName: "category", fieldLabel: "Category", fieldType: "text", isRequired: false, colSpan: 1 },
+    { fieldName: "status", fieldLabel: "Status", fieldType: "select", isRequired: true, colSpan: 1 },
   ],
 }
 
@@ -118,8 +119,9 @@ export default function BranchModuleConfigPage() {
         return existing || { id: "", module: m.id, isEnabled: true, customFields: [] }
       })
       setConfigs(allConfigs)
-    } catch {
-      setError("Failed to fetch data")
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch data"
+      setError(errorMessage)
     }
     setLoading(false)
   }
@@ -218,6 +220,7 @@ export default function BranchModuleConfigPage() {
       isRequired: false,
       options: null,
       order: config.customFields.length,
+      colSpan: 1,
     }
     updateConfig(moduleId, {
       customFields: [...config.customFields, newField],
@@ -230,7 +233,7 @@ export default function BranchModuleConfigPage() {
     updateConfig(moduleId, { customFields: filteredFields })
   }
 
-  function addDefaultField(moduleId: string, defaultField: { fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean }) {
+  function addDefaultField(moduleId: string, defaultField: { fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; colSpan?: number }) {
     const config = getConfig(moduleId)
     const exists = config.customFields.some(f => f.fieldName === defaultField.fieldName)
     if (exists) {
@@ -246,10 +249,19 @@ export default function BranchModuleConfigPage() {
       isRequired: defaultField.isRequired,
       options: defaultField.fieldType === "select" ? '["option1", "option2", "option3"]' : null,
       order: config.customFields.length,
+      colSpan: defaultField.colSpan || 1,
     }
     updateConfig(moduleId, {
       customFields: [...config.customFields, newField],
     })
+  }
+
+  function updateFieldColSpan(moduleId: string, fieldId: string, colSpan: number) {
+    const config = getConfig(moduleId)
+    const updatedFields = config.customFields.map(f =>
+      f.id === fieldId ? { ...f, colSpan } : f
+    )
+    updateConfig(moduleId, { customFields: updatedFields })
   }
 
   async function handleSave(moduleId: string) {
@@ -271,6 +283,7 @@ export default function BranchModuleConfigPage() {
             isRequired: f.isRequired,
             options: f.options,
             order: f.order,
+            colSpan: f.colSpan,
           })),
         }),
       })
@@ -315,7 +328,7 @@ export default function BranchModuleConfigPage() {
                   Customize forms and fields for <span className="text-cyan-400">{branch.name}</span>
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Drag and drop fields to reorder. Drag from Available Fields to add.
+                  Drag fields to reorder. Use buttons to change column width (1 or 2 columns).
                 </p>
               </div>
             </div>
@@ -437,13 +450,13 @@ export default function BranchModuleConfigPage() {
 
                 {config.isEnabled && isExpanded && (
                   <div className="space-y-6 mt-6">
-                    {/* Form Preview - Looks like the actual form */}
+                    {/* Form Preview - Exact same layout as edit form */}
                     <div className="rounded-xl border border-cyan-400/30 bg-slate-900/50 p-6">
                       <h3 className="text-sm font-semibold text-cyan-300 mb-4">
-                        Form Preview - Drag fields to reorder
+                        Form Preview - Same layout as edit form
                       </h3>
                       <p className="text-xs text-slate-400 mb-4">
-                        This is how your form will look. Drag fields to reorder them.
+                        Drag fields to reorder. Click "1 col" or "2 col" to change width.
                       </p>
 
                       {config.customFields.length === 0 ? (
@@ -452,9 +465,10 @@ export default function BranchModuleConfigPage() {
                           <p className="text-xs text-slate-500 mt-1">Drag fields from "Available Fields" below</p>
                         </div>
                       ) : (
-                        <div className="space-y-4">
+                        <form className="grid gap-4 md:grid-cols-2">
                           {config.customFields.map((field, index) => {
                             const isDraggedOver = dragOverFieldId === field.id && draggedField?.fieldId !== field.id
+                            const colSpan = field.colSpan || 1
 
                             return (
                               <div
@@ -465,6 +479,8 @@ export default function BranchModuleConfigPage() {
                                 onDrop={() => handleDrop(field.id)}
                                 onDragEnd={handleDragEnd}
                                 className={`rounded-lg border-2 border-dashed p-4 cursor-move transition ${
+                                  colSpan === 2 ? "md:col-span-2" : ""
+                                } ${
                                   isDraggedOver
                                     ? "border-cyan-400 bg-cyan-400/10"
                                     : "border-white/20 bg-slate-950/50 hover:border-white/40"
@@ -475,11 +491,20 @@ export default function BranchModuleConfigPage() {
                                     <span className="text-xs text-slate-500 font-mono">#{index + 1}</span>
                                     <span className="text-xs text-slate-600 cursor-move">⋮⋮</span>
                                   </div>
-                                  <button
-                                    onClick={() => removeCustomField(module.id, field.id)}
-                                    className="rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 hover:bg-red-500/20"
-                                    title="Remove field"
-                                  >✕</button>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => updateFieldColSpan(module.id, field.id, colSpan === 1 ? 2 : 1)}
+                                      className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-slate-300 hover:bg-white/10"
+                                      title={colSpan === 1 ? "Expand to 2 columns" : "Shrink to 1 column"}
+                                    >
+                                      {colSpan} col
+                                    </button>
+                                    <button
+                                      onClick={() => removeCustomField(module.id, field.id)}
+                                      className="rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 hover:bg-red-500/20"
+                                      title="Remove field"
+                                    >✕</button>
+                                  </div>
                                 </div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">
                                   {field.fieldLabel}
@@ -520,7 +545,7 @@ export default function BranchModuleConfigPage() {
                               </div>
                             )
                           })}
-                        </div>
+                        </form>
                       )}
                     </div>
 
