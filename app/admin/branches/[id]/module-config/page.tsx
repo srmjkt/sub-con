@@ -97,14 +97,6 @@ export default function BranchModuleConfigPage() {
     { id: "inventory", name: "Inventory", icon: "📦" },
   ])
 
-  const fieldTypes = [
-    { value: "text", label: "Text Input" },
-    { value: "textarea", label: "Text Area" },
-    { value: "number", label: "Number" },
-    { value: "date", label: "Date Picker" },
-    { value: "select", label: "Dropdown" },
-  ]
-
   useEffect(() => {
     if (currentUser) fetchData()
   }, [currentUser, branchId])
@@ -119,7 +111,6 @@ export default function BranchModuleConfigPage() {
       const configsData = await configsRes.json()
       setBranch(branchData.branch)
       const savedConfigs = configsData.configs || []
-      // Ensure all modules have a config entry
       const allConfigs = modules.map(m => {
         const existing = savedConfigs.find((c: ModuleConfig) => c.module === m.id)
         return existing || { id: "", module: m.id, isEnabled: true, customFields: [] }
@@ -151,7 +142,6 @@ export default function BranchModuleConfigPage() {
     })
   }
 
-  // Add custom module
   const [showNewModuleForm, setShowNewModuleForm] = useState(false)
   const [newModuleId, setNewModuleId] = useState("")
   const [newModuleName, setNewModuleName] = useState("")
@@ -183,7 +173,6 @@ export default function BranchModuleConfigPage() {
     setConfigs(prev => prev.filter(c => c.module !== moduleId))
   }
 
-  // Field reordering
   function moveFieldUp(moduleId: string, fieldId: string) {
     const config = getConfig(moduleId)
     const idx = config.customFields.findIndex(f => f.id === fieldId)
@@ -218,14 +207,6 @@ export default function BranchModuleConfigPage() {
     updateConfig(moduleId, {
       customFields: [...config.customFields, newField],
     })
-  }
-
-  function updateCustomField(moduleId: string, fieldId: string, updates: Partial<CustomField>) {
-    const config = getConfig(moduleId)
-    const updatedFields = config.customFields.map((f) =>
-      f.id === fieldId ? { ...f, ...updates } : f
-    )
-    updateConfig(moduleId, { customFields: updatedFields })
   }
 
   function removeCustomField(moduleId: string, fieldId: string) {
@@ -307,7 +288,7 @@ export default function BranchModuleConfigPage() {
       <Sidebar role={currentUser.role} />
 
       <main className="ml-64 p-8">
-        <div className="max-w-6xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-8">
           {/* Header */}
           <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-sky-950/30 backdrop-blur">
             <div className="flex items-center justify-between">
@@ -319,7 +300,7 @@ export default function BranchModuleConfigPage() {
                   Customize forms and fields for <span className="text-cyan-400">{branch.name}</span>
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Add default fields or create custom fields for each module
+                  Design your form by adding, removing, and reordering fields
                 </p>
               </div>
             </div>
@@ -413,7 +394,7 @@ export default function BranchModuleConfigPage() {
                       </p>
                     </div>
                   </div>
-                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                     <button
                       onClick={() => removeModule(module.id)}
                       className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20"
@@ -441,72 +422,25 @@ export default function BranchModuleConfigPage() {
 
                 {config.isEnabled && isExpanded && (
                   <div className="space-y-6 mt-6">
-                    {/* Default Fields Section */}
-                    <div className="rounded-xl border border-blue-700/30 bg-blue-900/10 p-4">
-                      <h3 className="text-sm font-semibold text-blue-300 mb-3">
-                        Default Fields (Click to add)
+                    {/* Form Preview */}
+                    <div className="rounded-xl border border-blue-700/30 bg-blue-900/10 p-6">
+                      <h3 className="text-sm font-semibold text-blue-300 mb-4">
+                        Form Preview - Click fields to add them
                       </h3>
-                      <p className="text-xs text-slate-400 mb-3">
-                        These are the standard fields for {module.name}. Click to add them to your custom form.
+                      <p className="text-xs text-slate-400 mb-4">
+                        This is how your form will look. Click on any field below to add it to your form.
                       </p>
-                      <div className="space-y-2">
-                        {defaults.map((defField, idx) => {
-                          const isAdded = config.customFields.some(f => f.fieldName === defField.fieldName)
-                          return (
-                            <div key={idx} className="flex items-center gap-2">
-                              <span className="text-xs text-slate-500 font-mono w-6">#{idx + 1}</span>
-                              <button
-                                onClick={() => addDefaultField(module.id, defField)}
-                                disabled={isAdded}
-                                className={`flex-1 text-left rounded-lg border p-3 transition ${
-                                  isAdded
-                                    ? "border-emerald-700/50 bg-emerald-900/20 opacity-50 cursor-not-allowed"
-                                    : "border-white/10 bg-slate-950/60 hover:border-cyan-400/30 hover:bg-cyan-400/5"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="text-sm font-medium text-white">{defField.fieldLabel}</p>
-                                    <p className="text-xs text-slate-400">{defField.fieldType}</p>
-                                  </div>
-                                  {isAdded && <span className="text-xs text-emerald-400">✓ Added</span>}
-                                </div>
-                                {defField.isRequired && (
-                                  <span className="inline-block mt-1 text-[10px] text-red-400">Required</span>
-                                )}
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Custom Fields Section */}
-                    <div className="rounded-xl border border-purple-700/30 bg-purple-900/10 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h3 className="text-sm font-semibold text-purple-300">Custom Fields</h3>
-                          <p className="text-xs text-slate-400">
-                            Additional fields you've added to this module
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => addCustomField(module.id)}
-                          className="rounded-lg border border-purple-400/30 bg-purple-400/10 px-3 py-1.5 text-xs font-medium text-purple-100 transition hover:bg-purple-400/20"
-                        >
-                          + Add Custom Field
-                        </button>
-                      </div>
 
                       {config.customFields.length === 0 ? (
-                        <p className="text-sm text-slate-400 py-4 text-center">
-                          No custom fields added yet. Add default fields above or create custom ones.
-                        </p>
+                        <div className="text-center py-8 border-2 border-dashed border-white/10 rounded-lg">
+                          <p className="text-sm text-slate-400">No fields added yet</p>
+                          <p className="text-xs text-slate-500 mt-1">Click fields from the list below to add them</p>
+                        </div>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           {config.customFields.map((field, index) => (
                             <div key={field.id} className="rounded-lg border border-white/10 bg-slate-950/60 p-4">
-                              <div className="flex items-center gap-2 mb-3">
+                              <div className="flex items-center gap-2 mb-2">
                                 <span className="text-xs text-slate-500 font-mono">#{index + 1}</span>
                                 <button
                                   onClick={() => moveFieldUp(module.id, field.id)}
@@ -520,60 +454,97 @@ export default function BranchModuleConfigPage() {
                                   className="rounded border border-white/10 bg-slate-950/50 px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
                                   title="Move down"
                                 >↓</button>
+                                <button
+                                  onClick={() => removeCustomField(module.id, field.id)}
+                                  className="ml-auto rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 hover:bg-red-500/20"
+                                  title="Remove field"
+                                >✕</button>
                               </div>
-                              <div className="grid gap-3 md:grid-cols-2">
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-400 mb-1">Field Label</label>
-                                  <input
-                                    type="text"
-                                    value={field.fieldLabel}
-                                    onChange={(e) => updateCustomField(module.id, field.id, { fieldLabel: e.target.value })}
-                                    className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-400 mb-1">Field Name</label>
-                                  <input
-                                    type="text"
-                                    value={field.fieldName}
-                                    onChange={(e) => updateCustomField(module.id, field.id, { fieldName: e.target.value })}
-                                    className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-400 mb-1">Field Type</label>
-                                  <select
-                                    value={field.fieldType}
-                                    onChange={(e) => updateCustomField(module.id, field.id, { fieldType: e.target.value })}
-                                    className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-                                  >
-                                    {fieldTypes.map((ft) => (
-                                      <option key={ft.value} value={ft.value}>{ft.label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="flex items-end gap-2">
-                                  <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={field.isRequired}
-                                      onChange={(e) => updateCustomField(module.id, field.id, { isRequired: e.target.checked })}
-                                      className="rounded border-white/20 bg-slate-950/50 text-cyan-400 focus:ring-cyan-400"
-                                    />
-                                    <span className="text-xs text-slate-300">Required</span>
-                                  </label>
-                                  <button
-                                    onClick={() => removeCustomField(module.id, field.id)}
-                                    className="ml-auto rounded-lg border border-red-500/20 bg-red-500/10 px-2 py-1 text-xs text-red-300 hover:bg-red-500/20"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
+                              <label className="block text-sm font-medium text-slate-300 mb-1">
+                                {field.fieldLabel}
+                                {field.isRequired && <span className="text-red-400 ml-1">*</span>}
+                              </label>
+                              {field.fieldType === "textarea" ? (
+                                <textarea
+                                  disabled
+                                  className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500"
+                                  rows={3}
+                                  placeholder="Text area"
+                                />
+                              ) : field.fieldType === "select" ? (
+                                <select disabled className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500">
+                                  <option>Select {field.fieldLabel}</option>
+                                </select>
+                              ) : field.fieldType === "number" ? (
+                                <input
+                                  type="number"
+                                  disabled
+                                  className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500"
+                                  placeholder="0"
+                                />
+                              ) : field.fieldType === "date" ? (
+                                <input
+                                  type="date"
+                                  disabled
+                                  className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500"
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  disabled
+                                  className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500"
+                                  placeholder={`Enter ${field.fieldLabel}`}
+                                />
+                              )}
                             </div>
                           ))}
                         </div>
                       )}
+                    </div>
+
+                    {/* Available Fields to Add */}
+                    <div className="rounded-xl border border-purple-700/30 bg-purple-900/10 p-4">
+                      <h3 className="text-sm font-semibold text-purple-300 mb-3">
+                        Available Fields
+                      </h3>
+                      <p className="text-xs text-slate-400 mb-3">
+                        Click to add these fields to your form above
+                      </p>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {defaults.map((defField, idx) => {
+                          const isAdded = config.customFields.some(f => f.fieldName === defField.fieldName)
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => addDefaultField(module.id, defField)}
+                              disabled={isAdded}
+                              className={`text-left rounded-lg border p-3 transition ${
+                                isAdded
+                                  ? "border-emerald-700/50 bg-emerald-900/20 opacity-50 cursor-not-allowed"
+                                  : "border-white/10 bg-slate-950/60 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm font-medium text-white">{defField.fieldLabel}</p>
+                                  <p className="text-xs text-slate-400">{defField.fieldType}</p>
+                                </div>
+                                {isAdded && <span className="text-xs text-emerald-400">✓ Added</span>}
+                              </div>
+                              {defField.isRequired && (
+                                <span className="inline-block mt-1 text-[10px] text-red-400">Required</span>
+                              )}
+                            </button>
+                          )
+                        })}
+                        <button
+                          onClick={() => addCustomField(module.id)}
+                          className="text-left rounded-lg border border-dashed border-purple-400/30 bg-purple-900/5 p-3 hover:border-purple-400/50 hover:bg-purple-900/10 transition"
+                        >
+                          <p className="text-sm font-medium text-purple-300">+ Add Custom Field</p>
+                          <p className="text-xs text-slate-400">Create a new custom field</p>
+                        </button>
+                      </div>
                     </div>
 
                     <button
