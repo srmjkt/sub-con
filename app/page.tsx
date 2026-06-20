@@ -52,24 +52,29 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
       <div className="container mx-auto px-4 py-16">
+        {/* Top Bar */}
+        <div className="flex justify-between items-center mb-8">
+          <div className="text-sm text-slate-500">Sub-Con Security System</div>
+          {user ? (
+            <div className="text-sm text-slate-400">
+              {user.name} ({user.role}) &middot;{" "}
+              <Link href="/login" className="text-cyan-400 hover:text-cyan-300 hover:underline">
+                Dashboard
+              </Link>
+            </div>
+          ) : (
+            <Link href="/login" className="text-sm text-cyan-400 hover:text-cyan-300 hover:underline">
+              Sign In
+            </Link>
+          )}
+        </div>
+
         {/* Welcome Section */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold text-white mb-4">
             {user ? `Welcome to Sub-Con` : "Sub-Con"}
           </h1>
           <p className="text-xl text-slate-300">Security & Compliance Management System</p>
-          {user ? (
-            <p className="text-sm text-slate-400 mt-2">
-              Logged in as: {user.name} ({user.role})
-            </p>
-          ) : (
-            <Link
-              href="/login"
-              className="mt-6 inline-block rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-8 py-3 font-medium text-cyan-100 transition hover:bg-cyan-400/20"
-            >
-              Sign In
-            </Link>
-          )}
         </div>
 
         {/* Dashboard Cards (only for logged in users) */}

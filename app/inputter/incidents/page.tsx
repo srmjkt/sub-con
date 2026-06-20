@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { DynamicFields, CustomFieldDisplay } from "@/components/DynamicFields"
 
 interface Incident {
   id: string
@@ -15,6 +16,7 @@ interface Incident {
   status: string
   branch: { id: string; name: string }
   reportedBy: { id: string; name: string }
+  customFieldsData: Record<string, string> | null
   createdAt: string
 }
 
@@ -48,6 +50,11 @@ export default function InputterIncidentsPage() {
   const [location, setLocation] = useState("")
   const [status, setStatus] = useState("open")
   const [submitting, setSubmitting] = useState(false)
+  const [customValues, setCustomValues] = useState<Record<string, string>>({})
+
+  function handleCustomFieldChange(fieldName: string, value: string) {
+    setCustomValues(prev => ({ ...prev, [fieldName]: value }))
+  }
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -159,7 +166,7 @@ export default function InputterIncidentsPage() {
       const res = await fetch("/api/data/incidents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, severity, date, location, status }),
+        body: JSON.stringify({ title, description, severity, date, location, status, customFieldsData: customValues }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -299,6 +306,7 @@ export default function InputterIncidentsPage() {
                     className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
                     placeholder="Where the incident occurred" />
                 </div>
+                <DynamicFields module="incidents" values={customValues} onChange={handleCustomFieldChange} />
                 <div className="md:col-span-2">
                   <button type="submit" disabled={submitting}
                     className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">
@@ -405,6 +413,7 @@ export default function InputterIncidentsPage() {
                           </span>
                         </div>
                         <p className="text-sm text-slate-400 mt-1">{incident.description}</p>
+                        <CustomFieldDisplay module="incidents" data={incident.customFieldsData} />
                         <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
                           <span>📅 {new Date(incident.date).toLocaleDateString()}</span>
                           {incident.location && <span>📍 {incident.location}</span>}

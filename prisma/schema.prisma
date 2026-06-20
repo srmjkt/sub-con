@@ -104,6 +104,7 @@ model IncidentReport {
   status      String   @default("open") // open, investigating, resolved, closed
   reportedById String
   reportedBy  User     @relation(fields: [reportedById], references: [id], onDelete: Cascade)
+  customFieldsData Json?  // Stores dynamic custom field values
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -123,84 +124,89 @@ model IncidentReportEdit {
 }
 
 model AttendanceRecord {
-  id           String   @id @default(uuid())
-  branchId     String
-  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeName String
-  date         DateTime
-  status       String   @default("present") // present, absent, late, leave
-  notes        String?
-  recordedById String
-  recordedBy   User     @relation(fields: [recordedById], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeName    String
+  date            DateTime
+  status          String   @default("present") // present, absent, late, leave
+  notes           String?
+  recordedById    String
+  recordedBy      User     @relation(fields: [recordedById], references: [id], onDelete: Cascade)
+  customFieldsData Json?  // Stores dynamic custom field values
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Training {
-  id           String   @id @default(uuid())
-  branchId     String
-  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  title        String
-  description  String?
-  date         DateTime
-  duration     String?  // e.g. "2 hours"
-  participants Int      @default(0)
-  trainer      String?
-  status       String   @default("scheduled") // scheduled, completed, cancelled
-  createdById  String
-  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  date            DateTime
+  duration        String?  // e.g. "2 hours"
+  participants    Int      @default(0)
+  trainer         String?
+  status          String   @default("scheduled") // scheduled, completed, cancelled
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  customFieldsData Json?  // Stores dynamic custom field values
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Simulation {
-  id           String   @id @default(uuid())
-  branchId     String
-  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  title        String
-  description  String?
-  date         DateTime
-  participants Int      @default(0)
-  scenario     String?
-  result       String?  // pass, fail, partial
-  notes        String?
-  createdById  String
-  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  date            DateTime
+  participants    Int      @default(0)
+  scenario        String?
+  result          String?  // pass, fail, partial
+  notes           String?
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  customFieldsData Json?  // Stores dynamic custom field values
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model MockDrill {
-  id           String   @id @default(uuid())
-  branchId     String
-  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  title        String
-  description  String?
-  date         DateTime
-  participants Int      @default(0)
-  drillType    String?  // fire, evacuation, earthquake, etc.
-  result       String?  // pass, fail, partial
-  notes        String?
-  createdById  String
-  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  date            DateTime
+  participants    Int      @default(0)
+  drillType       String?  // fire, evacuation, earthquake, etc.
+  result          String?  // pass, fail, partial
+  notes           String?
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  customFieldsData Json?  // Stores dynamic custom field values
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Inventory {
-  id           String   @id @default(uuid())
-  branchId     String
-  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  itemName     String
-  quantity     Int      @default(0)
-  unit         String   @default("pcs")
-  category     String?  // equipment, supplies, safety, etc.
-  status       String   @default("available") // available, low, out_of_stock
-  lastUpdated  DateTime @default(now())
-  createdById  String
-  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  itemName        String
+  quantity        Int      @default(0)
+  unit            String   @default("pcs")
+  category        String?  // equipment, supplies, safety, etc.
+  status          String   @default("available") // available, low, out_of_stock
+  lastUpdated     DateTime @default(now())
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  customFieldsData Json?  // Stores dynamic custom field values
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // ─── Custom Field Configuration ────────────────────────────────────

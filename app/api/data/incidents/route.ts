@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const { title, description, severity, date, location, status, branchId } =
+  const { title, description, severity, date, location, status, branchId, customFieldsData } =
     await request.json()
 
   if (!title || !description || !date) {
@@ -79,6 +79,7 @@ export async function POST(request: Request) {
       status: status || 'open',
       branchId: targetBranchId,
       reportedById: session.userId,
+      customFieldsData: customFieldsData || undefined,
     },
     include: {
       branch: { select: { id: true, name: true } },
