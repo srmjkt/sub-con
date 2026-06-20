@@ -26,6 +26,7 @@ interface AdminDataPageProps<T extends { id: string }> {
   editFields: EditField[]
   emptyMessage?: string
   defaultFormValues?: Record<string, string | number>
+  module?: string
 }
 
 export function AdminDataPage<T extends { id: string }>({
@@ -36,6 +37,7 @@ export function AdminDataPage<T extends { id: string }>({
   editFields,
   emptyMessage = "No data available yet.",
   defaultFormValues = {},
+  module,
 }: AdminDataPageProps<T>) {
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = useState<T[]>([])
@@ -46,6 +48,8 @@ export function AdminDataPage<T extends { id: string }>({
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [customFields, setCustomFields] = useState<{ id: string; fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null }[]>([])
+  const [customValues, setCustomValues] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!user) return
@@ -63,6 +67,23 @@ export function AdminDataPage<T extends { id: string }>({
     fetchData()
   }, [user, apiEndpoint])
 
+  useEffect(() => {
+    if (!module || !user?.branchId) return
+    const branchId = user.branchId
+    async function fetchCustomFields() {
+      try {
+        const res = await fetch(`/api/admin/branches/${branchId}/module-config`)
+        const data = await res.json()
+        const configs = data.configs || []
+        const config = configs.find((c: { module: string }) => c.module === module)
+        setCustomFields(config?.customFields || [])
+      } catch (error) {
+        console.error("Failed to fetch custom fields:", error)
+      }
+    }
+    fetchCustomFields()
+  }, [module, user?.branchId])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
@@ -74,10 +95,15 @@ export function AdminDataPage<T extends { id: string }>({
       const url = isEdit ? `${apiEndpoint}/${editingItem!.id}` : apiEndpoint
       const method = isEdit ? "PUT" : "POST"
 
+      const payload = { ...formValues }
+      if (customFields.length > 0) {
+        ;(payload as Record<string, unknown>).customFieldsData = customValues
+      }
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formValues),
+        body: JSON.stringify(payload),
       })
       const result = await res.json()
       if (!res.ok) {
@@ -128,6 +154,12 @@ export function AdminDataPage<T extends { id: string }>({
       const val = (item as Record<string, unknown>)[field.key]
       values[field.key] = val !== null && val !== undefined ? (typeof val === "string" ? val : String(val)) : ""
     })
+    // Load custom field values
+    if ((item as Record<string, unknown>).customFieldsData) {
+      setCustomValues((item as Record<string, unknown>).customFieldsData as Record<string, string>)
+    } else {
+      setCustomValues({})
+    }
     setFormValues(values)
     setShowForm(true)
     setError("")
@@ -138,11 +170,13 @@ export function AdminDataPage<T extends { id: string }>({
     setShowForm(false)
     setEditingItem(null)
     setFormValues({})
+    setCustomValues({})
   }
 
   function openCreateForm() {
     setEditingItem(null)
     setFormValues({ ...defaultFormValues })
+    setCustomValues({})
     setShowForm(true)
     setError("")
     setSuccess("")
@@ -231,6 +265,73 @@ export function AdminDataPage<T extends { id: string }>({
                     )}
                   </div>
                 ))}
+                {customFields.length > 0 && (
+                  <div className="md:col-span-2 mt-4 p-4 rounded-xl border border-purple-700/30 bg-purple-900/10">
+                    <h3 className="text-sm font-semibold text-purple-300 mb-3">Custom Fields</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {customFields.map((field) => (
+                        <div key={field.id}>
+                          <label className="block text-sm font-medium text-slate-300 mb-1">
+                            {field.fieldLabel}
+                            {field.isRequired && <span className="text-red-400 ml-1">*</span>}
+                          </label>
+                          {field.fieldType === "textarea" ? (
+                            <textarea
+                              value={customValues[field.fieldName] || ""}
+                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
+                              required={field.isRequired}
+                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
+                              rows={3}
+                            />
+                          ) : field.fieldType === "select" ? (
+                            <select
+                              value={customValues[field.fieldName] || ""}
+                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
+                              required={field.isRequired}
+                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
+                            >
+                              <option value="">Select {field.fieldLabel}</option>
+                              {(() => {
+                                try {
+                                  const options = JSON.parse(field.options || "[]")
+                                  return options.map((opt: string, i: number) => (
+                                    <option key={i} value={opt}>{opt}</option>
+                                  ))
+                                } catch {
+                                  return null
+                                }
+                              })()}
+                            </select>
+                          ) : field.fieldType === "number" ? (
+                            <input
+                              type="number"
+                              value={customValues[field.fieldName] || ""}
+                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
+                              required={field.isRequired}
+                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
+                            />
+                          ) : field.fieldType === "date" ? (
+                            <input
+                              type="date"
+                              value={customValues[field.fieldName] || ""}
+                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
+                              required={field.isRequired}
+                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              value={customValues[field.fieldName] || ""}
+                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
+                              required={field.isRequired}
+                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="md:col-span-2 flex gap-3">
                   <button type="submit" disabled={submitting}
                     className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"

@@ -12,6 +12,7 @@ interface Incident {
   status: string
   branch: { id: string; name: string }
   reportedBy: { id: string; name: string }
+  customFieldsData: Record<string, string> | null
 }
 
 const severityColors: Record<string, string> = {
@@ -34,6 +35,7 @@ export default function AdminIncidentsPage() {
       title="Incidents"
       subtitle="Configure and manage incident reports across all branches"
       apiEndpoint="/api/data/incidents"
+      module="incidents"
       columns={[
         { key: "title", label: "Title" },
         {
@@ -58,6 +60,22 @@ export default function AdminIncidentsPage() {
         { key: "location", label: "Location", render: (item) => item.location || "-" },
         { key: "branch", label: "Branch", render: (item) => item.branch?.name || "-" },
         { key: "reportedBy", label: "Reported By", render: (item) => item.reportedBy?.name || "-" },
+        {
+          key: "customFields",
+          label: "Custom Fields",
+          render: (item) => {
+            if (!item.customFieldsData || Object.keys(item.customFieldsData).length === 0) return "-"
+            return (
+              <div className="text-xs">
+                {Object.entries(item.customFieldsData).map(([key, value]) => (
+                  <div key={key}>
+                    <span className="text-slate-500">{key}:</span> <span className="text-slate-300">{value}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          },
+        },
       ]}
       editFields={[
         { key: "title", label: "Title", type: "text", required: true },

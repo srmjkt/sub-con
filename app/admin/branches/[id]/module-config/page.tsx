@@ -118,7 +118,13 @@ export default function BranchModuleConfigPage() {
       const branchData = await branchRes.json()
       const configsData = await configsRes.json()
       setBranch(branchData.branch)
-      setConfigs(configsData.configs || [])
+      const savedConfigs = configsData.configs || []
+      // Ensure all modules have a config entry
+      const allConfigs = modules.map(m => {
+        const existing = savedConfigs.find((c: ModuleConfig) => c.module === m.id)
+        return existing || { id: "", module: m.id, isEnabled: true, customFields: [] }
+      })
+      setConfigs(allConfigs)
     } catch {
       setError("Failed to fetch data")
     }
@@ -135,9 +141,14 @@ export default function BranchModuleConfigPage() {
   }
 
   function updateConfig(moduleId: string, updates: Partial<ModuleConfig>) {
-    setConfigs(
-      configs.map((c) => (c.module === moduleId ? { ...c, ...updates } : c))
-    )
+    setConfigs(prev => {
+      const exists = prev.some(c => c.module === moduleId)
+      if (exists) {
+        return prev.map((c) => (c.module === moduleId ? { ...c, ...updates } : c))
+      } else {
+        return [...prev, { id: "", module: moduleId, isEnabled: true, customFields: [], ...updates }]
+      }
+    })
   }
 
   // Add custom module
@@ -438,31 +449,33 @@ export default function BranchModuleConfigPage() {
                       <p className="text-xs text-slate-400 mb-3">
                         These are the standard fields for {module.name}. Click to add them to your custom form.
                       </p>
-                      <div className="grid gap-2 md:grid-cols-2">
+                      <div className="space-y-2">
                         {defaults.map((defField, idx) => {
                           const isAdded = config.customFields.some(f => f.fieldName === defField.fieldName)
                           return (
-                            <button
-                              key={idx}
-                              onClick={() => addDefaultField(module.id, defField)}
-                              disabled={isAdded}
-                              className={`text-left rounded-lg border p-3 transition ${
-                                isAdded
-                                  ? "border-emerald-700/50 bg-emerald-900/20 opacity-50 cursor-not-allowed"
-                                  : "border-white/10 bg-slate-950/60 hover:border-cyan-400/30 hover:bg-cyan-400/5"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm font-medium text-white">{defField.fieldLabel}</p>
-                                  <p className="text-xs text-slate-400">{defField.fieldType}</p>
+                            <div key={idx} className="flex items-center gap-2">
+                              <span className="text-xs text-slate-500 font-mono w-6">#{idx + 1}</span>
+                              <button
+                                onClick={() => addDefaultField(module.id, defField)}
+                                disabled={isAdded}
+                                className={`flex-1 text-left rounded-lg border p-3 transition ${
+                                  isAdded
+                                    ? "border-emerald-700/50 bg-emerald-900/20 opacity-50 cursor-not-allowed"
+                                    : "border-white/10 bg-slate-950/60 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-white">{defField.fieldLabel}</p>
+                                    <p className="text-xs text-slate-400">{defField.fieldType}</p>
+                                  </div>
+                                  {isAdded && <span className="text-xs text-emerald-400">✓ Added</span>}
                                 </div>
-                                {isAdded && <span className="text-xs text-emerald-400">✓ Added</span>}
-                              </div>
-                              {defField.isRequired && (
-                                <span className="inline-block mt-1 text-[10px] text-red-400">Required</span>
-                              )}
-                            </button>
+                                {defField.isRequired && (
+                                  <span className="inline-block mt-1 text-[10px] text-red-400">Required</span>
+                                )}
+                              </button>
+                            </div>
                           )
                         })}
                       </div>
