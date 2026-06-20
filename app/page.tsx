@@ -58,10 +58,17 @@ export default function HomePage() {
             {user ? `Welcome to Sub-Con` : "Sub-Con"}
           </h1>
           <p className="text-xl text-slate-300">Security & Compliance Management System</p>
-          {user && (
+          {user ? (
             <p className="text-sm text-slate-400 mt-2">
               Logged in as: {user.name} ({user.role})
             </p>
+          ) : (
+            <Link
+              href="/login"
+              className="mt-6 inline-block rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-8 py-3 font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+            >
+              Sign In
+            </Link>
           )}
         </div>
 
@@ -172,7 +179,11 @@ export default function HomePage() {
                     <p className="text-sm text-slate-400 mb-3 line-clamp-3">{item.summary}</p>
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span>{item.category}</span>
-                      <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                       <span title={new Date(item.timestamp).toLocaleString()}>
+                         {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                         {' '}
+                         {new Date(item.timestamp).toLocaleDateString()}
+                       </span>
                     </div>
                   </a>
                 ))}
