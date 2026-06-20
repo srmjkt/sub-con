@@ -56,7 +56,12 @@ export function AdminDataPage<T extends { id: string }>({
     async function fetchData() {
       try {
         const dataRes = await fetch(apiEndpoint)
-        const dataJson = await dataRes.json()
+        const text = await dataRes.text()
+        if (!text) {
+          setData([])
+          return
+        }
+        const dataJson = JSON.parse(text)
         const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
         if (dataKey) setData(dataJson[dataKey])
       } catch (err) {
@@ -117,9 +122,12 @@ export function AdminDataPage<T extends { id: string }>({
       resetForm()
       // Refresh data
       const dataRes = await fetch(apiEndpoint)
-      const dataJson = await dataRes.json()
-      const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
-      if (dataKey) setData(dataJson[dataKey])
+      const text = await dataRes.text()
+      if (text) {
+        const dataJson = JSON.parse(text)
+        const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
+        if (dataKey) setData(dataJson[dataKey])
+      }
     } catch {
       setError("An error occurred")
     }
@@ -141,9 +149,12 @@ export function AdminDataPage<T extends { id: string }>({
       setSuccess("Record deleted successfully")
       // Refresh data
       const dataRes = await fetch(apiEndpoint)
-      const dataJson = await dataRes.json()
-      const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
-      if (dataKey) setData(dataJson[dataKey])
+      const text = await dataRes.text()
+      if (text) {
+        const dataJson = JSON.parse(text)
+        const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
+        if (dataKey) setData(dataJson[dataKey])
+      }
     } catch {
       setError("An error occurred")
     }
