@@ -692,19 +692,25 @@ export default function AdminUsersPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {/* Role selector */}
-                        <select
-                          value={u.role}
-                          onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                          className="rounded-xl border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-white focus:border-cyan-400/50 focus:outline-none"
-                        >
-                          <option value="ADMIN">Admin</option>
-                          <option value="INPUTTER">Inputter</option>
-                          <option value="VIEWER">Viewer</option>
-                        </select>
+                        {/* Role selector - disabled for super admin */}
+                        {u.email === 'admin@subcon.com' ? (
+                          <span className="rounded-xl border border-yellow-700/50 bg-yellow-900/30 px-3 py-1.5 text-xs font-semibold text-yellow-300">
+                            Super Admin (Locked)
+                          </span>
+                        ) : (
+                          <select
+                            value={u.role}
+                            onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                            className="rounded-xl border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-white focus:border-cyan-400/50 focus:outline-none"
+                          >
+                            <option value="ADMIN">Admin</option>
+                            <option value="INPUTTER">Inputter</option>
+                            <option value="VIEWER">Viewer</option>
+                          </select>
+                        )}
 
                         {/* Branch access selector (for non-admin) */}
-                        {u.role !== "ADMIN" && (
+                        {u.role !== "ADMIN" && u.email !== 'admin@subcon.com' && (
                           <div className="flex flex-col gap-2">
                             <select
                               value={u.branchAccess?.type || "single"}
@@ -721,23 +727,45 @@ export default function AdminUsersPage() {
                               <option value="custom">Custom Branches</option>
                               <option value="all">All Branches</option>
                             </select>
+                            
+                            {/* Single branch selector */}
+                            {u.branchAccess?.type === "single" && (
+                              <select
+                                value={u.branchId || ""}
+                                onChange={(e) => handleBranchAccessChange(u.id, {
+                                  type: "single",
+                                  branchIds: e.target.value ? [e.target.value] : []
+                                })}
+                                className="rounded-xl border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-white focus:border-cyan-400/50 focus:outline-none"
+                              >
+                                <option value="">Select branch...</option>
+                                {branches.map((b) => (
+                                  <option key={b.id} value={b.id}>{b.name}</option>
+                                ))}
+                              </select>
+                            )}
+                            
+                            {/* Custom branch checkboxes */}
                             {u.branchAccess?.type === "custom" && (
                               <div className="flex flex-col gap-1 w-40">
-                                <select
-                                  multiple
-                                  value={u.branchAccess.branchIds || []}
-                                  onChange={(e) => {
-                                    const selectedBranchIds = Array.from(e.target.selectedOptions).map(option => option.value)
-                                    handleCustomBranchChange(u.id, selectedBranchIds)
-                                  }}
-                                  className="rounded-xl border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-white focus:border-cyan-400/50 focus:outline-none"
-                                  size={3}
-                                >
-                                  {branches.map((b) => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                  ))}
-                                </select>
-                                <div className="text-xs text-slate-400">
+                                {branches.map((b) => (
+                                  <label key={b.id} className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={u.branchAccess?.branchIds?.includes(b.id) || false}
+                                      onChange={(e) => {
+                                        const currentIds = u.branchAccess?.branchIds || []
+                                        const newIds = e.target.checked
+                                          ? [...currentIds, b.id]
+                                          : currentIds.filter(id => id !== b.id)
+                                        handleCustomBranchChange(u.id, newIds)
+                                      }}
+                                      className="rounded border-white/20 bg-slate-950/50 text-cyan-400 focus:ring-cyan-400"
+                                    />
+                                    {b.name}
+                                  </label>
+                                ))}
+                                <div className="text-xs text-slate-400 mt-1">
                                   {u.branchAccess.branchIds?.length || 0} selected
                                 </div>
                               </div>
@@ -745,8 +773,8 @@ export default function AdminUsersPage() {
                           </div>
                         )}
 
-                        {/* Delete */}
-                        {u.id !== currentUser?.id && (
+                        {/* Delete - disabled for super admin */}
+                        {u.id !== currentUser?.id && u.email !== 'admin@subcon.com' && (
                           <button
                             onClick={() => handleDelete(u.id)}
                             className="rounded-xl border border-red-500/20 bg-red-500/10 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/20"

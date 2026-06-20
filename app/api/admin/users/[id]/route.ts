@@ -47,10 +47,10 @@ export async function DELETE(
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
-  // Protect the original admin from being deleted by other admins
-  if (userToDelete.email === 'admin@subcon.com' && session.email !== 'admin@subcon.com') {
+  // Super admin is completely locked - cannot be modified or deleted by anyone
+  if (userToDelete.email === 'admin@subcon.com') {
     return NextResponse.json(
-      { error: 'Cannot delete the original administrator (admin@subcon.com)' },
+      { error: 'Cannot modify the Super Admin account (admin@subcon.com). This account is permanently locked.' },
       { status: 403 }
     )
   }
@@ -97,6 +97,24 @@ export async function PATCH(
 
   const { id } = await params
   const { name, username, email, password, oldPassword, role, branchId, branchAccess } = await _request.json()
+
+  // Check if trying to modify super admin
+  const targetUser = await prisma.user.findUnique({
+    where: { id },
+    select: { email: true },
+  })
+
+  if (!targetUser) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+
+  // Super admin is completely locked
+  if (targetUser.email === 'admin@subcon.com') {
+    return NextResponse.json(
+      { error: 'Cannot modify the Super Admin account (admin@subcon.com). This account is permanently locked.' },
+      { status: 403 }
+    )
+  }
 
   const updateData: Record<string, unknown> = {}
 
