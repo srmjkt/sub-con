@@ -2,6 +2,35 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 
+// GET a single branch (admin only)
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession()
+  if (!session || session.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { id } = await params
+
+  try {
+    const branch = await prisma.branch.findUnique({
+      where: { id },
+    })
+    if (!branch) {
+      return NextResponse.json({ error: 'Branch not found' }, { status: 404 })
+    }
+    return NextResponse.json({ branch })
+  } catch (error) {
+    console.error('[ADMIN] Get branch error:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch branch' },
+      { status: 500 }
+    )
+  }
+}
+
 // DELETE a branch (admin only)
 export async function DELETE(
   _request: Request,
