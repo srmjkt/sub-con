@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSession, hashPassword } from '@/lib/auth'
+import { getSession, hashPassword, verifyPassword } from '@/lib/auth'
 
 const VALID_USERNAME_REGEX = /^[a-zA-Z0-9._]+$/
 
@@ -96,7 +96,7 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const { name, username, email, password, role, branchId } = await _request.json()
+  const { name, username, email, password, oldPassword, role, branchId } = await _request.json()
 
   const updateData: Record<string, unknown> = {}
 
@@ -116,6 +116,32 @@ export async function PATCH(
     updateData.branchId = branchId || null
   }
   if (password) {
+    // If changing password, verify old password
+    if (!oldPassword) {
+      return NextResponse.json(
+        { error: 'Old password is required to change password' },
+        { status: 400 }
+      )
+    }
+    
+    // Get current user to verify old password
+    const currentUser = await prisma.user.findUnique({
+      where: { id },
+      select: { password: true },
+    })
+    
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+    
+    const isOldPasswordValid = await verifyPassword(oldPassword, currentUser.password)
+    if (!isOldPasswordValid) {
+      return NextResponse.json(
+        { error: 'Old password is incorrect' },
+        { status: 400 }
+      )
+    }
+    
     updateData.password = await hashPassword(password)
   }
 

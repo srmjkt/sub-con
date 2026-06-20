@@ -350,6 +350,12 @@ export default function BranchModuleConfigPage() {
                   Drag fields to reorder. Use buttons to change column width (1 or 2 columns).
                 </p>
               </div>
+              <button
+                onClick={() => window.history.back()}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10"
+              >
+                ← Back
+              </button>
             </div>
           </section>
 

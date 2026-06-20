@@ -59,6 +59,7 @@ export default function AdminUsersPage() {
   const [profileName, setProfileName] = useState("")
   const [profileUsername, setProfileUsername] = useState("")
   const [profileEmail, setProfileEmail] = useState("")
+  const [profileOldPassword, setProfileOldPassword] = useState("")
   const [profilePassword, setProfilePassword] = useState("")
   const [profileSubmitting, setProfileSubmitting] = useState(false)
 
@@ -84,6 +85,7 @@ export default function AdminUsersPage() {
       setProfileName(currentUser.name)
       setProfileUsername(currentUser.username || "")
       setProfileEmail(currentUser.email)
+      setProfileOldPassword("")
       setProfilePassword("")
       setShowProfileEdit(true)
     }
@@ -99,6 +101,12 @@ export default function AdminUsersPage() {
       return
     }
 
+    // If changing password, old password is required
+    if (profilePassword && !profileOldPassword) {
+      setError("Please enter your old password to change to a new password")
+      return
+    }
+
     setProfileSubmitting(true)
 
     try {
@@ -109,6 +117,7 @@ export default function AdminUsersPage() {
           name: profileName,
           username: profileUsername,
           email: profileEmail,
+          oldPassword: profileOldPassword || undefined,
           password: profilePassword || undefined,
         }),
       })
@@ -120,6 +129,8 @@ export default function AdminUsersPage() {
       }
       setSuccess("Profile updated successfully")
       setShowProfileEdit(false)
+      setProfileOldPassword("")
+      setProfilePassword("")
       await fetchData()
     } catch {
       setError("An error occurred")
@@ -374,6 +385,18 @@ export default function AdminUsersPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Old Password <span className="text-red-400">(required to change password)</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={profileOldPassword}
+                    onChange={(e) => setProfileOldPassword(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
+                    placeholder="Enter current password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
                     New Password <span className="text-slate-500">(leave blank to keep current)</span>
                   </label>
                   <input
@@ -575,7 +598,7 @@ export default function AdminUsersPage() {
                             </span>
                             {u.email === 'admin@subcon.com' && (
                               <span className="inline-flex rounded-full border border-yellow-700/50 bg-yellow-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-yellow-300">
-                                Original Admin
+                                Super Admin
                               </span>
                             )}
                           </div>
