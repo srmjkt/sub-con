@@ -31,10 +31,10 @@ const DEFAULT_FIELDS: Record<string, { fieldName: string; fieldLabel: string; fi
   incidents: [
     { fieldName: "title", fieldLabel: "Title", fieldType: "text", isRequired: true },
     { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: true },
-    { fieldName: "severity", fieldLabel: "Severity", fieldType: "select", isRequired: true },
     { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true },
-    { fieldName: "location", fieldLabel: "Location", fieldType: "text", isRequired: false },
+    { fieldName: "severity", fieldLabel: "Severity", fieldType: "select", isRequired: true },
     { fieldName: "status", fieldLabel: "Status", fieldType: "select", isRequired: true },
+    { fieldName: "location", fieldLabel: "Location", fieldType: "text", isRequired: false },
   ],
   attendance: [
     { fieldName: "employeeName", fieldLabel: "Employee Name", fieldType: "text", isRequired: true },
@@ -88,8 +88,8 @@ export default function BranchModuleConfigPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [expandedModule, setExpandedModule] = useState<string | null>(null)
-  const [draggedField, setDraggedField] = useState<{ moduleId: string; fieldId: string; isNew?: boolean } | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [draggedField, setDraggedField] = useState<{ moduleId: string; fieldId: string } | null>(null)
+  const [dragOverFieldId, setDragOverFieldId] = useState<string | null>(null)
   const [modules, setModules] = useState([
     { id: "incidents", name: "Incident Reports", icon: "⚠️" },
     { id: "attendance", name: "Attendance", icon: "📋" },
@@ -175,6 +175,39 @@ export default function BranchModuleConfigPage() {
     setConfigs(prev => prev.filter(c => c.module !== moduleId))
   }
 
+  function handleDragStart(fieldId: string) {
+    setDraggedField({ moduleId: expandedModule!, fieldId })
+  }
+
+  function handleDragOver(e: React.DragEvent, fieldId: string) {
+    e.preventDefault()
+    setDragOverFieldId(fieldId)
+  }
+
+  function handleDrop(targetFieldId: string) {
+    if (!draggedField || draggedField.moduleId !== expandedModule) return
+
+    const config = getConfig(expandedModule!)
+    const fields = [...config.customFields]
+    const draggedIndex = fields.findIndex(f => f.id === draggedField.fieldId)
+    const targetIndex = fields.findIndex(f => f.id === targetFieldId)
+
+    if (draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
+      const [draggedFieldData] = fields.splice(draggedIndex, 1)
+      fields.splice(targetIndex, 0, draggedFieldData)
+      fields.forEach((f, i) => f.order = i)
+      updateConfig(expandedModule!, { customFields: fields })
+    }
+
+    setDraggedField(null)
+    setDragOverFieldId(null)
+  }
+
+  function handleDragEnd() {
+    setDraggedField(null)
+    setDragOverFieldId(null)
+  }
+
   function addCustomField(moduleId: string) {
     const config = getConfig(moduleId)
     const newField: CustomField = {
@@ -189,51 +222,6 @@ export default function BranchModuleConfigPage() {
     updateConfig(moduleId, {
       customFields: [...config.customFields, newField],
     })
-  }
-
-  function handleDragStart(moduleId: string, fieldId: string, isNew: boolean = false) {
-    setDraggedField({ moduleId, fieldId, isNew })
-  }
-
-  function handleDragOver(e: React.DragEvent, index: number) {
-    e.preventDefault()
-    setDragOverIndex(index)
-  }
-
-  function handleDrop(moduleId: string, targetIndex: number) {
-    if (!draggedField || draggedField.moduleId !== moduleId) return
-
-    const config = getConfig(moduleId)
-    const fields = [...config.customFields]
-
-    if (draggedField.isNew) {
-      // Moving a newly added field from Available Fields
-      const fieldIndex = fields.findIndex(f => f.id === draggedField.fieldId)
-      if (fieldIndex !== -1) {
-        const [field] = fields.splice(fieldIndex, 1)
-        fields.splice(targetIndex, 0, field)
-        fields.forEach((f, i) => f.order = i)
-        updateConfig(moduleId, { customFields: fields })
-      }
-    } else {
-      // Reordering existing field
-      const currentIndex = fields.findIndex(f => f.id === draggedField.fieldId)
-      if (currentIndex !== -1 && currentIndex !== targetIndex) {
-        const [field] = fields.splice(currentIndex, 1)
-        const newTargetIndex = currentIndex < targetIndex ? targetIndex - 1 : targetIndex
-        fields.splice(newTargetIndex, 0, field)
-        fields.forEach((f, i) => f.order = i)
-        updateConfig(moduleId, { customFields: fields })
-      }
-    }
-
-    setDraggedField(null)
-    setDragOverIndex(null)
-  }
-
-  function handleDragEnd() {
-    setDraggedField(null)
-    setDragOverIndex(null)
   }
 
   function removeCustomField(moduleId: string, fieldId: string) {
@@ -327,7 +315,7 @@ export default function BranchModuleConfigPage() {
                   Customize forms and fields for <span className="text-cyan-400">{branch.name}</span>
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Design your form by adding, removing, and reordering fields
+                  Drag and drop fields to reorder. Drag from Available Fields to add.
                 </p>
               </div>
             </div>
@@ -449,83 +437,89 @@ export default function BranchModuleConfigPage() {
 
                 {config.isEnabled && isExpanded && (
                   <div className="space-y-6 mt-6">
-                    {/* Form Preview */}
-                    <div className="rounded-xl border border-blue-700/30 bg-blue-900/10 p-6">
-                      <h3 className="text-sm font-semibold text-blue-300 mb-4">
-                        Form Preview - Click fields to add them
+                    {/* Form Preview - Looks like the actual form */}
+                    <div className="rounded-xl border border-cyan-400/30 bg-slate-900/50 p-6">
+                      <h3 className="text-sm font-semibold text-cyan-300 mb-4">
+                        Form Preview - Drag fields to reorder
                       </h3>
                       <p className="text-xs text-slate-400 mb-4">
-                        This is how your form will look. Click on any field below to add it to your form.
+                        This is how your form will look. Drag fields to reorder them.
                       </p>
 
                       {config.customFields.length === 0 ? (
-                        <div className="text-center py-8 border-2 border-dashed border-white/10 rounded-lg">
+                        <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-lg">
                           <p className="text-sm text-slate-400">No fields added yet</p>
-                          <p className="text-xs text-slate-500 mt-1">Click fields from the list below to add them</p>
+                          <p className="text-xs text-slate-500 mt-1">Drag fields from "Available Fields" below</p>
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          {config.customFields.map((field, index) => (
-                            <div
-                              key={field.id}
-                              draggable
-                              onDragStart={() => handleDragStart(module.id, field.id)}
-                              onDragOver={(e) => handleDragOver(e, index)}
-                              onDrop={() => handleDrop(module.id, index)}
-                              onDragEnd={handleDragEnd}
-                              className={`rounded-lg border p-4 cursor-move transition ${
-                                dragOverIndex === index && draggedField?.fieldId !== field.id
-                                  ? "border-cyan-400/50 bg-cyan-400/5"
-                                  : "border-white/10 bg-slate-950/60"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-xs text-slate-500 font-mono">#{index + 1}</span>
-                                <span className="text-xs text-slate-600">⋮⋮</span>
-                                <button
-                                  onClick={() => removeCustomField(module.id, field.id)}
-                                  className="ml-auto rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 hover:bg-red-500/20"
-                                  title="Remove field"
-                                >✕</button>
+                          {config.customFields.map((field, index) => {
+                            const isDraggedOver = dragOverFieldId === field.id && draggedField?.fieldId !== field.id
+
+                            return (
+                              <div
+                                key={field.id}
+                                draggable
+                                onDragStart={() => handleDragStart(field.id)}
+                                onDragOver={(e) => handleDragOver(e, field.id)}
+                                onDrop={() => handleDrop(field.id)}
+                                onDragEnd={handleDragEnd}
+                                className={`rounded-lg border-2 border-dashed p-4 cursor-move transition ${
+                                  isDraggedOver
+                                    ? "border-cyan-400 bg-cyan-400/10"
+                                    : "border-white/20 bg-slate-950/50 hover:border-white/40"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-500 font-mono">#{index + 1}</span>
+                                    <span className="text-xs text-slate-600 cursor-move">⋮⋮</span>
+                                  </div>
+                                  <button
+                                    onClick={() => removeCustomField(module.id, field.id)}
+                                    className="rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 hover:bg-red-500/20"
+                                    title="Remove field"
+                                  >✕</button>
+                                </div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">
+                                  {field.fieldLabel}
+                                  {field.isRequired && <span className="text-red-400 ml-1">*</span>}
+                                </label>
+                                {field.fieldType === "textarea" ? (
+                                  <textarea
+                                    disabled
+                                    className={`w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500`}
+                                    rows={3}
+                                    placeholder="Text area"
+                                  />
+                                ) : field.fieldType === "select" ? (
+                                  <select disabled className={`w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500`}>
+                                    <option>Select {field.fieldLabel}</option>
+                                  </select>
+                                ) : field.fieldType === "number" ? (
+                                  <input
+                                    type="number"
+                                    disabled
+                                    className={`w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500`}
+                                    placeholder="0"
+                                  />
+                                ) : field.fieldType === "date" ? (
+                                  <input
+                                    type="date"
+                                    disabled
+                                    className={`w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500`}
+                                  />
+                                ) : (
+                                  <input
+                                    type="text"
+                                    disabled
+                                    className={`w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500`}
+                                    placeholder={`Enter ${field.fieldLabel}`}
+                                  />
+                                )}
                               </div>
-                              <label className="block text-sm font-medium text-slate-300 mb-1">
-                                {field.fieldLabel}
-                                {field.isRequired && <span className="text-red-400 ml-1">*</span>}
-                              </label>
-                              {field.fieldType === "textarea" ? (
-                                <textarea
-                                  disabled
-                                  className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500"
-                                  rows={3}
-                                  placeholder="Text area"
-                                />
-                              ) : field.fieldType === "select" ? (
-                                <select disabled className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500">
-                                  <option>Select {field.fieldLabel}</option>
-                                </select>
-                              ) : field.fieldType === "number" ? (
-                                <input
-                                  type="number"
-                                  disabled
-                                  className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500"
-                                  placeholder="0"
-                                />
-                              ) : field.fieldType === "date" ? (
-                                <input
-                                  type="date"
-                                  disabled
-                                  className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500"
-                                />
-                              ) : (
-                                <input
-                                  type="text"
-                                  disabled
-                                  className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-500"
-                                  placeholder={`Enter ${field.fieldLabel}`}
-                                />
-                              )}
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       )}
                     </div>
@@ -536,7 +530,7 @@ export default function BranchModuleConfigPage() {
                         Available Fields
                       </h3>
                       <p className="text-xs text-slate-400 mb-3">
-                        Click to add these fields to your form above
+                        Drag fields from here into the form preview above
                       </p>
                       <div className="grid gap-2 md:grid-cols-2">
                         {defaults.map((defField, idx) => {
@@ -544,14 +538,10 @@ export default function BranchModuleConfigPage() {
                           return (
                             <div
                               key={idx}
-                              draggable
+                              draggable={!isAdded}
                               onDragStart={() => {
                                 if (!isAdded) {
                                   addDefaultField(module.id, defField)
-                                  const newField = config.customFields[config.customFields.length - 1]
-                                  if (newField) {
-                                    handleDragStart(module.id, newField.id, true)
-                                  }
                                 }
                               }}
                               className={`text-left rounded-lg border p-3 transition ${
@@ -576,14 +566,7 @@ export default function BranchModuleConfigPage() {
                         })}
                         <div
                           draggable
-                          onDragStart={() => {
-                            addCustomField(module.id)
-                            const config = getConfig(module.id)
-                            const newField = config.customFields[config.customFields.length - 1]
-                            if (newField) {
-                              handleDragStart(module.id, newField.id, true)
-                            }
-                          }}
+                          onDragStart={() => addCustomField(module.id)}
                           className="text-left rounded-lg border border-dashed border-purple-400/30 bg-purple-900/5 p-3 hover:border-purple-400/50 hover:bg-purple-900/10 transition cursor-move"
                         >
                           <p className="text-sm font-medium text-purple-300">+ Add Custom Field</p>
