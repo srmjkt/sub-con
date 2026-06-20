@@ -43,17 +43,23 @@ async function main() {
     console.log(`✅ Admin user created: ${adminUsername} / ${adminPassword}`)
     console.log(`   Email: ${adminEmail}`)
   } else {
-    // Ensure username is set (fix for users created without username)
-    if (!existingAdmin.username || existingAdmin.username !== adminUsername) {
+    // Ensure admin user has correct role, username, and password
+    const needsUpdate = 
+      !existingAdmin.username || 
+      existingAdmin.username !== adminUsername ||
+      existingAdmin.role !== 'ADMIN'
+    
+    if (needsUpdate) {
       const hashedPassword = await bcrypt.hash(adminPassword, 12)
       await prisma.user.update({
         where: { email: adminEmail },
         data: {
           username: adminUsername,
           password: hashedPassword,
+          role: 'ADMIN',
         },
       })
-      console.log(`✅ Admin user updated: username set to '${adminUsername}', password reset`)
+      console.log(`✅ Admin user fixed: username, password, and role set to ADMIN`)
     } else {
       console.log(`ℹ️  Admin user already exists: ${adminEmail}`)
     }
