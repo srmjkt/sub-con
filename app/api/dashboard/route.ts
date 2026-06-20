@@ -31,15 +31,17 @@ export async function GET(request: Request) {
   }
 
   // Fetch all data in parallel
-  const [
-    incidents,
-    attendanceRecords,
-    trainings,
-    simulations,
-    mockDrills,
-    inventory,
-  ] = await Promise.all([
-    prisma.incidentReport.findMany({
+  let incidents, attendanceRecords, trainings, simulations, mockDrills, inventory
+  try {
+    [
+      incidents,
+      attendanceRecords,
+      trainings,
+      simulations,
+      mockDrills,
+      inventory,
+    ] = await Promise.all([
+      prisma.incidentReport.findMany({
       where: branchFilter,
       include: {
         branch: { select: { id: true, name: true } },
@@ -84,15 +86,22 @@ export async function GET(request: Request) {
       orderBy: { date: 'desc' },
       take: 10,
     }),
-    prisma.inventory.findMany({
-      where: branchFilter,
-      include: {
-        branch: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-      },
-      orderBy: { itemName: 'asc' },
-    }),
-  ])
+      prisma.inventory.findMany({
+        where: branchFilter,
+        include: {
+          branch: { select: { id: true, name: true } },
+          createdBy: { select: { id: true, name: true } },
+        },
+        orderBy: { itemName: 'asc' },
+      }),
+    ])
+  } catch (queryError) {
+    console.error('[DASHBOARD] Query error:', queryError)
+    return NextResponse.json(
+      { error: 'Database query failed', details: queryError instanceof Error ? queryError.message : 'Unknown error' },
+      { status: 500 }
+    )
+  }
 
   // Get total counts for stats
   const [
