@@ -88,6 +88,8 @@ export default function BranchModuleConfigPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [expandedModule, setExpandedModule] = useState<string | null>(null)
+  const [draggedField, setDraggedField] = useState<{ moduleId: string; fieldId: string; isNew?: boolean } | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [modules, setModules] = useState([
     { id: "incidents", name: "Incident Reports", icon: "⚠️" },
     { id: "attendance", name: "Attendance", icon: "📋" },
@@ -173,26 +175,6 @@ export default function BranchModuleConfigPage() {
     setConfigs(prev => prev.filter(c => c.module !== moduleId))
   }
 
-  function moveFieldUp(moduleId: string, fieldId: string) {
-    const config = getConfig(moduleId)
-    const idx = config.customFields.findIndex(f => f.id === fieldId)
-    if (idx <= 0) return
-    const newFields = [...config.customFields]
-    ;[newFields[idx - 1], newFields[idx]] = [newFields[idx], newFields[idx - 1]]
-    newFields.forEach((f, i) => f.order = i)
-    updateConfig(moduleId, { customFields: newFields })
-  }
-
-  function moveFieldDown(moduleId: string, fieldId: string) {
-    const config = getConfig(moduleId)
-    const idx = config.customFields.findIndex(f => f.id === fieldId)
-    if (idx < 0 || idx >= config.customFields.length - 1) return
-    const newFields = [...config.customFields]
-    ;[newFields[idx], newFields[idx + 1]] = [newFields[idx + 1], newFields[idx]]
-    newFields.forEach((f, i) => f.order = i)
-    updateConfig(moduleId, { customFields: newFields })
-  }
-
   function addCustomField(moduleId: string) {
     const config = getConfig(moduleId)
     const newField: CustomField = {
@@ -207,6 +189,51 @@ export default function BranchModuleConfigPage() {
     updateConfig(moduleId, {
       customFields: [...config.customFields, newField],
     })
+  }
+
+  function handleDragStart(moduleId: string, fieldId: string, isNew: boolean = false) {
+    setDraggedField({ moduleId, fieldId, isNew })
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }
+
+  function handleDrop(moduleId: string, targetIndex: number) {
+    if (!draggedField || draggedField.moduleId !== moduleId) return
+
+    const config = getConfig(moduleId)
+    const fields = [...config.customFields]
+
+    if (draggedField.isNew) {
+      // Moving a newly added field from Available Fields
+      const fieldIndex = fields.findIndex(f => f.id === draggedField.fieldId)
+      if (fieldIndex !== -1) {
+        const [field] = fields.splice(fieldIndex, 1)
+        fields.splice(targetIndex, 0, field)
+        fields.forEach((f, i) => f.order = i)
+        updateConfig(moduleId, { customFields: fields })
+      }
+    } else {
+      // Reordering existing field
+      const currentIndex = fields.findIndex(f => f.id === draggedField.fieldId)
+      if (currentIndex !== -1 && currentIndex !== targetIndex) {
+        const [field] = fields.splice(currentIndex, 1)
+        const newTargetIndex = currentIndex < targetIndex ? targetIndex - 1 : targetIndex
+        fields.splice(newTargetIndex, 0, field)
+        fields.forEach((f, i) => f.order = i)
+        updateConfig(moduleId, { customFields: fields })
+      }
+    }
+
+    setDraggedField(null)
+    setDragOverIndex(null)
+  }
+
+  function handleDragEnd() {
+    setDraggedField(null)
+    setDragOverIndex(null)
   }
 
   function removeCustomField(moduleId: string, fieldId: string) {
@@ -439,21 +466,22 @@ export default function BranchModuleConfigPage() {
                       ) : (
                         <div className="space-y-4">
                           {config.customFields.map((field, index) => (
-                            <div key={field.id} className="rounded-lg border border-white/10 bg-slate-950/60 p-4">
+                            <div
+                              key={field.id}
+                              draggable
+                              onDragStart={() => handleDragStart(module.id, field.id)}
+                              onDragOver={(e) => handleDragOver(e, index)}
+                              onDrop={() => handleDrop(module.id, index)}
+                              onDragEnd={handleDragEnd}
+                              className={`rounded-lg border p-4 cursor-move transition ${
+                                dragOverIndex === index && draggedField?.fieldId !== field.id
+                                  ? "border-cyan-400/50 bg-cyan-400/5"
+                                  : "border-white/10 bg-slate-950/60"
+                              }`}
+                            >
                               <div className="flex items-center gap-2 mb-2">
                                 <span className="text-xs text-slate-500 font-mono">#{index + 1}</span>
-                                <button
-                                  onClick={() => moveFieldUp(module.id, field.id)}
-                                  disabled={index === 0}
-                                  className="rounded border border-white/10 bg-slate-950/50 px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
-                                  title="Move up"
-                                >↑</button>
-                                <button
-                                  onClick={() => moveFieldDown(module.id, field.id)}
-                                  disabled={index === config.customFields.length - 1}
-                                  className="rounded border border-white/10 bg-slate-950/50 px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
-                                  title="Move down"
-                                >↓</button>
+                                <span className="text-xs text-slate-600">⋮⋮</span>
                                 <button
                                   onClick={() => removeCustomField(module.id, field.id)}
                                   className="ml-auto rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 hover:bg-red-500/20"
@@ -514,14 +542,22 @@ export default function BranchModuleConfigPage() {
                         {defaults.map((defField, idx) => {
                           const isAdded = config.customFields.some(f => f.fieldName === defField.fieldName)
                           return (
-                            <button
+                            <div
                               key={idx}
-                              onClick={() => addDefaultField(module.id, defField)}
-                              disabled={isAdded}
+                              draggable
+                              onDragStart={() => {
+                                if (!isAdded) {
+                                  addDefaultField(module.id, defField)
+                                  const newField = config.customFields[config.customFields.length - 1]
+                                  if (newField) {
+                                    handleDragStart(module.id, newField.id, true)
+                                  }
+                                }
+                              }}
                               className={`text-left rounded-lg border p-3 transition ${
                                 isAdded
                                   ? "border-emerald-700/50 bg-emerald-900/20 opacity-50 cursor-not-allowed"
-                                  : "border-white/10 bg-slate-950/60 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                                  : "border-white/10 bg-slate-950/60 hover:border-cyan-400/30 hover:bg-cyan-400/5 cursor-move"
                               }`}
                             >
                               <div className="flex items-center justify-between">
@@ -530,20 +566,29 @@ export default function BranchModuleConfigPage() {
                                   <p className="text-xs text-slate-400">{defField.fieldType}</p>
                                 </div>
                                 {isAdded && <span className="text-xs text-emerald-400">✓ Added</span>}
+                                {!isAdded && <span className="text-xs text-slate-600">⋮⋮</span>}
                               </div>
                               {defField.isRequired && (
                                 <span className="inline-block mt-1 text-[10px] text-red-400">Required</span>
                               )}
-                            </button>
+                            </div>
                           )
                         })}
-                        <button
-                          onClick={() => addCustomField(module.id)}
-                          className="text-left rounded-lg border border-dashed border-purple-400/30 bg-purple-900/5 p-3 hover:border-purple-400/50 hover:bg-purple-900/10 transition"
+                        <div
+                          draggable
+                          onDragStart={() => {
+                            addCustomField(module.id)
+                            const config = getConfig(module.id)
+                            const newField = config.customFields[config.customFields.length - 1]
+                            if (newField) {
+                              handleDragStart(module.id, newField.id, true)
+                            }
+                          }}
+                          className="text-left rounded-lg border border-dashed border-purple-400/30 bg-purple-900/5 p-3 hover:border-purple-400/50 hover:bg-purple-900/10 transition cursor-move"
                         >
                           <p className="text-sm font-medium text-purple-300">+ Add Custom Field</p>
-                          <p className="text-xs text-slate-400">Create a new custom field</p>
-                        </button>
+                          <p className="text-xs text-slate-400">Drag to add to form</p>
+                        </div>
                       </div>
                     </div>
 
