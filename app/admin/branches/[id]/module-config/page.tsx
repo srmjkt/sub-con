@@ -88,15 +88,14 @@ export default function BranchModuleConfigPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [expandedModule, setExpandedModule] = useState<string | null>(null)
-
-  const modules = [
+  const [modules, setModules] = useState([
     { id: "incidents", name: "Incident Reports", icon: "⚠️" },
     { id: "attendance", name: "Attendance", icon: "📋" },
     { id: "trainings", name: "Trainings", icon: "📚" },
     { id: "simulations", name: "Simulations", icon: "🎯" },
     { id: "mockDrills", name: "Mock Drills", icon: "🚒" },
     { id: "inventory", name: "Inventory", icon: "📦" },
-  ]
+  ])
 
   const fieldTypes = [
     { value: "text", label: "Text Input" },
@@ -139,6 +138,59 @@ export default function BranchModuleConfigPage() {
     setConfigs(
       configs.map((c) => (c.module === moduleId ? { ...c, ...updates } : c))
     )
+  }
+
+  // Add custom module
+  const [showNewModuleForm, setShowNewModuleForm] = useState(false)
+  const [newModuleId, setNewModuleId] = useState("")
+  const [newModuleName, setNewModuleName] = useState("")
+  const [newModuleIcon, setNewModuleIcon] = useState("📋")
+
+  function addCustomModule() {
+    if (!newModuleId || !newModuleName) {
+      setError("Please enter both module ID and name")
+      return
+    }
+    if (modules.some(m => m.id === newModuleId)) {
+      setError(`Module "${newModuleId}" already exists`)
+      return
+    }
+    setError("")
+    setModules(prev => [...prev, { id: newModuleId, name: newModuleName, icon: newModuleIcon }])
+    setConfigs(prev => [...prev, { id: "", module: newModuleId, isEnabled: true, customFields: [] }])
+    setNewModuleId("")
+    setNewModuleName("")
+    setNewModuleIcon("📋")
+    setShowNewModuleForm(false)
+    setSuccess(`Custom module "${newModuleName}" added! Save configuration to persist.`)
+  }
+
+  function removeModule(moduleId: string) {
+    const module = modules.find(m => m.id === moduleId)
+    if (!confirm(`Are you sure you want to remove "${module?.name}"? This will also delete all field configurations for this module.`)) return
+    setModules(prev => prev.filter(m => m.id !== moduleId))
+    setConfigs(prev => prev.filter(c => c.module !== moduleId))
+  }
+
+  // Field reordering
+  function moveFieldUp(moduleId: string, fieldId: string) {
+    const config = getConfig(moduleId)
+    const idx = config.customFields.findIndex(f => f.id === fieldId)
+    if (idx <= 0) return
+    const newFields = [...config.customFields]
+    ;[newFields[idx - 1], newFields[idx]] = [newFields[idx], newFields[idx - 1]]
+    newFields.forEach((f, i) => f.order = i)
+    updateConfig(moduleId, { customFields: newFields })
+  }
+
+  function moveFieldDown(moduleId: string, fieldId: string) {
+    const config = getConfig(moduleId)
+    const idx = config.customFields.findIndex(f => f.id === fieldId)
+    if (idx < 0 || idx >= config.customFields.length - 1) return
+    const newFields = [...config.customFields]
+    ;[newFields[idx], newFields[idx + 1]] = [newFields[idx + 1], newFields[idx]]
+    newFields.forEach((f, i) => f.order = i)
+    updateConfig(moduleId, { customFields: newFields })
   }
 
   function addCustomField(moduleId: string) {
@@ -276,6 +328,62 @@ export default function BranchModuleConfigPage() {
             </div>
           )}
 
+          {/* Add / Remove Module Section */}
+          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">Manage Modules</h2>
+              <button
+                onClick={() => setShowNewModuleForm(!showNewModuleForm)}
+                className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20"
+              >
+                {showNewModuleForm ? "Cancel" : "+ Add New Module"}
+              </button>
+            </div>
+            {showNewModuleForm && (
+              <div className="mt-4 grid gap-4 md:grid-cols-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Module ID</label>
+                  <input
+                    type="text"
+                    value={newModuleId}
+                    onChange={(e) => setNewModuleId(e.target.value)}
+                    placeholder="e.g. safetyAudits"
+                    className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Module Name</label>
+                  <input
+                    type="text"
+                    value={newModuleName}
+                    onChange={(e) => setNewModuleName(e.target.value)}
+                    placeholder="e.g. Safety Audits"
+                    className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Icon (emoji)</label>
+                  <input
+                    type="text"
+                    value={newModuleIcon}
+                    onChange={(e) => setNewModuleIcon(e.target.value)}
+                    placeholder="📋"
+                    maxLength={2}
+                    className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={addCustomModule}
+                    className="w-full rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-400/20"
+                  >
+                    Create Module
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+
           {/* Module Configs */}
           {modules.map((module) => {
             const config = getConfig(module.id)
@@ -294,7 +402,14 @@ export default function BranchModuleConfigPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => removeModule(module.id)}
+                      className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20"
+                      title="Remove this module"
+                    >
+                      Remove
+                    </button>
                     <button
                       onClick={() => setExpandedModule(isExpanded ? null : module.id)}
                       className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/10"
@@ -376,8 +491,23 @@ export default function BranchModuleConfigPage() {
                         </p>
                       ) : (
                         <div className="space-y-3">
-                          {config.customFields.map((field) => (
+                          {config.customFields.map((field, index) => (
                             <div key={field.id} className="rounded-lg border border-white/10 bg-slate-950/60 p-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-xs text-slate-500 font-mono">#{index + 1}</span>
+                                <button
+                                  onClick={() => moveFieldUp(module.id, field.id)}
+                                  disabled={index === 0}
+                                  className="rounded border border-white/10 bg-slate-950/50 px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Move up"
+                                >↑</button>
+                                <button
+                                  onClick={() => moveFieldDown(module.id, field.id)}
+                                  disabled={index === config.customFields.length - 1}
+                                  className="rounded border border-white/10 bg-slate-950/50 px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Move down"
+                                >↓</button>
+                              </div>
                               <div className="grid gap-3 md:grid-cols-2">
                                 <div>
                                   <label className="block text-xs font-medium text-slate-400 mb-1">Field Label</label>
