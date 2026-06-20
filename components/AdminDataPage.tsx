@@ -59,11 +59,11 @@ export function AdminDataPage<T extends { id: string }>({
         const text = await dataRes.text()
         if (!text) {
           setData([])
-          return
+        } else {
+          const dataJson = JSON.parse(text)
+          const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
+          if (dataKey) setData(dataJson[dataKey])
         }
-        const dataJson = JSON.parse(text)
-        const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
-        if (dataKey) setData(dataJson[dataKey])
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch data"
         console.error("Failed to fetch data:", errorMessage)
