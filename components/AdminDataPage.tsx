@@ -77,8 +77,20 @@ export function AdminDataPage<T extends { id: string }>({
   }, [user, apiEndpoint])
 
   useEffect(() => {
-    if (!module || !user?.branchId) return
-    const branchId = user.branchId
+    if (!module) return
+
+    let branchId = user?.branchId
+
+    if (editingItem) {
+      const record = editingItem as Record<string, unknown>
+      const branch = record.branch as { id?: string } | undefined
+      if (branch?.id) {
+        branchId = branch.id
+      }
+    }
+
+    if (!branchId) return
+
     async function fetchCustomFields() {
       try {
         const res = await fetch(`/api/admin/branches/${branchId}/module-config`)
@@ -91,7 +103,7 @@ export function AdminDataPage<T extends { id: string }>({
       }
     }
     fetchCustomFields()
-  }, [module, user?.branchId])
+  }, [module, user?.branchId, editingItem])
 
   // Merge default fields with custom fields and sort by order
   const allFields = useMemo(() => {
