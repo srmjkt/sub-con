@@ -625,13 +625,25 @@ export default function BranchModuleConfigPage() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleSave(module.id)}
-                      disabled={saving}
-                      className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-3 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
-                    >
-                      {saving ? "Saving..." : "Save Configuration"}
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleSave(module.id)}
+                        disabled={saving}
+                        className="flex-1 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-3 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
+                      >
+                        {saving ? "Saving..." : "Save Configuration"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('Are you sure you want to cancel? All unsaved changes will be lost.')) {
+                            fetchData()
+                          }
+                        }}
+                        className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 font-medium text-slate-300 transition hover:bg-white/10"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
               </section>
