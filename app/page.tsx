@@ -3,6 +3,7 @@
 import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { SEVERITY_LABELS } from "@/lib/securityClassifier"
 
 interface NewsItem {
   id: string
@@ -15,6 +16,7 @@ interface NewsItem {
   security?: {
     isRelevant: boolean
     category: string
+    severity: string
     score: number
   }
 }
@@ -173,9 +175,14 @@ export default function HomePage() {
                         {item.source}
                       </span>
                       {item.security?.isRelevant && (
-                        <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
-                          {item.security.category}
-                        </span>
+                        <div className="flex gap-1">
+                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.bgColor || 'bg-slate-900/30 border-slate-700/50'} ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.color || 'text-slate-300'}`}>
+                            {SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.label || item.security.severity}
+                          </span>
+                          <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
+                            {item.security.category.replace(/_/g, ' ')}
+                          </span>
+                        </div>
                       )}
                     </div>
                     <h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-300 transition line-clamp-2">
