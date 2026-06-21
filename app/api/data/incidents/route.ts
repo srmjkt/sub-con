@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     include: {
       branch: { select: { id: true, name: true } },
       reportedBy: { select: { id: true, name: true } },
+      customFieldsData: true,
     },
     orderBy: { date: 'desc' },
   })

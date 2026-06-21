@@ -125,14 +125,26 @@ export function DynamicFields({ module, values, onChange }: DynamicFieldsProps) 
   )
 }
 
+const DEFAULT_FIELD_NAMES: Record<string, Set<string>> = {
+  incidents: new Set(["title", "description", "date", "severity", "status", "location"]),
+  attendance: new Set(["employeeName", "date", "status", "notes"]),
+  trainings: new Set(["title", "date", "duration", "trainer", "description", "participants"]),
+  simulations: new Set(["title", "date", "scenario", "participants", "description", "result", "notes"]),
+  mockDrills: new Set(["title", "date", "drillType", "participants", "description", "result", "notes"]),
+  inventory: new Set(["itemName", "quantity", "unit", "category", "status"]),
+}
+
 export function CustomFieldDisplay({ module, data }: { module: string; data: Record<string, string> | null }) {
   const { customFields } = useCustomFields(module)
+  const defaultFieldNames = DEFAULT_FIELD_NAMES[module] || new Set()
 
-  if (customFields.length === 0) return null
+  const extraCustomFields = customFields.filter(f => !defaultFieldNames.has(f.fieldName))
+
+  if (extraCustomFields.length === 0) return null
 
   return (
     <>
-      {customFields.map((field) => {
+      {extraCustomFields.map((field) => {
         const value = data?.[field.fieldName]
         return (
           <div key={field.id} className="mt-2">
