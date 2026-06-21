@@ -54,7 +54,7 @@ export default function HomePage() {
       <div className="container mx-auto px-4 py-16">
         {/* Top Bar */}
         <div className="flex justify-between items-center mb-8">
-          <div className="text-sm text-slate-500">Sub-Con Security System</div>
+          <div className="text-sm text-slate-500">v.2026.1.0</div>
           {user ? (
             <div className="text-sm text-slate-400">
               {user.name} ({user.role}) &middot;{" "}
@@ -72,9 +72,9 @@ export default function HomePage() {
         {/* Welcome Section */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold text-white mb-4">
-            {user ? `Welcome to Sub-Con` : "Sub-Con"}
+            {user ? `Welcome to Sub-Con` : "Security Risk Management System."}
           </h1>
-          <p className="text-xl text-slate-300">Security & Compliance Management System</p>
+          <p className="text-xl text-slate-300">Mitigate your risks. Secure your surroundings.</p>
         </div>
 
         {/* Dashboard Cards (only for logged in users) */}
@@ -199,7 +199,7 @@ export default function HomePage() {
 
         {/* Footer */}
         <div className="mt-16 text-center">
-          <p className="text-sm text-slate-500">© 2026 Sub-Con. All rights reserved.</p>
+          <p className="text-sm text-slate-500">© F4W. All rights reserved.</p>
         </div>
       </div>
     </div>

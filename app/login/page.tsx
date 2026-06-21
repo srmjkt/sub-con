@@ -107,11 +107,11 @@ export default function LoginPage() {
                   </span>
                   Secure Access
                 </div>
-                <h1 className="text-3xl font-semibold tracking-tight text-white">
-                  Sub-Con Dashboard
+                <h1 className="text-2xl font-semibold tracking-tight text-white">
+                  Security Risk Management System
                 </h1>
                 <p className="mt-2 text-sm text-slate-400">
-                  Sign in to access your branch dashboard
+                  Sign in to access your dashboard
                 </p>
               </div>
 

@@ -66,7 +66,7 @@ export function Sidebar({ role, branchName }: SidebarProps) {
             <span className="text-sm">🛡️</span>
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">Sub-Con</p>
+            <p className="text-sm font-semibold text-white">Security Risk Management System</p>
             <p className="text-[10px] text-slate-400">{roleLabel}</p>
           </div>
         </div>
