@@ -30,10 +30,10 @@ interface ModuleConfig {
 
 const DEFAULT_FIELDS: Record<string, { fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; colSpan?: number }[]> = {
   incidents: [
-    { fieldName: "title", fieldLabel: "Title", fieldType: "text", isRequired: true, colSpan: 1 },
-    { fieldName: "severity", fieldLabel: "Severity", fieldType: "select", isRequired: true, colSpan: 1 },
+    { fieldName: "title", fieldLabel: "Title", fieldType: "text", isRequired: true, colSpan: 2 },
     { fieldName: "description", fieldLabel: "Description", fieldType: "textarea", isRequired: true, colSpan: 2 },
     { fieldName: "date", fieldLabel: "Date", fieldType: "date", isRequired: true, colSpan: 1 },
+    { fieldName: "severity", fieldLabel: "Severity", fieldType: "select", isRequired: true, colSpan: 1 },
     { fieldName: "status", fieldLabel: "Status", fieldType: "select", isRequired: true, colSpan: 1 },
     { fieldName: "location", fieldLabel: "Location", fieldType: "text", isRequired: false, colSpan: 1 },
   ],
