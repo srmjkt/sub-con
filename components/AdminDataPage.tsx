@@ -96,8 +96,14 @@ export function AdminDataPage<T extends { id: string }>({
   // Merge default fields with custom fields and sort by order
   const allFields = useMemo(() => {
     if (!module) return editFields
-    
-    const merged = [...editFields]
+
+    // Assign order to default fields based on their position
+    const merged: EditField[] = editFields.map((field, index) => ({
+      ...field,
+      order: index,
+      colSpan: field.colSpan || (field.type === "textarea" ? 2 : 1),
+    }))
+
     customFields.forEach((customField: { id: string; fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null; colSpan?: number; order: number }) => {
       const existingIndex = merged.findIndex(f => f.key === customField.fieldName)
       if (existingIndex >= 0) {
@@ -127,7 +133,7 @@ export function AdminDataPage<T extends { id: string }>({
         })
       }
     })
-    
+
     return merged.sort((a: EditField & { order?: number }, b: EditField & { order?: number }) => a.order! - b.order!)
   }, [editFields, customFields, module])
 
@@ -321,73 +327,6 @@ export function AdminDataPage<T extends { id: string }>({
                   </div>
                   )
                 })}
-                {customFields.length > 0 && (
-                  <div className="md:col-span-2 mt-4 p-4 rounded-xl border border-purple-700/30 bg-purple-900/10">
-                    <h3 className="text-sm font-semibold text-purple-300 mb-3">Custom Fields</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {customFields.map((field) => (
-                        <div key={field.id}>
-                          <label className="block text-sm font-medium text-slate-300 mb-1">
-                            {field.fieldLabel}
-                            {field.isRequired && <span className="text-red-400 ml-1">*</span>}
-                          </label>
-                          {field.fieldType === "textarea" ? (
-                            <textarea
-                              value={customValues[field.fieldName] || ""}
-                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
-                              required={field.isRequired}
-                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
-                              rows={3}
-                            />
-                          ) : field.fieldType === "select" ? (
-                            <select
-                              value={customValues[field.fieldName] || ""}
-                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
-                              required={field.isRequired}
-                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
-                            >
-                              <option value="">Select {field.fieldLabel}</option>
-                              {(() => {
-                                try {
-                                  const options = JSON.parse(field.options || "[]")
-                                  return options.map((opt: string, i: number) => (
-                                    <option key={i} value={opt}>{opt}</option>
-                                  ))
-                                } catch {
-                                  return null
-                                }
-                              })()}
-                            </select>
-                          ) : field.fieldType === "number" ? (
-                            <input
-                              type="number"
-                              value={customValues[field.fieldName] || ""}
-                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
-                              required={field.isRequired}
-                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
-                            />
-                          ) : field.fieldType === "date" ? (
-                            <input
-                              type="date"
-                              value={customValues[field.fieldName] || ""}
-                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
-                              required={field.isRequired}
-                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
-                            />
-                          ) : (
-                            <input
-                              type="text"
-                              value={customValues[field.fieldName] || ""}
-                              onChange={(e) => setCustomValues(prev => ({ ...prev, [field.fieldName]: e.target.value }))}
-                              required={field.isRequired}
-                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <div className="md:col-span-2 flex gap-3">
                   <button type="submit" disabled={submitting}
                     className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
