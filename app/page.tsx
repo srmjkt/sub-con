@@ -174,7 +174,7 @@ export default function HomePage() {
                       </span>
                       {item.security?.isRelevant && (
                         <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
-                          Security
+                          {item.security.category}
                         </span>
                       )}
                     </div>
