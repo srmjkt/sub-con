@@ -19,6 +19,7 @@ export async function GET(
     include: {
       branch: { select: { id: true, name: true } },
       reportedBy: { select: { id: true, name: true } },
+      customFieldsData: true,
     },
   })
 
