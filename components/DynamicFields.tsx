@@ -138,7 +138,7 @@ export function CustomFieldDisplay({ module, data }: { module: string; data: Rec
           <div key={field.id} className="mt-2">
             <span className="text-xs text-slate-500">{field.fieldLabel}:</span>
             <span className={`text-sm ml-2 ${value ? "text-slate-300" : "text-slate-600 italic"}`}>
-              {value || "(empty)"}
+              {value ?? "(empty)"}
             </span>
           </div>
         )
