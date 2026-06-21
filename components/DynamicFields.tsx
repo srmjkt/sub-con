@@ -11,6 +11,7 @@ interface CustomField {
   isRequired: boolean
   options: string | null
   order: number
+  colSpan?: number
 }
 
 interface DynamicFieldsProps {
@@ -56,7 +57,10 @@ export function DynamicFields({ module, values, onChange }: DynamicFieldsProps) 
   return (
     <>
       {customFields.map((field) => (
-        <div key={field.id}>
+        <div
+          key={field.id}
+          className={(field.colSpan || 1) === 2 ? "md:col-span-2" : ""}
+        >
           <label className="block text-sm font-medium text-slate-300 mb-1">
             {field.fieldLabel}
             {field.isRequired && <span className="text-red-400 ml-1">*</span>}
@@ -124,17 +128,18 @@ export function DynamicFields({ module, values, onChange }: DynamicFieldsProps) 
 export function CustomFieldDisplay({ module, data }: { module: string; data: Record<string, string> | null }) {
   const { customFields } = useCustomFields(module)
 
-  if (!data || customFields.length === 0) return null
+  if (customFields.length === 0) return null
 
   return (
     <>
       {customFields.map((field) => {
-        const value = data[field.fieldName]
-        if (!value) return null
+        const value = data?.[field.fieldName]
         return (
           <div key={field.id} className="mt-2">
             <span className="text-xs text-slate-500">{field.fieldLabel}:</span>
-            <span className="text-sm text-slate-300 ml-2">{value}</span>
+            <span className={`text-sm ml-2 ${value ? "text-slate-300" : "text-slate-600 italic"}`}>
+              {value || "(empty)"}
+            </span>
           </div>
         )
       })}

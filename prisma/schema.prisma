@@ -236,6 +236,7 @@ model CustomField {
   isRequired       Boolean  @default(false)
   options          String?  // JSON array for select fields: ["option1", "option2"]
   order            Int      @default(0)
+  colSpan          Int      @default(1)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

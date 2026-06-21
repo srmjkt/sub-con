@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "CustomField" ADD COLUMN "colSpan" INTEGER NOT NULL DEFAULT 1;

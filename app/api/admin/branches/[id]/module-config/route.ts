@@ -8,11 +8,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const { id } = await params
+
+  // Inputters/viewers can only read configs for their own branch
+  if (session.role !== 'ADMIN' && session.branchId !== id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   try {
     const configs = await prisma.branchModuleConfig.findMany({
@@ -27,7 +32,7 @@ export async function GET(
 
     return NextResponse.json({ configs })
   } catch (error) {
-    console.error('[ADMIN] Fetch module configs error:', error)
+    console.error('[MODULE CONFIG] Fetch module configs error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch module configs' },
       { status: 500 }
@@ -81,6 +86,7 @@ export async function POST(
           isRequired: boolean
           options?: string
           order: number
+          colSpan?: number
         }) => ({
           moduleConfigId: config.id,
           fieldName: field.fieldName,
@@ -89,6 +95,7 @@ export async function POST(
           isRequired: field.isRequired,
           options: field.options || null,
           order: field.order,
+          colSpan: field.colSpan ?? 1,
         })),
       })
     }

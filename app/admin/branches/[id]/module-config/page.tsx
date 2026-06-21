@@ -78,6 +78,39 @@ const DEFAULT_FIELDS: Record<string, { fieldName: string; fieldLabel: string; fi
   ],
 }
 
+const FIELD_TYPES = [
+  { value: "text", label: "Text Input" },
+  { value: "textarea", label: "Text Area" },
+  { value: "number", label: "Number" },
+  { value: "date", label: "Date Picker" },
+  { value: "select", label: "Select" },
+]
+
+function createFieldId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+  return `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function normalizeColSpan(colSpan: number | undefined) {
+  return colSpan === 2 ? 2 : 1
+}
+
+function normalizeCustomFields(fields: CustomField[]) {
+  const seenIds = new Set<string>()
+  return fields.map((field, index) => {
+    const id = seenIds.has(field.id) ? createFieldId() : field.id
+    seenIds.add(id)
+    return {
+      ...field,
+      id,
+      order: index,
+      colSpan: normalizeColSpan(field.colSpan),
+    }
+  })
+}
+
 export default function BranchModuleConfigPage() {
   const { user: currentUser, loading: authLoading } = useAuth()
   const params = useParams()
@@ -118,7 +151,10 @@ export default function BranchModuleConfigPage() {
         const existing = savedConfigs.find((c: ModuleConfig) => c.module === m.id)
         const defaults = DEFAULT_FIELDS[m.id] || []
         if (existing && existing.customFields.length > 0) {
-          return existing
+          return {
+            ...existing,
+            customFields: normalizeCustomFields(existing.customFields),
+          }
         }
         const defaultCustomFields = defaults.map((def, idx) => ({
           id: `default-${m.id}-${idx}`,
@@ -197,7 +233,8 @@ export default function BranchModuleConfigPage() {
   }
 
   function handleDragStart(fieldId: string) {
-    setDraggedField({ moduleId: expandedModule!, fieldId })
+    if (!expandedModule) return
+    setDraggedField({ moduleId: expandedModule, fieldId })
   }
 
   function handleDragOver(e: React.DragEvent, fieldId: string) {
@@ -206,18 +243,19 @@ export default function BranchModuleConfigPage() {
   }
 
   function handleDrop(targetFieldId: string) {
-    if (!draggedField || draggedField.moduleId !== expandedModule) return
+    if (!draggedField || !expandedModule || draggedField.moduleId !== expandedModule) return
 
-    const config = getConfig(expandedModule!)
-    const fields = [...config.customFields]
+    const config = getConfig(expandedModule)
+    const fields = config.customFields.map(f => ({ ...f }))
     const draggedIndex = fields.findIndex(f => f.id === draggedField.fieldId)
     const targetIndex = fields.findIndex(f => f.id === targetFieldId)
 
     if (draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
       const [draggedFieldData] = fields.splice(draggedIndex, 1)
-      fields.splice(targetIndex, 0, draggedFieldData)
-      fields.forEach((f, i) => f.order = i)
-      updateConfig(expandedModule!, { customFields: fields })
+      fields.splice(targetIndex > draggedIndex ? targetIndex - 1 : targetIndex, 0, draggedFieldData)
+      updateConfig(expandedModule, {
+        customFields: fields.map((f, i) => ({ ...f, order: i })),
+      })
     }
 
     setDraggedField(null)
@@ -232,7 +270,7 @@ export default function BranchModuleConfigPage() {
   function addCustomField(moduleId: string) {
     const config = getConfig(moduleId)
     const newField: CustomField = {
-      id: `temp-${Date.now()}`,
+      id: createFieldId(),
       fieldName: `customField${config.customFields.length + 1}`,
       fieldLabel: `Custom Field ${config.customFields.length + 1}`,
       fieldType: "text",
@@ -246,9 +284,19 @@ export default function BranchModuleConfigPage() {
     })
   }
 
+  function updateCustomField(moduleId: string, fieldId: string, updates: Partial<CustomField>) {
+    const config = getConfig(moduleId)
+    const updatedFields = config.customFields.map(f =>
+      f.id === fieldId ? { ...f, ...updates } : f
+    )
+    updateConfig(moduleId, { customFields: updatedFields })
+  }
+
   function removeCustomField(moduleId: string, fieldId: string) {
     const config = getConfig(moduleId)
-    const filteredFields = config.customFields.filter((f) => f.id !== fieldId)
+    const filteredFields = config.customFields
+      .filter((f) => f.id !== fieldId)
+      .map((f, index) => ({ ...f, order: index }))
     updateConfig(moduleId, { customFields: filteredFields })
   }
 
@@ -261,14 +309,14 @@ export default function BranchModuleConfigPage() {
       return
     }
     const newField: CustomField = {
-      id: `temp-${Date.now()}`,
+      id: createFieldId(),
       fieldName: defaultField.fieldName,
       fieldLabel: defaultField.fieldLabel,
       fieldType: defaultField.fieldType,
       isRequired: defaultField.isRequired,
       options: defaultField.fieldType === "select" ? '["option1", "option2", "option3"]' : null,
       order: config.customFields.length,
-      colSpan: defaultField.colSpan || 1,
+      colSpan: normalizeColSpan(defaultField.colSpan),
     }
     updateConfig(moduleId, {
       customFields: [...config.customFields, newField],
@@ -278,7 +326,7 @@ export default function BranchModuleConfigPage() {
   function updateFieldColSpan(moduleId: string, fieldId: string, colSpan: number) {
     const config = getConfig(moduleId)
     const updatedFields = config.customFields.map(f =>
-      f.id === fieldId ? { ...f, colSpan } : f
+      f.id === fieldId ? { ...f, colSpan: normalizeColSpan(colSpan) } : f
     )
     updateConfig(moduleId, { customFields: updatedFields })
   }
@@ -478,7 +526,7 @@ export default function BranchModuleConfigPage() {
                     {/* Form Preview - Exact same layout as edit form */}
                     <div className="rounded-xl border border-cyan-400/30 bg-slate-900/50 p-6">
                       <h3 className="text-sm font-semibold text-cyan-300 mb-4">
-                        Form Preview - Same layout as edit form
+                        Form Preview
                       </h3>
                       <p className="text-xs text-slate-400 mb-4">
                         Drag fields to reorder. Click "1 col" or "2 col" to change width.
@@ -498,12 +546,9 @@ export default function BranchModuleConfigPage() {
                             return (
                               <div
                                 key={field.id}
-                                draggable
-                                onDragStart={() => handleDragStart(field.id)}
                                 onDragOver={(e) => handleDragOver(e, field.id)}
                                 onDrop={() => handleDrop(field.id)}
-                                onDragEnd={handleDragEnd}
-                                className={`rounded-lg border-2 border-dashed p-4 cursor-move transition ${
+                                className={`rounded-lg border-2 border-dashed p-4 transition ${
                                   colSpan === 2 ? "md:col-span-2" : ""
                                 } ${
                                   isDraggedOver
@@ -514,7 +559,13 @@ export default function BranchModuleConfigPage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs text-slate-500 font-mono">#{index + 1}</span>
-                                    <span className="text-xs text-slate-600 cursor-move">⋮⋮</span>
+                                    <span
+                                      draggable
+                                      onDragStart={() => handleDragStart(field.id)}
+                                      onDragEnd={handleDragEnd}
+                                      className="text-xs text-slate-600 cursor-move select-none"
+                                      title="Drag to reorder"
+                                    >⋮⋮</span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <button
@@ -571,6 +622,132 @@ export default function BranchModuleConfigPage() {
                             )
                           })}
                         </form>
+                      )}
+                    </div>
+
+                    {/* Field Settings */}
+                    <div className="rounded-xl border border-white/10 bg-slate-900/50 p-6">
+                      <h3 className="text-sm font-semibold text-white mb-2">
+                        Field Settings
+                      </h3>
+                      <p className="text-xs text-slate-400 mb-4">
+                        Edit the custom field label/name, type, options, required state, and column width before saving.
+                      </p>
+
+                      {config.customFields.length === 0 ? (
+                        <div className="text-center py-8 border-2 border-dashed border-white/10 rounded-lg">
+                          <p className="text-sm text-slate-400">No fields added yet</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {config.customFields.map((field, index) => {
+                            const colSpan = field.colSpan || 1
+
+                            return (
+                              <div
+                                key={`settings-${field.id}`}
+                                onDragOver={(e) => handleDragOver(e, field.id)}
+                                onDrop={() => handleDrop(field.id)}
+                                className="rounded-lg border border-white/10 bg-slate-950/50 p-4"
+                              >
+                                <div className="flex items-center justify-between gap-3 mb-4">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-500 font-mono">#{index + 1}</span>
+                                    <span
+                                      draggable
+                                      onDragStart={() => handleDragStart(field.id)}
+                                      onDragEnd={handleDragEnd}
+                                      className="text-sm text-slate-500 cursor-move select-none"
+                                      title="Drag to reorder"
+                                    >⋮⋮</span>
+                                    <span className="text-xs text-slate-400">Drag to reorder</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      onClick={() => updateFieldColSpan(module.id, field.id, colSpan === 1 ? 2 : 1)}
+                                      className="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300 hover:bg-white/10"
+                                      title={colSpan === 1 ? "Expand to 2 columns" : "Shrink to 1 column"}
+                                    >
+                                      {colSpan} col
+                                    </button>
+                                    <button
+                                      onClick={() => removeCustomField(module.id, field.id)}
+                                      className="rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-xs text-red-300 hover:bg-red-500/20"
+                                      title="Remove field"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-3 md:grid-cols-3">
+                                  <div>
+                                    <label className="block text-xs font-medium text-slate-400 mb-1">Field Label</label>
+                                    <input
+                                      type="text"
+                                      value={field.fieldLabel}
+                                      onChange={(e) => updateCustomField(module.id, field.id, { fieldLabel: e.target.value })}
+                                      className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                                      placeholder="e.g. Incident Location"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-slate-400 mb-1">Field Name</label>
+                                    <input
+                                      type="text"
+                                      value={field.fieldName}
+                                      onChange={(e) => updateCustomField(module.id, field.id, { fieldName: e.target.value })}
+                                      className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                                      placeholder="e.g. incidentLocation"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-slate-400 mb-1">Field Type</label>
+                                    <select
+                                      value={field.fieldType}
+                                      onChange={(e) => updateCustomField(module.id, field.id, {
+                                        fieldType: e.target.value,
+                                        options: e.target.value === "select" ? (field.options || '["option1", "option2", "option3"]') : field.options,
+                                      })}
+                                      className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                                    >
+                                      {FIELD_TYPES.map((type) => (
+                                        <option key={type.value} value={type.value}>{type.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-3 md:grid-cols-2 mt-3">
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={field.isRequired}
+                                      onChange={(e) => updateCustomField(module.id, field.id, { isRequired: e.target.checked })}
+                                      className="rounded border-white/20 bg-slate-950/50 text-cyan-400 focus:ring-cyan-400"
+                                    />
+                                    <span className="text-xs text-slate-300">Required</span>
+                                  </label>
+
+                                  {field.fieldType === "select" && (
+                                    <div className="md:col-span-2">
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">
+                                        Select Options (JSON array)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={field.options || "[]"}
+                                        onChange={(e) => updateCustomField(module.id, field.id, { options: e.target.value })}
+                                        className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                                        placeholder='["Low", "Medium", "High"]'
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       )}
                     </div>
 
