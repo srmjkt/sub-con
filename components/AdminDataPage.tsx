@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 
 interface Column<T> {
   key: string
@@ -16,6 +16,8 @@ interface EditField {
   type: "text" | "textarea" | "select" | "number" | "date"
   required?: boolean
   options?: { value: string; label: string }[]
+  colSpan?: number
+  order?: number
 }
 
 interface AdminDataPageProps<T extends { id: string }> {
@@ -48,7 +50,7 @@ export function AdminDataPage<T extends { id: string }>({
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [customFields, setCustomFields] = useState<{ id: string; fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null }[]>([])
+  const [customFields, setCustomFields] = useState<{ id: string; fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null; colSpan?: number; order: number }[]>([])
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -90,6 +92,44 @@ export function AdminDataPage<T extends { id: string }>({
     }
     fetchCustomFields()
   }, [module, user?.branchId])
+
+  // Merge default fields with custom fields and sort by order
+  const allFields = useMemo(() => {
+    if (!module) return editFields
+    
+    const merged = [...editFields]
+    customFields.forEach((customField: { id: string; fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null; colSpan?: number; order: number }) => {
+      const existingIndex = merged.findIndex(f => f.key === customField.fieldName)
+      if (existingIndex >= 0) {
+        merged[existingIndex] = {
+          ...merged[existingIndex],
+          label: customField.fieldLabel,
+          required: customField.isRequired,
+          colSpan: customField.colSpan || 1,
+          order: customField.order,
+        }
+      } else {
+        const fieldType = customField.fieldType as EditField["type"]
+        merged.push({
+          key: customField.fieldName,
+          label: customField.fieldLabel,
+          type: fieldType,
+          required: customField.isRequired,
+          order: customField.order,
+          colSpan: customField.colSpan || 1,
+          options: customField.fieldType === "select" ? (() => {
+            try {
+              return JSON.parse(customField.options || "[]").map((opt: string) => ({ value: opt, label: opt }))
+            } catch {
+              return []
+            }
+          })() : undefined,
+        })
+      }
+    })
+    
+    return merged.sort((a: EditField & { order?: number }, b: EditField & { order?: number }) => a.order! - b.order!)
+  }, [editFields, customFields, module])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -243,8 +283,10 @@ export function AdminDataPage<T extends { id: string }>({
                 {editingItem ? `Edit ${title.slice(0, -1)}` : `New ${title.slice(0, -1)}`}
               </h2>
               <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
-                {editFields.map((field) => (
-                  <div key={field.key} className={field.type === "textarea" ? "md:col-span-2" : ""}>
+                {allFields.map((field) => {
+                  const colSpan = (field as EditField & { colSpan?: number }).colSpan || (field.type === "textarea" ? 2 : 1)
+                  return (
+                  <div key={field.key} className={colSpan === 2 ? "md:col-span-2" : ""}>
                     <label className="block text-sm font-medium text-slate-300 mb-1">
                       {field.label}{field.required ? " *" : ""}
                     </label>
@@ -277,7 +319,8 @@ export function AdminDataPage<T extends { id: string }>({
                       />
                     )}
                   </div>
-                ))}
+                  )
+                })}
                 {customFields.length > 0 && (
                   <div className="md:col-span-2 mt-4 p-4 rounded-xl border border-purple-700/30 bg-purple-900/10">
                     <h3 className="text-sm font-semibold text-purple-300 mb-3">Custom Fields</h3>
