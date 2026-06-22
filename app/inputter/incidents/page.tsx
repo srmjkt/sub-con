@@ -98,7 +98,10 @@ export default function InputterIncidentsPage() {
   }
 
   useEffect(() => {
-    if (user) fetchIncidents()
+    if (user) {
+      console.log('Inputter user branch:', user.branchId, user.branch?.name)
+      fetchIncidents()
+    }
   }, [user])
 
   async function fetchEditHistory(incidentId: string) {
