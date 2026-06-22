@@ -16,10 +16,21 @@ export async function GET(
 
   const incident = await prisma.incidentReport.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      severity: true,
+      date: true,
+      location: true,
+      status: true,
+      branchId: true,
+      reportedById: true,
+      customFieldsData: true,
+      createdAt: true,
+      updatedAt: true,
       branch: { select: { id: true, name: true } },
       reportedBy: { select: { id: true, name: true } },
-      customFieldsData: true,
     },
   })
 
@@ -99,7 +110,19 @@ export async function PUT(
       ...(status !== undefined && { status }),
       ...(branchId !== undefined && session.role === 'ADMIN' && { branchId }),
     },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      severity: true,
+      date: true,
+      location: true,
+      status: true,
+      branchId: true,
+      reportedById: true,
+      customFieldsData: true,
+      createdAt: true,
+      updatedAt: true,
       branch: { select: { id: true, name: true } },
       reportedBy: { select: { id: true, name: true } },
     },
