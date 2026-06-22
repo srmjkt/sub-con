@@ -3,6 +3,7 @@
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
 import { useState, useEffect, useMemo } from "react"
+import { IncidentFileUpload } from "@/components/IncidentFileUpload"
 
 interface Column<T> {
   key: string
@@ -52,6 +53,8 @@ export function AdminDataPage<T extends { id: string }>({
   const [submitting, setSubmitting] = useState(false)
   const [customFields, setCustomFields] = useState<{ id: string; fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null; colSpan?: number; order: number }[]>([])
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
+  // For newly created incident, store ID to show file upload
+  const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -177,14 +180,20 @@ export function AdminDataPage<T extends { id: string }>({
         return
       }
       setSuccess(isEdit ? "Record updated successfully" : "Record created successfully")
-      resetForm()
-      // Refresh data
-      const dataRes = await fetch(apiEndpoint)
-      const text = await dataRes.text()
-      if (text) {
-        const dataJson = JSON.parse(text)
-        const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
-        if (dataKey) setData(dataJson[dataKey])
+
+      // If it's a new incident and module is incidents, store the ID for file upload
+      if (!isEdit && module === "incidents" && result.incident?.id) {
+        setNewlyCreatedId(result.incident.id)
+      } else {
+        resetForm()
+        // Refresh data
+        const dataRes = await fetch(apiEndpoint)
+        const text = await dataRes.text()
+        if (text) {
+          const dataJson = JSON.parse(text)
+          const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
+          if (dataKey) setData(dataJson[dataKey])
+        }
       }
     } catch {
       setError("An error occurred")
@@ -219,6 +228,7 @@ export function AdminDataPage<T extends { id: string }>({
   }
 
   function startEdit(item: T) {
+    setNewlyCreatedId(null)
     setEditingItem(item)
     const values: Record<string, string | number> = {}
     editFields.forEach((field) => {
@@ -240,11 +250,13 @@ export function AdminDataPage<T extends { id: string }>({
   function resetForm() {
     setShowForm(false)
     setEditingItem(null)
+    setNewlyCreatedId(null)
     setFormValues({})
     setCustomValues({})
   }
 
   function openCreateForm() {
+    setNewlyCreatedId(null)
     setEditingItem(null)
     setFormValues({ ...defaultFormValues })
     setCustomValues({})
@@ -339,6 +351,21 @@ export function AdminDataPage<T extends { id: string }>({
                   </div>
                   )
                 })}
+
+                {/* File upload section for incidents after creation */}
+                {module === "incidents" && newlyCreatedId && (
+                  <div className="md:col-span-2">
+                    <IncidentFileUpload incidentId={newlyCreatedId} canUpload={true} />
+                  </div>
+                )}
+
+                {/* File upload section for incidents when editing */}
+                {module === "incidents" && editingItem && (
+                  <div className="md:col-span-2">
+                    <IncidentFileUpload incidentId={editingItem.id} canUpload={true} />
+                  </div>
+                )}
+
                 <div className="md:col-span-2 flex gap-3">
                   <button type="submit" disabled={submitting}
                     className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"

@@ -52,6 +52,7 @@ export default function InputterIncidentsPage() {
   const [status, setStatus] = useState("open")
   const [submitting, setSubmitting] = useState(false)
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
+  const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
 
   function handleCustomFieldChange(fieldName: string, value: string) {
     setCustomValues(prev => ({ ...prev, [fieldName]: value }))
@@ -116,6 +117,7 @@ export default function InputterIncidentsPage() {
   }
 
   function openEditModal(incident: Incident) {
+    setNewlyCreatedId(null)
     setEditingId(incident.id)
     setEditTitle(incident.title)
     setEditDescription(incident.description)
@@ -128,6 +130,7 @@ export default function InputterIncidentsPage() {
 
   function closeEditModal() {
     setEditingId(null)
+    setNewlyCreatedId(null)
     setEditTitle("")
     setEditDescription("")
     setEditSeverity("")
@@ -205,14 +208,19 @@ export default function InputterIncidentsPage() {
         return
       }
       setSuccess("Incident report created successfully")
-      setTitle("")
-      setDescription("")
-      setSeverity("low")
-      setDate(new Date().toISOString().split("T")[0])
-      setLocation("")
-      setStatus("open")
-      setShowForm(false)
-      await fetchIncidents()
+      // Store newly created ID for file upload
+      if (data.incident?.id) {
+        setNewlyCreatedId(data.incident.id)
+      } else {
+        setTitle("")
+        setDescription("")
+        setSeverity("low")
+        setDate(new Date().toISOString().split("T")[0])
+        setLocation("")
+        setStatus("open")
+        setShowForm(false)
+        await fetchIncidents()
+      }
     } catch {
       setError("An error occurred")
     }
@@ -337,6 +345,13 @@ export default function InputterIncidentsPage() {
                     placeholder="Where the incident occurred" />
                 </div>
                 <DynamicFields module="incidents" values={customValues} onChange={handleCustomFieldChange} />
+
+                {/* File upload after incident creation */}
+                {newlyCreatedId && (
+                  <div className="md:col-span-2">
+                    <IncidentFileUpload incidentId={newlyCreatedId} canUpload={true} />
+                  </div>
+                )}
 
                 <div className="md:col-span-2">
                   <button type="submit" disabled={submitting}
