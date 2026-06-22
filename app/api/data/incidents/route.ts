@@ -21,10 +21,21 @@ export async function GET(request: Request) {
       : (getBranchFilter(session, branchId) as Parameters<typeof prisma.incidentReport.findMany>[0]['where'] | undefined)
 
     const query: Parameters<typeof prisma.incidentReport.findMany>[0] = {
-      include: {
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        severity: true,
+        date: true,
+        location: true,
+        status: true,
+        branchId: true,
+        reportedById: true,
+        customFieldsData: true,
+        createdAt: true,
+        updatedAt: true,
         branch: { select: { id: true, name: true } },
         reportedBy: { select: { id: true, name: true } },
-        customFieldsData: true,
       },
       orderBy: { date: 'desc' },
     }
