@@ -142,15 +142,19 @@ export function CustomFieldDisplay({ module, data }: { module: string; data: Rec
 
   if (extraCustomFields.length === 0) return null
 
+  const fieldsWithValues = extraCustomFields.filter(f => data?.[f.fieldName])
+
+  if (fieldsWithValues.length === 0) return null
+
   return (
     <>
-      {extraCustomFields.map((field) => {
+      {fieldsWithValues.map((field) => {
         const value = data?.[field.fieldName]
         return (
           <div key={field.id} className="mt-2">
             <span className="text-xs text-slate-500">{field.fieldLabel}:</span>
-            <span className={`text-sm ml-2 ${value ? "text-slate-300" : "text-slate-600 italic"}`}>
-              {value ?? "(empty)"}
+            <span className="text-sm ml-2 text-slate-300">
+              {value}
             </span>
           </div>
         )

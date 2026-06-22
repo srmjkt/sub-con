@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar"
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
+import { CustomFieldDisplay } from "@/components/DynamicFields"
 
 interface Incident {
   id: string
@@ -16,6 +17,7 @@ interface Incident {
   status: string
   branch: { id: string; name: string }
   reportedBy: { id: string; name: string }
+  customFieldsData: Record<string, string> | null
   createdAt: string
 }
 
@@ -158,6 +160,11 @@ export default function InputterIncidentDetailPage() {
             <div className="pt-4 border-t border-white/10">
               <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Created At</h3>
               <p className="text-white text-sm">{new Date(incident.createdAt).toLocaleString()}</p>
+            </div>
+
+            <div className="pt-4 border-t border-white/10">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Custom Fields</h3>
+              <CustomFieldDisplay module="incidents" data={incident.customFieldsData} />
             </div>
           </section>
         </div>
