@@ -64,10 +64,13 @@ export function useCustomFields(module: string) {
 
 export function DynamicFields({ module, values, onChange }: DynamicFieldsProps) {
   const { customFields, loading, error } = useCustomFields(module)
+  const { user } = useAuth()
 
   if (loading) return <p className="text-sm text-slate-400">Loading custom fields...</p>
-  if (error) return <p className="text-sm text-red-400">{error}</p>
-  if (customFields.length === 0) return null
+  if (error) return <div className="text-sm text-red-400">{error}</div>
+  if (customFields.length === 0) return <p className="text-sm text-slate-500">No custom fields configured for this module. (Branch: {user?.branchId || 'none'})</p>
+
+  console.log(`[DynamicFields] Rendering ${customFields.length} custom fields for module ${module}, branch ${user?.branchId}:`, customFields.map(f => f.fieldName))
 
   return (
     <>
