@@ -336,23 +336,26 @@ export default function BranchModuleConfigPage() {
     setError("")
     const config = getConfig(moduleId)
 
+    const payload = {
+      module: config.module,
+      isEnabled: config.isEnabled,
+      customFields: config.customFields.map((f) => ({
+        fieldName: f.fieldName,
+        fieldLabel: f.fieldLabel,
+        fieldType: f.fieldType,
+        isRequired: f.isRequired,
+        options: f.options,
+        order: f.order,
+        colSpan: f.colSpan,
+      })),
+    }
+    console.log(`[ADMIN SAVE] Saving config for module ${moduleId}:`, { fieldCount: payload.customFields.length, fields: payload.customFields.map(f => f.fieldName) })
+
     try {
       const res = await fetch(`/api/admin/branches/${branchId}/module-config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          module: config.module,
-          isEnabled: config.isEnabled,
-          customFields: config.customFields.map((f) => ({
-            fieldName: f.fieldName,
-            fieldLabel: f.fieldLabel,
-            fieldType: f.fieldType,
-            isRequired: f.isRequired,
-            options: f.options,
-            order: f.order,
-            colSpan: f.colSpan,
-          })),
-        }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) {
