@@ -46,6 +46,7 @@ export function useCustomFields(module: string) {
         const configs = data.configs || []
         const config = configs.find((c: { module: string }) => c.module === module)
         const customFields = (config?.customFields || []) as CustomField[]
+        console.log(`[useCustomFields] branch ${user.branchId} module ${module}:`, { totalConfigs: configs.length, matchedConfig: config?.module, fieldCount: customFields.length, fields: customFields.map(f => f.fieldName) })
         setFields(customFields)
         setError(null)
       } catch (error) {
