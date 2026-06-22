@@ -24,7 +24,7 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.35;
+  opacity: 0.5;
   pointer-events: none;
 }
 
@@ -34,9 +34,20 @@ body::after {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(circle at center, transparent 0%, #020617 70%);
-  opacity: 0.85;
+  background: radial-gradient(circle at center, transparent 0%, #020617 60%);
+  opacity: 0.7;
   pointer-events: none;
+}
+
+/* All pages: semi-transparent overlay on the root wrapper */
+.min-h-screen {
+  position: relative;
+}
+
+/* Override opaque gradient backgrounds to be semi-transparent */
+.min-h-screen.bg-gradient-to-b {
+  background: rgba(2, 6, 23, 0.55) !important;
+  backdrop-filter: blur(2px);
 }
 
 /* Smooth fade-in for page content */
