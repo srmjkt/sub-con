@@ -64,6 +64,7 @@ export default function InputterIncidentsPage() {
   const [editDate, setEditDate] = useState("")
   const [editLocation, setEditLocation] = useState("")
   const [editStatus, setEditStatus] = useState("")
+  const [editCustomValues, setEditCustomValues] = useState<Record<string, string>>({})
   const [editSubmitting, setEditSubmitting] = useState(false)
 
   // History state
@@ -100,6 +101,7 @@ export default function InputterIncidentsPage() {
     setEditDate(incident.date.split("T")[0])
     setEditLocation(incident.location || "")
     setEditStatus(incident.status)
+    setEditCustomValues(incident.customFieldsData || {})
   }
 
   function closeEditModal() {
@@ -110,6 +112,11 @@ export default function InputterIncidentsPage() {
     setEditDate("")
     setEditLocation("")
     setEditStatus("")
+    setEditCustomValues({})
+  }
+
+  function handleEditCustomFieldChange(fieldName: string, value: string) {
+    setEditCustomValues(prev => ({ ...prev, [fieldName]: value }))
   }
 
   async function handleEditSubmit(e: React.FormEvent) {
@@ -129,6 +136,7 @@ export default function InputterIncidentsPage() {
           date: editDate,
           location: editLocation,
           status: editStatus,
+          customFieldsData: editCustomValues,
         }),
       })
       const data = await res.json()
@@ -371,6 +379,7 @@ export default function InputterIncidentsPage() {
                     <input type="text" value={editLocation} onChange={(e) => setEditLocation(e.target.value)}
                       className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none" />
                   </div>
+                  <DynamicFields module="incidents" values={editCustomValues} onChange={handleEditCustomFieldChange} />
                   <div className="md:col-span-2 flex gap-3">
                     <button type="submit" disabled={editSubmitting}
                       className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">
