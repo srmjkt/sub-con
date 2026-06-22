@@ -14,7 +14,7 @@ body {
   min-height: 100vh;
 }
 
-/* Global background image for all pages */
+/* Global background image for all pages — brighter now */
 body::before {
   content: "";
   position: fixed;
@@ -24,30 +24,29 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.5;
+  opacity: 0.75;
   pointer-events: none;
 }
 
-/* Subtle overlay to keep content readable */
+/* Subtle vignette overlay to keep content readable — lighter now */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(circle at center, transparent 0%, #020617 60%);
-  opacity: 0.7;
+  background: radial-gradient(ellipse at center, transparent 40%, #020617 100%);
+  opacity: 0.6;
   pointer-events: none;
 }
 
-/* All pages: semi-transparent overlay on the root wrapper */
+/* All pages: remove the opaque gradient, let the body overlay handle readability */
 .min-h-screen {
   position: relative;
 }
 
-/* Override opaque gradient backgrounds to be semi-transparent */
+/* No background at all on the page wrapper — just body::before and body::after provide the visuals */
 .min-h-screen.bg-gradient-to-b {
-  background: rgba(2, 6, 23, 0.55) !important;
-  backdrop-filter: blur(2px);
+  background: transparent !important;
 }
 
 /* Smooth fade-in for page content */
