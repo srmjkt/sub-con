@@ -76,11 +76,14 @@ export function DynamicFields({ module, values, onChange }: DynamicFieldsProps) 
 
   if (extraCustomFields.length === 0) return null
 
-  console.log(`[DynamicFields] Rendering ${extraCustomFields.length} custom fields for module ${module}, branch ${user?.branchId}:`, extraCustomFields.map(f => f.fieldName))
+  // Sort by order field
+  const sortedFields = [...extraCustomFields].sort((a, b) => a.order - b.order)
+
+  console.log(`[DynamicFields] Rendering ${sortedFields.length} custom fields for module ${module}, branch ${user?.branchId}:`, sortedFields.map(f => f.fieldName))
 
   return (
     <>
-      {extraCustomFields.map((field) => (
+      {sortedFields.map((field) => (
         <div
           key={field.id}
           className={(field.colSpan || 1) === 2 ? "md:col-span-2" : ""}
@@ -88,7 +91,6 @@ export function DynamicFields({ module, values, onChange }: DynamicFieldsProps) 
           <label className="block text-sm font-medium text-slate-300 mb-1">
             {field.fieldLabel}
             {field.isRequired && <span className="text-red-400 ml-1">*</span>}
-            <span className="text-slate-500 ml-2 text-xs">(custom)</span>
           </label>
           {field.fieldType === "textarea" ? (
             <textarea

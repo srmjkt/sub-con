@@ -139,6 +139,7 @@ export function IncidentFileUpload({ incidentId, canUpload }: IncidentFileUpload
               accept="image/*,audio/*,video/*,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             />
           </label>
+          <p className="text-xs text-slate-500 mt-2">Accepted: Images, Audio, Video, PDF, Word, Excel, Text (max 10MB per file)</p>
         </div>
       )}
 
