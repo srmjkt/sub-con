@@ -5,28 +5,45 @@ import { getBranchFilter } from '@/lib/branchAccess'
 
 // GET incident reports (filtered by branch access)
 export async function GET(request: Request) {
-  const session = await getSession()
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  let session
+  try {
+    session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const branchId = searchParams.get('branchId')
+
+    // Build where clause based on role and branch access
+    const where = session.role === 'ADMIN'
+      ? (branchId ? { branchId } : undefined)
+      : (getBranchFilter(session, branchId) as Parameters<typeof prisma.incidentReport.findMany>[0]['where'] | undefined)
+
+    const query: Parameters<typeof prisma.incidentReport.findMany>[0] = {
+      include: {
+        branch: { select: { id: true, name: true } },
+        reportedBy: { select: { id: true, name: true } },
+        customFieldsData: true,
+      },
+      orderBy: { date: 'desc' },
+    }
+    if (where) query.where = where
+
+    const incidents = await prisma.incidentReport.findMany(query)
+
+    return NextResponse.json({ incidents })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : ''
+    console.error('Failed to fetch incidents:', errorMessage)
+    console.error('Stack:', errorStack)
+    console.error('Session:', session ? { userId: session.userId, role: session.role, branchId: session.branchId } : 'null')
+    return NextResponse.json(
+      { error: 'Failed to fetch incidents', details: errorMessage },
+      { status: 500 }
+    )
   }
-
-  const { searchParams } = new URL(request.url)
-  const branchId = searchParams.get('branchId')
-
-  // Build where clause based on role and branch access
-  const where: Record<string, unknown> = getBranchFilter(session, branchId)
-
-  const incidents = await prisma.incidentReport.findMany({
-    where,
-    include: {
-      branch: { select: { id: true, name: true } },
-      reportedBy: { select: { id: true, name: true } },
-      customFieldsData: true,
-    },
-    orderBy: { date: 'desc' },
-  })
-
-  return NextResponse.json({ incidents })
 }
 
 // POST create incident report (INPUTTER and ADMIN only)
