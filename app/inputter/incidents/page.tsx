@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { DynamicFields, CustomFieldDisplay } from "@/components/DynamicFields"
+import { IncidentFileUpload } from "@/components/IncidentFileUpload"
 
 interface Incident {
   id: string
@@ -336,6 +337,7 @@ export default function InputterIncidentsPage() {
                     placeholder="Where the incident occurred" />
                 </div>
                 <DynamicFields module="incidents" values={customValues} onChange={handleCustomFieldChange} />
+
                 <div className="md:col-span-2">
                   <button type="submit" disabled={submitting}
                     className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">
@@ -401,6 +403,14 @@ export default function InputterIncidentsPage() {
                       className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none" />
                   </div>
                   <DynamicFields module="incidents" values={editCustomValues} onChange={handleEditCustomFieldChange} />
+
+                  {/* File Attachments */}
+                  {editingId && (
+                    <div className="md:col-span-2">
+                      <IncidentFileUpload incidentId={editingId} canUpload={true} />
+                    </div>
+                  )}
+
                   <div className="md:col-span-2 flex gap-3">
                     <button type="submit" disabled={editSubmitting}
                       className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">

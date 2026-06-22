@@ -69,13 +69,18 @@ export function DynamicFields({ module, values, onChange }: DynamicFieldsProps) 
 
   if (loading) return <p className="text-sm text-slate-400">Loading custom fields...</p>
   if (error) return <div className="text-sm text-red-400">{error}</div>
-  if (customFields.length === 0) return <p className="text-sm text-slate-500">No custom fields configured for this module. (Branch: {user?.branchId || 'none'})</p>
 
-  console.log(`[DynamicFields] Rendering ${customFields.length} custom fields for module ${module}, branch ${user?.branchId}:`, customFields.map(f => f.fieldName))
+  // Filter out default fields so they don't duplicate the standard form fields
+  const defaultFieldNames = DEFAULT_FIELD_NAMES[module] || new Set()
+  const extraCustomFields = customFields.filter(f => !defaultFieldNames.has(f.fieldName))
+
+  if (extraCustomFields.length === 0) return null
+
+  console.log(`[DynamicFields] Rendering ${extraCustomFields.length} custom fields for module ${module}, branch ${user?.branchId}:`, extraCustomFields.map(f => f.fieldName))
 
   return (
     <>
-      {customFields.map((field) => (
+      {extraCustomFields.map((field) => (
         <div
           key={field.id}
           className={(field.colSpan || 1) === 2 ? "md:col-span-2" : ""}
