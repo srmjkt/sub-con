@@ -2,9 +2,9 @@
 
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { DynamicFields, CustomFieldDisplay } from "@/components/DynamicFields"
+import { useCustomFields, CustomFieldDisplay } from "@/components/DynamicFields"
 import { IncidentFileUpload } from "@/components/IncidentFileUpload"
 
 interface Incident {
@@ -35,6 +35,118 @@ interface EditHistory {
   }
 }
 
+const DEFAULT_FIELD_NAMES = new Set(["title", "description", "date", "severity", "status", "location"])
+const DEFAULT_FIELDS = [
+  { key: "title", label: "Title", type: "text", required: true, colSpan: 2, order: 0 },
+  { key: "description", label: "Description", type: "textarea", required: true, colSpan: 2, order: 1 },
+  { key: "date", label: "Date", type: "date", required: true, colSpan: 1, order: 2 },
+  { key: "severity", label: "Severity", type: "select", colSpan: 1, order: 3, options: ["low", "medium", "high", "critical"] },
+  { key: "status", label: "Status", type: "select", colSpan: 1, order: 4, options: ["open", "investigating", "resolved", "closed"] },
+  { key: "location", label: "Location", type: "text", colSpan: 1, order: 5 },
+]
+
+interface MergedField {
+  key: string
+  label: string
+  type: string
+  required?: boolean
+  colSpan?: number
+  order?: number
+  options?: string[]
+}
+
+function useMergedFields() {
+  const { customFields } = useCustomFields("incidents")
+
+  const allFields: MergedField[] = useMemo(() => {
+    const merged: MergedField[] = DEFAULT_FIELDS.map(f => ({ ...f }))
+
+    customFields.forEach((cf: { fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null; colSpan?: number; order: number }) => {
+      const existingIndex = merged.findIndex(f => f.key === cf.fieldName)
+      if (existingIndex >= 0) {
+        merged[existingIndex] = {
+          ...merged[existingIndex],
+          label: cf.fieldLabel,
+          required: cf.isRequired,
+          colSpan: cf.colSpan || 1,
+          order: cf.order,
+        }
+      } else if (!DEFAULT_FIELD_NAMES.has(cf.fieldName)) {
+        const field: MergedField = {
+          key: cf.fieldName,
+          label: cf.fieldLabel,
+          type: cf.fieldType,
+          required: cf.isRequired,
+          colSpan: cf.colSpan || 1,
+          order: cf.order,
+        }
+        if (cf.fieldType === "select" && cf.options) {
+          try {
+            field.options = JSON.parse(cf.options)
+          } catch { /* ignore */ }
+        }
+        merged.push(field)
+      }
+    })
+
+    return merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  }, [customFields])
+
+  return allFields
+}
+
+function renderField(
+  field: MergedField,
+  value: string,
+  onChange: (key: string, value: string) => void
+) {
+  const colSpan = field.colSpan || (field.type === "textarea" ? 2 : 1)
+  return (
+    <div key={field.key} className={colSpan === 2 ? "md:col-span-2" : ""}>
+      <label className="block text-sm font-medium text-slate-300 mb-1">
+        {field.label}{field.required ? " *" : ""}
+      </label>
+      {field.type === "textarea" ? (
+        <textarea
+          value={value || ""}
+          onChange={(e) => onChange(field.key, e.target.value)}
+          required={field.required}
+          rows={3}
+          className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none resize-none"
+        />
+      ) : field.type === "select" ? (
+        <select
+          value={value || ""}
+          onChange={(e) => onChange(field.key, e.target.value)}
+          required={field.required}
+          className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
+        >
+          {field.options?.map((opt: string) => (
+            <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+          ))}
+        </select>
+      ) : field.type === "number" ? (
+        <input
+          type="number"
+          value={value || ""}
+          onChange={(e) => onChange(field.key, e.target.value)}
+          required={field.required}
+          className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
+        />
+      ) : (
+        <input
+          type={field.type === "date" ? "date" : "text"}
+          value={value || ""}
+          onChange={(e) => onChange(field.key, e.target.value)}
+          required={field.required}
+          className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
+          placeholder={`Enter ${field.label.toLowerCase()}`}
+        />
+      )}
+    </div>
+  )
+}
+
 export default function InputterIncidentsPage() {
   const { user, loading: authLoading } = useAuth()
   const [incidents, setIncidents] = useState<Incident[]>([])
@@ -43,30 +155,17 @@ export default function InputterIncidentsPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
-  // Form state
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [severity, setSeverity] = useState("low")
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0])
-  const [location, setLocation] = useState("")
-  const [status, setStatus] = useState("open")
-  const [submitting, setSubmitting] = useState(false)
-  const [customValues, setCustomValues] = useState<Record<string, string>>({})
-  const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
+  // Merged fields
+  const allFields = useMergedFields()
 
-  function handleCustomFieldChange(fieldName: string, value: string) {
-    setCustomValues(prev => ({ ...prev, [fieldName]: value }))
-  }
+  // Form state (dynamic key-value)
+  const [formValues, setFormValues] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editTitle, setEditTitle] = useState("")
-  const [editDescription, setEditDescription] = useState("")
-  const [editSeverity, setEditSeverity] = useState("")
-  const [editDate, setEditDate] = useState("")
-  const [editLocation, setEditLocation] = useState("")
-  const [editStatus, setEditStatus] = useState("")
-  const [editCustomValues, setEditCustomValues] = useState<Record<string, string>>({})
+  const [editFormValues, setEditFormValues] = useState<Record<string, string>>({})
   const [editSubmitting, setEditSubmitting] = useState(false)
 
   // History state
@@ -101,7 +200,6 @@ export default function InputterIncidentsPage() {
 
   useEffect(() => {
     if (user) {
-      console.log('Inputter user branch:', user.branchId, user.branch?.name)
       fetchIncidents()
     }
   }, [user])
@@ -119,29 +217,30 @@ export default function InputterIncidentsPage() {
   function openEditModal(incident: Incident) {
     setNewlyCreatedId(null)
     setEditingId(incident.id)
-    setEditTitle(incident.title)
-    setEditDescription(incident.description)
-    setEditSeverity(incident.severity)
-    setEditDate(incident.date.split("T")[0])
-    setEditLocation(incident.location || "")
-    setEditStatus(incident.status)
-    setEditCustomValues(incident.customFieldsData || {})
+    const values: Record<string, string> = {
+      title: incident.title,
+      description: incident.description,
+      severity: incident.severity,
+      date: incident.date.split("T")[0],
+      location: incident.location || "",
+      status: incident.status,
+      ...(incident.customFieldsData || {}),
+    }
+    setEditFormValues(values)
   }
 
   function closeEditModal() {
     setEditingId(null)
     setNewlyCreatedId(null)
-    setEditTitle("")
-    setEditDescription("")
-    setEditSeverity("")
-    setEditDate("")
-    setEditLocation("")
-    setEditStatus("")
-    setEditCustomValues({})
+    setEditFormValues({})
   }
 
-  function handleEditCustomFieldChange(fieldName: string, value: string) {
-    setEditCustomValues(prev => ({ ...prev, [fieldName]: value }))
+  function handleFormChange(key: string, value: string) {
+    setFormValues(prev => ({ ...prev, [key]: value }))
+  }
+
+  function handleEditFormChange(key: string, value: string) {
+    setEditFormValues(prev => ({ ...prev, [key]: value }))
   }
 
   async function handleEditSubmit(e: React.FormEvent) {
@@ -150,18 +249,26 @@ export default function InputterIncidentsPage() {
     setError("")
     setEditSubmitting(true)
 
+    // Extract custom fields data
+    const customFieldsData: Record<string, string> = {}
+    Object.entries(editFormValues).forEach(([key, val]) => {
+      if (!DEFAULT_FIELD_NAMES.has(key)) {
+        customFieldsData[key] = val
+      }
+    })
+
     try {
       const res = await fetch(`/api/data/incidents/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: editTitle,
-          description: editDescription,
-          severity: editSeverity,
-          date: editDate,
-          location: editLocation,
-          status: editStatus,
-          customFieldsData: editCustomValues,
+          title: editFormValues.title,
+          description: editFormValues.description,
+          severity: editFormValues.severity || "low",
+          date: editFormValues.date,
+          location: editFormValues.location,
+          status: editFormValues.status || "open",
+          customFieldsData,
         }),
       })
       const data = await res.json()
@@ -195,11 +302,27 @@ export default function InputterIncidentsPage() {
     setSuccess("")
     setSubmitting(true)
 
+    // Extract custom fields data
+    const customFieldsData: Record<string, string> = {}
+    Object.entries(formValues).forEach(([key, val]) => {
+      if (!DEFAULT_FIELD_NAMES.has(key)) {
+        customFieldsData[key] = val
+      }
+    })
+
     try {
       const res = await fetch("/api/data/incidents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, severity, date, location, status, customFieldsData: customValues }),
+        body: JSON.stringify({
+          title: formValues.title,
+          description: formValues.description,
+          severity: formValues.severity || "low",
+          date: formValues.date,
+          location: formValues.location,
+          status: formValues.status || "open",
+          customFieldsData,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -212,12 +335,7 @@ export default function InputterIncidentsPage() {
       if (data.incident?.id) {
         setNewlyCreatedId(data.incident.id)
       } else {
-        setTitle("")
-        setDescription("")
-        setSeverity("low")
-        setDate(new Date().toISOString().split("T")[0])
-        setLocation("")
-        setStatus("open")
+        setFormValues({})
         setShowForm(false)
         await fetchIncidents()
       }
@@ -301,50 +419,7 @@ export default function InputterIncidentsPage() {
             <section className="rounded-[28px] border border-cyan-400/20 bg-white/5 p-6 backdrop-blur">
               <h2 className="text-lg font-semibold text-white mb-4">New Incident Report</h2>
               <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Title *</label>
-                  <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
-                    placeholder="Brief description of the incident" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Description *</label>
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} required rows={3}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none resize-none"
-                    placeholder="Detailed description of the incident" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Date *</label>
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Severity</label>
-                  <select value={severity} onChange={(e) => setSeverity(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none">
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
-                  <select value={status} onChange={(e) => setStatus(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none">
-                    <option value="open">Open</option>
-                    <option value="investigating">Investigating</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Location</label>
-                  <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
-                    placeholder="Where the incident occurred" />
-                </div>
-                <DynamicFields module="incidents" values={customValues} onChange={handleCustomFieldChange} />
+                {allFields.map(field => renderField(field, formValues[field.key] || "", handleFormChange))}
 
                 {/* File upload after incident creation */}
                 {newlyCreatedId && (
@@ -377,47 +452,7 @@ export default function InputterIncidentsPage() {
                   </button>
                 </div>
                 <form onSubmit={handleEditSubmit} className="grid gap-4 md:grid-cols-2">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Title *</label>
-                    <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required
-                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Description *</label>
-                    <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} required rows={3}
-                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none resize-none" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Date *</label>
-                    <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} required
-                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Severity</label>
-                    <select value={editSeverity} onChange={(e) => setEditSeverity(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none">
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
-                    <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none">
-                      <option value="open">Open</option>
-                      <option value="investigating">Investigating</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="closed">Closed</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Location</label>
-                    <input type="text" value={editLocation} onChange={(e) => setEditLocation(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none" />
-                  </div>
-                  <DynamicFields module="incidents" values={editCustomValues} onChange={handleEditCustomFieldChange} />
+                  {allFields.map(field => renderField(field, editFormValues[field.key] || "", handleEditFormChange))}
 
                   {/* File Attachments */}
                   {editingId && (
