@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { CustomFieldDisplay } from "@/components/DynamicFields"
+import { IncidentFileUpload } from "@/components/IncidentFileUpload"
 
 interface Incident {
   id: string
@@ -167,6 +168,9 @@ export default function InputterIncidentDetailPage() {
               <CustomFieldDisplay module="incidents" data={incident.customFieldsData} />
             </div>
           </section>
+
+          {/* Attachments */}
+          <IncidentFileUpload incidentId={incident.id} canUpload={true} />
         </div>
       </main>
     </div>

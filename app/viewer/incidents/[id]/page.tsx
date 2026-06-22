@@ -4,6 +4,8 @@ import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
+import Link from "next/link"
+import { IncidentFileUpload } from "@/components/IncidentFileUpload"
 
 interface Incident {
   id: string
@@ -15,6 +17,7 @@ interface Incident {
   status: string
   branch: { id: string; name: string }
   reportedBy: { id: string; name: string }
+  customFieldsData: Record<string, string> | null
   createdAt: string
 }
 
@@ -61,7 +64,7 @@ export default function ViewerIncidentDetailPage() {
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 text-lg mb-4">{error}</p>
-          <a href="/viewer/incidents" className="text-cyan-400 hover:underline">Back to incidents</a>
+          <Link href="/viewer/incidents" className="text-cyan-400 hover:underline">Back to incidents</Link>
         </div>
       </div>
     )
@@ -72,7 +75,7 @@ export default function ViewerIncidentDetailPage() {
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <div className="text-center">
           <p className="text-slate-400 text-lg mb-4">Incident not found</p>
-          <a href="/viewer/incidents" className="text-cyan-400 hover:underline">Back to incidents</a>
+          <Link href="/viewer/incidents" className="text-cyan-400 hover:underline">Back to incidents</Link>
         </div>
       </div>
     )
@@ -99,9 +102,9 @@ export default function ViewerIncidentDetailPage() {
       <main className="ml-64 p-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Back button */}
-          <a href="/viewer/incidents" className="inline-flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition">
+          <Link href="/viewer/incidents" className="inline-flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition">
             ← Back to incidents
-          </a>
+          </Link>
 
           {/* Header */}
           <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-sky-950/30 backdrop-blur">
@@ -152,7 +155,26 @@ export default function ViewerIncidentDetailPage() {
               <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Created At</h3>
               <p className="text-white text-sm">{new Date(incident.createdAt).toLocaleString()}</p>
             </div>
+
+            <div className="pt-4 border-t border-white/10">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Custom Fields</h3>
+              {incident.customFieldsData && Object.keys(incident.customFieldsData).length > 0 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(incident.customFieldsData).map(([key, value]) => (
+                    <div key={key}>
+                      <span className="text-xs text-slate-500">{key}:</span>
+                      <span className="text-sm ml-2 text-slate-300">{value || "(empty)"}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">No custom fields data</p>
+              )}
+            </div>
           </section>
+
+          {/* Attachments (read-only) */}
+          <IncidentFileUpload incidentId={incident.id} canUpload={false} />
         </div>
       </main>
     </div>

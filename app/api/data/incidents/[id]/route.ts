@@ -74,7 +74,7 @@ export async function PUT(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { title, description, severity, date, location, status, branchId } =
+  const { title, description, severity, date, location, status, branchId, customFieldsData } =
     await request.json()
 
   // Track changes for edit history
@@ -109,6 +109,7 @@ export async function PUT(
       ...(location !== undefined && { location: location || null }),
       ...(status !== undefined && { status }),
       ...(branchId !== undefined && session.role === 'ADMIN' && { branchId }),
+      ...(customFieldsData !== undefined && { customFieldsData }),
     },
     select: {
       id: true,
