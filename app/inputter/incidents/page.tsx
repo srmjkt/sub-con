@@ -73,9 +73,27 @@ export default function InputterIncidentsPage() {
   const [loadingHistory, setLoadingHistory] = useState(false)
 
   async function fetchIncidents() {
-    const res = await fetch("/api/data/incidents")
-    const data = await res.json()
-    setIncidents(data.incidents || [])
+    try {
+      const res = await fetch("/api/data/incidents")
+      if (!res.ok) {
+        const text = await res.text()
+        console.error("Failed to fetch incidents:", res.status, text)
+        setIncidents([])
+        setLoading(false)
+        return
+      }
+      const text = await res.text()
+      if (!text) {
+        setIncidents([])
+        setLoading(false)
+        return
+      }
+      const data = JSON.parse(text)
+      setIncidents(data.incidents || [])
+    } catch (err) {
+      console.error("Failed to parse incidents:", err)
+      setIncidents([])
+    }
     setLoading(false)
   }
 
