@@ -24,6 +24,7 @@ export function useCustomFields(module: string) {
   const { user } = useAuth()
   const [fields, setFields] = useState<CustomField[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchFields() {
@@ -33,25 +34,39 @@ export function useCustomFields(module: string) {
       }
       try {
         const res = await fetch(`/api/admin/branches/${user.branchId}/module-config`)
+        if (!res.ok) {
+          const text = await res.text()
+          console.error("Module config fetch failed:", res.status, text)
+          setFields([])
+          setError("Failed to load field configuration")
+          setLoading(false)
+          return
+        }
         const data = await res.json()
         const configs = data.configs || []
         const config = configs.find((c: { module: string }) => c.module === module)
-        setFields(config?.customFields || [])
+        const customFields = (config?.customFields || []) as CustomField[]
+        setFields(customFields)
+        setError(null)
       } catch (error) {
         console.error("Failed to fetch custom fields:", error)
+        setError("Failed to load custom fields")
+        setFields([])
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     fetchFields()
   }, [user, module])
 
-  return { customFields: fields, loading }
+  return { customFields: fields, loading, error }
 }
 
 export function DynamicFields({ module, values, onChange }: DynamicFieldsProps) {
-  const { customFields, loading } = useCustomFields(module)
+  const { customFields, loading, error } = useCustomFields(module)
 
   if (loading) return <p className="text-sm text-slate-400">Loading custom fields...</p>
+  if (error) return <p className="text-sm text-red-400">{error}</p>
   if (customFields.length === 0) return null
 
   return (
