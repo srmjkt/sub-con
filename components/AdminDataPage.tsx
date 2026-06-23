@@ -355,7 +355,16 @@ export function AdminDataPage<T extends { id: string }>({
                 {/* File upload section for incidents after creation */}
                 {module === "incidents" && newlyCreatedId && (
                   <div className="md:col-span-2">
+                    <div className="rounded-2xl border border-emerald-400/30 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-300 mb-4">
+                      ✓ Record created successfully! You can now attach files below.
+                    </div>
                     <IncidentFileUpload incidentId={newlyCreatedId} canUpload={true} />
+                    <div className="mt-4">
+                      <button type="button" onClick={resetForm}
+                        className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20">
+                        Done - Back to List
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -366,18 +375,21 @@ export function AdminDataPage<T extends { id: string }>({
                   </div>
                 )}
 
-                <div className="md:col-span-2 flex gap-3">
-                  <button type="submit" disabled={submitting}
-                    className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
-                  >
-                    {submitting ? "Saving..." : (editingItem ? "Update Record" : "Create Record")}
-                  </button>
-                  <button type="button" onClick={resetForm}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-6 py-2.5 font-medium text-slate-400 transition hover:bg-white/10"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                {/* Only show submit/cancel when not in post-creation file upload mode */}
+                {!(module === "incidents" && newlyCreatedId) && (
+                  <div className="md:col-span-2 flex gap-3">
+                    <button type="submit" disabled={submitting}
+                      className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
+                    >
+                      {submitting ? "Saving..." : (editingItem ? "Update Record" : "Create Record")}
+                    </button>
+                    <button type="button" onClick={resetForm}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-6 py-2.5 font-medium text-slate-400 transition hover:bg-white/10"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </form>
             </section>
           )}

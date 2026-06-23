@@ -421,19 +421,29 @@ export default function InputterIncidentsPage() {
               <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
                 {allFields.map(field => renderField(field, formValues[field.key] || "", handleFormChange))}
 
-                {/* File upload after incident creation */}
-                {newlyCreatedId && (
+                {newlyCreatedId ? (
+                  <>
+                    <div className="md:col-span-2">
+                      <div className="rounded-2xl border border-emerald-400/30 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-300 mb-4">
+                        ✓ Incident report created successfully! You can now attach files below.
+                      </div>
+                      <IncidentFileUpload incidentId={newlyCreatedId} canUpload={true} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <button type="button" onClick={() => { setShowForm(false); setNewlyCreatedId(null); setFormValues({}); fetchIncidents(); }}
+                        className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20">
+                        Done - Back to List
+                      </button>
+                    </div>
+                  </>
+                ) : (
                   <div className="md:col-span-2">
-                    <IncidentFileUpload incidentId={newlyCreatedId} canUpload={true} />
+                    <button type="submit" disabled={submitting}
+                      className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">
+                      {submitting ? "Submitting..." : "Submit Report"}
+                    </button>
                   </div>
                 )}
-
-                <div className="md:col-span-2">
-                  <button type="submit" disabled={submitting}
-                    className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">
-                    {submitting ? "Submitting..." : "Submit Report"}
-                  </button>
-                </div>
               </form>
             </section>
           )}
