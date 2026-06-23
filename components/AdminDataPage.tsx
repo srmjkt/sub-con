@@ -5,6 +5,11 @@ import { Sidebar } from "@/components/Sidebar"
 import { useState, useEffect, useMemo } from "react"
 import { IncidentFileUpload } from "@/components/IncidentFileUpload"
 
+interface Branch {
+  id: string
+  name: string
+}
+
 interface Column<T> {
   key: string
   label: string
@@ -53,6 +58,9 @@ export function AdminDataPage<T extends { id: string }>({
   const [submitting, setSubmitting] = useState(false)
   const [customFields, setCustomFields] = useState<{ id: string; fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null; colSpan?: number; order: number }[]>([])
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
+  // For admin create form: branch selection
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("")
   // For newly created incident, store ID to show file upload
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
 
@@ -77,12 +85,19 @@ export function AdminDataPage<T extends { id: string }>({
       setLoading(false)
     }
     fetchData()
+
+    // Fetch branches for admin
+    if (user.role === 'ADMIN') {
+      fetch('/api/admin/branches').then(res => res.json()).then(data => {
+        setBranches(data.branches || [])
+      }).catch(() => {})
+    }
   }, [user, apiEndpoint])
 
   useEffect(() => {
     if (!module) return
 
-    let branchId = user?.branchId
+    let branchId = selectedBranchId || user?.branchId
 
     if (editingItem) {
       const record = editingItem as Record<string, unknown>
@@ -106,7 +121,7 @@ export function AdminDataPage<T extends { id: string }>({
       }
     }
     fetchCustomFields()
-  }, [module, user?.branchId, editingItem])
+  }, [module, user?.branchId, editingItem, selectedBranchId])
 
   // Merge default fields with custom fields and sort by order
   const allFields = useMemo(() => {
@@ -163,9 +178,13 @@ export function AdminDataPage<T extends { id: string }>({
       const url = isEdit ? `${apiEndpoint}/${editingItem!.id}` : apiEndpoint
       const method = isEdit ? "PUT" : "POST"
 
-      const payload = { ...formValues }
+      const payload: Record<string, unknown> = { ...formValues }
       if (customFields.length > 0) {
-        ;(payload as Record<string, unknown>).customFieldsData = customValues
+        payload.customFieldsData = customValues
+      }
+      // Include branchId for admin creating a new record
+      if (!editingItem && user?.role === 'ADMIN' && selectedBranchId) {
+        payload.branchId = selectedBranchId
       }
 
       const res = await fetch(url, {
@@ -260,6 +279,7 @@ export function AdminDataPage<T extends { id: string }>({
     setEditingItem(null)
     setFormValues({ ...defaultFormValues })
     setCustomValues({})
+    setSelectedBranchId("")
     setShowForm(true)
     setError("")
     setSuccess("")
@@ -313,6 +333,23 @@ export function AdminDataPage<T extends { id: string }>({
                 {editingItem ? `Edit ${title.slice(0, -1)}` : `New ${title.slice(0, -1)}`}
               </h2>
               <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+                {/* Branch selector for admin creating new record */}
+                {!editingItem && user?.role === 'ADMIN' && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Branch *</label>
+                    <select
+                      value={selectedBranchId}
+                      onChange={(e) => setSelectedBranchId(e.target.value)}
+                      required
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm focus:border-cyan-400/50 focus:outline-none"
+                    >
+                      <option value="">Select a branch...</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {allFields.map((field) => {
                   const colSpan = (field as EditField & { colSpan?: number }).colSpan || (field.type === "textarea" ? 2 : 1)
                   return (
