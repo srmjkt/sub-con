@@ -58,10 +58,8 @@ export function AdminDataPage<T extends { id: string }>({
   const [submitting, setSubmitting] = useState(false)
   const [customFields, setCustomFields] = useState<{ id: string; fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null; colSpan?: number; order: number }[]>([])
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
-  // For admin create form: branch selection
   const [branches, setBranches] = useState<Branch[]>([])
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
-  // For newly created incident, store ID to show file upload
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -86,7 +84,6 @@ export function AdminDataPage<T extends { id: string }>({
     }
     fetchData()
 
-    // Fetch branches for admin
     if (user.role === 'ADMIN') {
       fetch('/api/admin/branches').then(res => res.json()).then(data => {
         setBranches(data.branches || [])
@@ -127,14 +124,13 @@ export function AdminDataPage<T extends { id: string }>({
   const allFields = useMemo(() => {
     if (!module) return editFields
 
-    // Assign order to default fields based on their position
     const merged: EditField[] = editFields.map((field, index) => ({
       ...field,
       order: index,
       colSpan: field.colSpan || (field.type === "textarea" ? 2 : 1),
     }))
 
-    customFields.forEach((customField: { id: string; fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null; colSpan?: number; order: number }) => {
+    customFields.forEach((customField) => {
       const existingIndex = merged.findIndex(f => f.key === customField.fieldName)
       if (existingIndex >= 0) {
         merged[existingIndex] = {
@@ -164,8 +160,58 @@ export function AdminDataPage<T extends { id: string }>({
       }
     })
 
-    return merged.sort((a: EditField & { order?: number }, b: EditField & { order?: number }) => a.order! - b.order!)
+    return merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   }, [editFields, customFields, module])
+
+  // Generate dynamic columns for custom fields
+  const dynamicCustomFieldColumns = useMemo(() => {
+    if (!module) return []
+    const defaultKeys = new Set(editFields.map(f => f.key))
+    return customFields
+      .filter((cf) => !defaultKeys.has(cf.fieldName))
+      .sort((a, b) => a.order - b.order)
+      .map((cf) => ({ key: cf.fieldName, label: cf.fieldLabel }))
+  }, [customFields, editFields, module])
+
+  // Merge static columns with dynamic custom field columns, sorted by order
+  const mergedColumns = useMemo(() => {
+    if (!module || dynamicCustomFieldColumns.length === 0) return columns
+
+    const result: typeof columns = []
+
+    const orderedKeys = allFields
+      .filter(f => f.key !== 'branchId' && f.key !== 'reportedById')
+      .map(f => f.key)
+
+    const colMap = new Map<string, typeof columns[0]>()
+    columns.forEach(col => colMap.set(col.key, col))
+
+    orderedKeys.forEach(key => {
+      const staticCol = colMap.get(key)
+      if (staticCol) {
+        result.push(staticCol)
+      }
+      const dynCol = dynamicCustomFieldColumns.find(dc => dc.key === key)
+      if (dynCol) {
+        result.push({
+          key: dynCol.key,
+          label: dynCol.label,
+          render: (item: T) => {
+            const val = (item as unknown as Record<string, unknown>).customFieldsData as Record<string, string> | undefined
+            return val?.[dynCol.key] || "-"
+          },
+        })
+      }
+    })
+
+    columns.forEach(col => {
+      if (!result.find(r => r.key === col.key)) {
+        result.push(col)
+      }
+    })
+
+    return result
+  }, [columns, dynamicCustomFieldColumns, allFields, editFields, module])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -182,7 +228,6 @@ export function AdminDataPage<T extends { id: string }>({
       if (customFields.length > 0) {
         payload.customFieldsData = customValues
       }
-      // Include branchId for admin creating a new record
       if (!editingItem && user?.role === 'ADMIN' && selectedBranchId) {
         payload.branchId = selectedBranchId
       }
@@ -200,12 +245,10 @@ export function AdminDataPage<T extends { id: string }>({
       }
       setSuccess(isEdit ? "Record updated successfully" : "Record created successfully")
 
-      // If it's a new incident and module is incidents, store the ID for file upload
       if (!isEdit && module === "incidents" && result.incident?.id) {
         setNewlyCreatedId(result.incident.id)
       } else {
         resetForm()
-        // Refresh data
         const dataRes = await fetch(apiEndpoint)
         const text = await dataRes.text()
         if (text) {
@@ -233,7 +276,6 @@ export function AdminDataPage<T extends { id: string }>({
         return
       }
       setSuccess("Record deleted successfully")
-      // Refresh data
       const dataRes = await fetch(apiEndpoint)
       const text = await dataRes.text()
       if (text) {
@@ -251,12 +293,11 @@ export function AdminDataPage<T extends { id: string }>({
     setEditingItem(item)
     const values: Record<string, string | number> = {}
     editFields.forEach((field) => {
-      const val = (item as Record<string, unknown>)[field.key]
+      const val = (item as unknown as Record<string, unknown>)[field.key]
       values[field.key] = val !== null && val !== undefined ? (typeof val === "string" ? val : String(val)) : ""
     })
-    // Load custom field values
-    if ((item as Record<string, unknown>).customFieldsData) {
-      setCustomValues((item as Record<string, unknown>).customFieldsData as Record<string, string>)
+    if ((item as unknown as Record<string, unknown>).customFieldsData) {
+      setCustomValues((item as unknown as Record<string, unknown>).customFieldsData as Record<string, string>)
     } else {
       setCustomValues({})
     }
@@ -284,6 +325,11 @@ export function AdminDataPage<T extends { id: string }>({
     setError("")
     setSuccess("")
   }
+
+  const cols = mergedColumns
+
+  // Use mergedColumns for rendering
+  const tableColumns = cols
 
   if (authLoading || loading) {
     return (
@@ -333,7 +379,6 @@ export function AdminDataPage<T extends { id: string }>({
                 {editingItem ? `Edit ${title.slice(0, -1)}` : `New ${title.slice(0, -1)}`}
               </h2>
               <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
-                {/* Branch selector for admin creating new record */}
                 {!editingItem && user?.role === 'ADMIN' && (
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-300 mb-1">Branch *</label>
@@ -389,7 +434,6 @@ export function AdminDataPage<T extends { id: string }>({
                   )
                 })}
 
-                {/* File upload section for incidents after creation */}
                 {module === "incidents" && newlyCreatedId && (
                   <div className="md:col-span-2">
                     <div className="rounded-2xl border border-emerald-400/30 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-300 mb-4">
@@ -405,14 +449,12 @@ export function AdminDataPage<T extends { id: string }>({
                   </div>
                 )}
 
-                {/* File upload section for incidents when editing */}
                 {module === "incidents" && editingItem && (
                   <div className="md:col-span-2">
                     <IncidentFileUpload incidentId={editingItem.id} canUpload={true} />
                   </div>
                 )}
 
-                {/* Only show submit/cancel when not in post-creation file upload mode */}
                 {!(module === "incidents" && newlyCreatedId) && (
                   <div className="md:col-span-2 flex gap-3">
                     <button type="submit" disabled={submitting}
@@ -443,7 +485,7 @@ export function AdminDataPage<T extends { id: string }>({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/10">
-                      {columns.map((col) => (
+                      {tableColumns.map((col) => (
                         <th key={col.key} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
                           {col.label}
                         </th>
@@ -456,9 +498,9 @@ export function AdminDataPage<T extends { id: string }>({
                   <tbody className="divide-y divide-white/5">
                     {data.map((item) => (
                       <tr key={item.id} className="hover:bg-white/5 transition">
-                        {columns.map((col) => (
+                        {tableColumns.map((col) => (
                           <td key={col.key} className="px-4 py-3 text-slate-300">
-                            {col.render ? col.render(item) : String((item as Record<string, unknown>)[col.key] ?? "-")}
+                            {col.render ? col.render(item) : String((item as unknown as Record<string, unknown>)[col.key] ?? "-")}
                           </td>
                         ))}
                         <td className="px-4 py-3">
