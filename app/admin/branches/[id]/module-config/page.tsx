@@ -122,7 +122,7 @@ export default function BranchModuleConfigPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [expandedModule, setExpandedModule] = useState<string | null>(null)
-  const [draggedField, setDraggedField] = useState<{ moduleId: string; fieldId: string } | null>(null)
+const [draggedField, setDraggedField] = useState<{moduleId: string; fieldId: string} | null>(null);
   const [dragOverFieldId, setDragOverFieldId] = useState<string | null>(null)
   const [modules, setModules] = useState([
     { id: "incidents", name: "Incident Reports", icon: "⚠️" },

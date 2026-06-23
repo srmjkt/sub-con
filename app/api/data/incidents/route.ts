@@ -70,8 +70,8 @@ export async function POST(request: Request) {
     )
   }
 
-  const { title, description, severity, date, location, status, branchId, customFieldsData } =
-    await request.json()
+  const body: any = await request.json()
+  const { title, description, severity, date, location, status, branchId, customFieldsData } = body
 
   if (!title || !description || !date) {
     return NextResponse.json(

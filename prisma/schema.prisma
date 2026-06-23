@@ -105,6 +105,7 @@ model IncidentReport {
   severity    String   @default("low") // low, medium, high, critical
   date        DateTime
   location    String?
+  incidentReportNumber String?
   status      String   @default("open") // open, investigating, resolved, closed
   reportedById String
   reportedBy  User     @relation(fields: [reportedById], references: [id], onDelete: Cascade)

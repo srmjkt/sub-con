@@ -65,6 +65,20 @@ export async function PUT(
 
   const existing = await prisma.incidentReport.findUnique({
     where: { id },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      severity: true,
+      date: true,
+      location: true,
+      status: true,
+      branchId: true,
+      reportedById: true,
+      customFieldsData: true,
+      incidentReportNumber: true, // <-- Explicitly select the new field for type safety
+      // Other fields can be added here if needed for comparison logic later
+    }
   })
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -74,7 +88,7 @@ export async function PUT(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { title, description, severity, date, location, status, branchId, customFieldsData } =
+  const { title, description, severity, date, location, status, branchId, customFieldsData, incidentReportNumber } =
     await request.json()
 
   // Track changes for edit history
@@ -99,6 +113,12 @@ export async function PUT(
     changes.push({ fieldName: 'status', oldValue: existing.status, newValue: status })
   }
 
+  // Safely compare against potential null/undefined existing field
+  const existingReportNumber = existing.incidentReportNumber ?? null;
+  if (incidentReportNumber !== undefined && String(incidentReportNumber).trim() !== String(existingReportNumber).trim()) {
+    changes.push({ fieldName: 'incidentReportNumber', oldValue: existing.incidentReportNumber || null, newValue: incidentReportNumber })
+  }
+
   const incident = await prisma.incidentReport.update({
     where: { id },
     data: {
@@ -107,9 +127,11 @@ export async function PUT(
       ...(severity !== undefined && { severity }),
       ...(date !== undefined && { date: new Date(date) }),
       ...(location !== undefined && { location: location || null }),
-      ...(status !== undefined && { status }),
+       ...(status !== undefined && { status }),
+      // Ensure type safety and handle empty/null strings when updating
+      ...(typeof incidentReportNumber === 'string' && incidentReportNumber.trim() !== '' && { incidentReportNumber: incidentReportNumber.trim() }),
       ...(branchId !== undefined && session.role === 'ADMIN' && { branchId }),
-      ...(customFieldsData !== undefined && { customFieldsData }),
+     ...(customFieldsData !== undefined && { customFieldsData }),
     },
     select: {
       id: true,
