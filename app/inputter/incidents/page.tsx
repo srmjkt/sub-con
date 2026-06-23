@@ -15,6 +15,7 @@ interface Incident {
   date: string
   location: string | null
   status: string
+  incidentReportNumber: string | null
   branch: { id: string; name: string }
   reportedBy: { id: string; name: string }
   customFieldsData: Record<string, string> | null
@@ -35,7 +36,7 @@ interface EditHistory {
   }
 }
 
-const DEFAULT_FIELD_NAMES = new Set(["title", "description", "date", "severity", "status", "location"])
+const DEFAULT_FIELD_NAMES = new Set(["title", "description", "date", "severity", "status", "location", "incidentReportNumber"])
 const DEFAULT_FIELDS = [
   { key: "title", label: "Title", type: "text", required: true, colSpan: 2, order: 0 },
   { key: "description", label: "Description", type: "textarea", required: true, colSpan: 2, order: 1 },
@@ -43,6 +44,7 @@ const DEFAULT_FIELDS = [
   { key: "severity", label: "Severity", type: "select", colSpan: 1, order: 3, options: ["low", "medium", "high", "critical"] },
   { key: "status", label: "Status", type: "select", colSpan: 1, order: 4, options: ["open", "investigating", "resolved", "closed"] },
   { key: "location", label: "Location", type: "text", colSpan: 1, order: 5 },
+  { key: "incidentReportNumber", label: "Incident Report Number", type: "text", colSpan: 1, order: 6 },
 ]
 
 interface MergedField {
@@ -224,6 +226,7 @@ export default function InputterIncidentsPage() {
       date: incident.date.split("T")[0],
       location: incident.location || "",
       status: incident.status,
+      incidentReportNumber: incident.incidentReportNumber || "",
       ...(incident.customFieldsData || {}),
     }
     setEditFormValues(values)
@@ -268,6 +271,7 @@ export default function InputterIncidentsPage() {
           date: editFormValues.date,
           location: editFormValues.location,
           status: editFormValues.status || "open",
+          incidentReportNumber: editFormValues.incidentReportNumber,
           customFieldsData,
         }),
       })
@@ -321,6 +325,7 @@ export default function InputterIncidentsPage() {
           date: formValues.date,
           location: formValues.location,
           status: formValues.status || "open",
+          incidentReportNumber: formValues.incidentReportNumber,
           customFieldsData,
         }),
       })

@@ -27,6 +27,7 @@ export async function GET(
       branchId: true,
       reportedById: true,
       customFieldsData: true,
+      incidentReportNumber: true,
       createdAt: true,
       updatedAt: true,
       branch: { select: { id: true, name: true } },
@@ -128,8 +129,8 @@ export async function PUT(
       ...(date !== undefined && { date: new Date(date) }),
       ...(location !== undefined && { location: location || null }),
        ...(status !== undefined && { status }),
-      // Ensure type safety and handle empty/null strings when updating
-      ...(typeof incidentReportNumber === 'string' && incidentReportNumber.trim() !== '' && { incidentReportNumber: incidentReportNumber.trim() }),
+      // Handle incidentReportNumber: update if defined (including null to clear the field)
+      ...(incidentReportNumber !== undefined && { incidentReportNumber: incidentReportNumber === '' ? null : incidentReportNumber }),
       ...(branchId !== undefined && session.role === 'ADMIN' && { branchId }),
      ...(customFieldsData !== undefined && { customFieldsData }),
     },
