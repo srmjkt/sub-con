@@ -94,6 +94,29 @@ export function AdminDataPage<T extends { id: string }>({
   useEffect(() => {
     if (!module) return
 
+    // For admin viewing list, fetch custom fields from all branches
+    if (user?.role === 'ADMIN' && !editingItem && !selectedBranchId && branches.length > 0) {
+      async function fetchAllCustomFields() {
+        try {
+          const allConfigs = await Promise.all(
+            branches.map(b =>
+              fetch(`/api/admin/branches/${b.id}/module-config`)
+                .then(res => res.json())
+                .then(data => data.configs || [])
+                .catch(() => [])
+            )
+          )
+          const merged = allConfigs.flat()
+          const config = merged.find((c: { module: string }) => c.module === module)
+          setCustomFields(config?.customFields || [])
+        } catch (error) {
+          console.error("Failed to fetch custom fields:", error)
+        }
+      }
+      fetchAllCustomFields()
+      return
+    }
+
     let branchId = selectedBranchId || user?.branchId
 
     if (editingItem) {
@@ -118,7 +141,7 @@ export function AdminDataPage<T extends { id: string }>({
       }
     }
     fetchCustomFields()
-  }, [module, user?.branchId, editingItem, selectedBranchId])
+  }, [module, user?.role, user?.branchId, editingItem, selectedBranchId, branches])
 
   // Merge default fields with custom fields and sort by order
   const allFields = useMemo(() => {
