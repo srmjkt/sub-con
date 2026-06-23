@@ -167,21 +167,31 @@ export function AdminDataPage<T extends { id: string }>({
   const dynamicCustomFieldColumns = useMemo(() => {
     if (!module) return []
     const defaultKeys = new Set(editFields.map(f => f.key))
-    return customFields
+    const filtered = customFields
       .filter((cf) => !defaultKeys.has(cf.fieldName))
       .sort((a, b) => a.order - b.order)
       .map((cf) => ({ key: cf.fieldName, label: cf.fieldLabel }))
+    if (filtered.length > 0) {
+      console.log('[AdminDataPage] Dynamic custom field columns:', filtered)
+    }
+    return filtered
   }, [customFields, editFields, module])
 
   // Merge static columns with dynamic custom field columns, sorted by order
   const mergedColumns = useMemo(() => {
-    if (!module || dynamicCustomFieldColumns.length === 0) return columns
+    if (!module || dynamicCustomFieldColumns.length === 0) {
+      console.log('[AdminDataPage] No dynamic columns, using static columns')
+      return columns
+    }
 
     const result: typeof columns = []
 
     const orderedKeys = allFields
       .filter(f => f.key !== 'branchId' && f.key !== 'reportedById')
       .map(f => f.key)
+
+    console.log('[AdminDataPage] Ordered field keys:', orderedKeys)
+    console.log('[AdminDataPage] Dynamic custom field columns:', dynamicCustomFieldColumns)
 
     const colMap = new Map<string, typeof columns[0]>()
     columns.forEach(col => colMap.set(col.key, col))
@@ -210,6 +220,7 @@ export function AdminDataPage<T extends { id: string }>({
       }
     })
 
+    console.log('[AdminDataPage] Final merged columns:', result.map(c => c.key))
     return result
   }, [columns, dynamicCustomFieldColumns, allFields, editFields, module])
 
