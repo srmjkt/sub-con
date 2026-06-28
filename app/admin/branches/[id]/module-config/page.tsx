@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 
 // --- Types Definition ---
 
@@ -265,6 +265,11 @@ const BranchModuleConfigPage: React.FC = () => {
       alert(`Module configuration for ${moduleConfig.module} saved successfully!`);
     }, [moduleConfig]);
 
+    const handleCancel = useCallback(() => {
+      // Reload the page or navigate back to reset any changes
+      window.location.reload();
+    }, []);
+
   // Drag and drop handlers removed
 
 
@@ -318,6 +323,13 @@ const BranchModuleConfigPage: React.FC = () => {
                   disabled={!moduleConfig.isEnabled} 
               >
                   Save Changes
+              </button>
+              {/* Cancel Button */}
+              <button 
+                  onClick={handleCancel} 
+                  className="w-full py-3 text-white rounded transition bg-red-500 hover:bg-red-600 font-medium"
+              >
+                  Cancel
               </button>
               {/* Placeholder for module switching/settings tabs */} 
                <div className="border p-3 rounded bg-white shadow">
