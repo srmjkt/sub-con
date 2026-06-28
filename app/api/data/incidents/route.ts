@@ -16,13 +16,19 @@ export async function GET(request: Request) {
     const branchId = searchParams.get('branchId')
 
     // Build where clause based on role and branch access
-    const where = session.role === 'ADMIN'
+    const rawWhere = session.role === 'ADMIN'
       ? (branchId ? { branchId } : undefined)
-      : (getBranchFilter(session, branchId) as Parameters<typeof prisma.incidentReport.findMany>[0]['where'] | undefined)
+      : (getBranchFilter(session, branchId) as any)
+
+    // Remove null/undefined values from filter to avoid Prisma type errors
+    const where = rawWhere && typeof rawWhere === 'object'
+      ? Object.fromEntries(Object.entries(rawWhere).filter(([, v]) => v !== null && v !== undefined))
+      : (rawWhere || {})
 
     const query: Parameters<typeof prisma.incidentReport.findMany>[0] = {
       select: {
         id: true,
+        incidentReportNumber: true,
         title: true,
         description: true,
         severity: true,
@@ -71,13 +77,15 @@ export async function POST(request: Request) {
   }
 
   const body: any = await request.json()
-  const { title, description, severity, date, location, status, branchId, customFieldsData } = body
+  const { title, description, severity, date, location, status, branchId, customFieldsData, incidentReportNumber, isDraft } = body
 
-  if (!title || !description || !date) {
-    return NextResponse.json(
-      { error: 'Title, description, and date are required' },
-      { status: 400 }
-    )
+  if (!isDraft) {
+    if (!title || !description || !date) {
+      return NextResponse.json(
+        { error: 'Title, description, and date are required' },
+        { status: 400 }
+      )
+    }
   }
 
   // Determine the target branch
@@ -92,11 +100,12 @@ export async function POST(request: Request) {
 
   const incident = await prisma.incidentReport.create({
     data: {
-      title: title.trim(),
-      description: description.trim(),
+      title: title?.trim() || '',
+      description: description?.trim() || '',
       severity: severity || 'low',
-      date: new Date(date),
+      date: date ? new Date(date) : new Date(),
       location: location || null,
+      incidentReportNumber: incidentReportNumber || null,
       status: status || 'open',
       branchId: targetBranchId,
       reportedById: session.userId,

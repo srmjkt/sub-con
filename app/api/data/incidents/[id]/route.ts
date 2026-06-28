@@ -31,7 +31,7 @@ export async function GET(
       createdAt: true,
       updatedAt: true,
       branch: { select: { id: true, name: true } },
-      reportedBy: { select: { id: true, name: true } },
+      reportedBy: { select: { id: true, name: true } }
     },
   })
 
@@ -78,7 +78,6 @@ export async function PUT(
       reportedById: true,
       customFieldsData: true,
       incidentReportNumber: true, // <-- Explicitly select the new field for type safety
-      // Other fields can be added here if needed for comparison logic later
     }
   })
   if (!existing) {
@@ -89,8 +88,8 @@ export async function PUT(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { title, description, severity, date, location, status, branchId, customFieldsData, incidentReportNumber } =
-    await request.json()
+  const body = await request.json()
+  const { title, description, severity, date, location, status, branchId, customFieldsData, incidentReportNumber } = body
 
   // Track changes for edit history
   const changes: { fieldName: string; oldValue: string | null; newValue: string | null }[] = []
@@ -114,11 +113,14 @@ export async function PUT(
     changes.push({ fieldName: 'status', oldValue: existing.status, newValue: status })
   }
 
-  // Safely compare against potential null/undefined existing field
+  // Safely compare against potential null/undefined existing field and handle empty string input gracefully.
   const existingReportNumber = existing.incidentReportNumber ?? null;
-  if (incidentReportNumber !== undefined && String(incidentReportNumber).trim() !== String(existingReportNumber).trim()) {
-    changes.push({ fieldName: 'incidentReportNumber', oldValue: existing.incidentReportNumber || null, newValue: incidentReportNumber })
+  let currentReportNumberValue: any = incidentReportNumber === undefined ? undefined : (typeof incidentReportNumber === 'string' && incidentReportNumber.trim() === '' ? '' : String(incidentReportNumber));
+
+  if (currentReportNumberValue !== undefined && String(currentReportNumberValue).trim() !== String(existingReportNumber).trim()) {
+    changes.push({ fieldName: 'incidentReportNumber', oldValue: existing.incidentReportNumber ?? null, newValue: currentReportNumberValue })
   }
+
 
   const incident = await prisma.incidentReport.update({
     where: { id },
@@ -129,10 +131,11 @@ export async function PUT(
       ...(date !== undefined && { date: new Date(date) }),
       ...(location !== undefined && { location: location || null }),
        ...(status !== undefined && { status }),
-      // Handle incidentReportNumber: update if defined (including null to clear the field)
-      ...(incidentReportNumber !== undefined && { incidentReportNumber: incidentReportNumber === '' ? null : incidentReportNumber }),
+      // Handle incidentReportNumber: If provided, update. Set to NULL if the input is an empty string.
+      ...(incidentReportNumber !== undefined && { incidentReportNumber: (incidentReportNumber === '' ? null : incidentReportNumber) }),
       ...(branchId !== undefined && session.role === 'ADMIN' && { branchId }),
-     ...(customFieldsData !== undefined && { customFieldsData }),
+     // Custom fields are handled dynamically here, allowing for unlimited keys and graceful null handling upon deletion.
+    ...(customFieldsData !== undefined && { customFieldsData }),
     },
     select: {
       id: true,
@@ -145,6 +148,7 @@ export async function PUT(
       branchId: true,
       reportedById: true,
       customFieldsData: true,
+      incidentReportNumber: true,
       createdAt: true,
       updatedAt: true,
       branch: { select: { id: true, name: true } },
@@ -167,6 +171,7 @@ export async function PUT(
 
   return NextResponse.json({ incident })
 }
+
 
 // DELETE incident (ADMIN only)
 export async function DELETE(

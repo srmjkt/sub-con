@@ -1,12 +1,10 @@
 "use client"
-
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { useCustomFields, CustomFieldDisplay } from "@/components/DynamicFields"
 import { IncidentFileUpload } from "@/components/IncidentFileUpload"
-
 interface Incident {
   id: string
   title: string
@@ -21,7 +19,6 @@ interface Incident {
   customFieldsData: Record<string, string> | null
   createdAt: string
 }
-
 interface EditHistory {
   id: string
   fieldName: string
@@ -35,8 +32,11 @@ interface EditHistory {
     email: string
   }
 }
-
 const DEFAULT_FIELD_NAMES = new Set(["title", "description", "date", "severity", "status", "location", "incidentReportNumber"])
+// Normalized set for case-insensitive and space-insensitive matching
+const DEFAULT_FIELD_NAMES_NORMALIZED = new Set(
+  Array.from(DEFAULT_FIELD_NAMES).map(name => name.toLowerCase().replace(/\s+/g, ''))
+)
 const DEFAULT_FIELDS = [
   { key: "title", label: "Title", type: "text", required: true, colSpan: 2, order: 0 },
   { key: "description", label: "Description", type: "textarea", required: true, colSpan: 2, order: 1 },
@@ -46,7 +46,6 @@ const DEFAULT_FIELDS = [
   { key: "location", label: "Location", type: "text", colSpan: 1, order: 5 },
   { key: "incidentReportNumber", label: "Incident Report Number", type: "text", colSpan: 1, order: 6 },
 ]
-
 interface MergedField {
   key: string
   label: string
@@ -56,15 +55,13 @@ interface MergedField {
   order?: number
   options?: string[]
 }
-
 function useMergedFields() {
   const { customFields } = useCustomFields("incidents")
-
   const allFields: MergedField[] = useMemo(() => {
     const merged: MergedField[] = DEFAULT_FIELDS.map(f => ({ ...f }))
-
     customFields.forEach((cf: { fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; options: string | null; colSpan?: number; order: number }) => {
-      const existingIndex = merged.findIndex(f => f.key === cf.fieldName)
+      const normalizedCfKey = cf.fieldName.toLowerCase().replace(/\s+/g, '')
+      const existingIndex = merged.findIndex(f => f.key.toLowerCase().replace(/\s+/g, '') === normalizedCfKey)
       if (existingIndex >= 0) {
         merged[existingIndex] = {
           ...merged[existingIndex],
@@ -73,7 +70,7 @@ function useMergedFields() {
           colSpan: cf.colSpan || 1,
           order: cf.order,
         }
-      } else if (!DEFAULT_FIELD_NAMES.has(cf.fieldName)) {
+      } else if (!DEFAULT_FIELD_NAMES_NORMALIZED.has(normalizedCfKey)) {
         const field: MergedField = {
           key: cf.fieldName,
           label: cf.fieldLabel,
@@ -90,13 +87,10 @@ function useMergedFields() {
         merged.push(field)
       }
     })
-
     return merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   }, [customFields])
-
   return allFields
 }
-
 function renderField(
   field: MergedField,
   value: string,
@@ -148,33 +142,60 @@ function renderField(
     </div>
   )
 }
-
 export default function InputterIncidentsPage() {
   const { user, loading: authLoading } = useAuth()
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [draftId, setDraftId] = useState<string | null>(null)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-
   // Merged fields
   const allFields = useMergedFields()
-
   // Form state (dynamic key-value)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
-
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editFormValues, setEditFormValues] = useState<Record<string, string>>({})
   const [editSubmitting, setEditSubmitting] = useState(false)
-
   // History state
   const [historyIncidentId, setHistoryIncidentId] = useState<string | null>(null)
+
+  const [success, setSuccess] = useState("")
   const [editHistory, setEditHistory] = useState<EditHistory[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
-
+  // Create draft incident when form opens for file upload
+  useEffect(() => {
+    if (showForm && !draftId && !editingId && !newlyCreatedId) {
+      createDraftIncident()
+    }
+  }, [showForm])
+  async function createDraftIncident() {
+    try {
+      const branchId = user?.branchId
+      if (!branchId) return
+      const res = await fetch("/api/data/incidents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "(draft)",
+          description: "(draft)",
+          date: new Date().toISOString().split("T")[0],
+          branchId,
+          status: "open",
+          severity: "low",
+          isDraft: true,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.incident?.id) {
+        setDraftId(data.incident.id)
+      }
+    } catch (err) {
+      console.error("Failed to create draft:", err)
+    }
+  }
   async function fetchIncidents() {
     try {
       const res = await fetch("/api/data/incidents")
@@ -199,13 +220,11 @@ export default function InputterIncidentsPage() {
     }
     setLoading(false)
   }
-
   useEffect(() => {
     if (user) {
       fetchIncidents()
     }
   }, [user])
-
   async function fetchEditHistory(incidentId: string) {
     setLoadingHistory(true)
     const res = await fetch(`/api/data/incidents/${incidentId}/edits`)
@@ -215,10 +234,19 @@ export default function InputterIncidentsPage() {
     }
     setLoadingHistory(false)
   }
-
   function openEditModal(incident: Incident) {
     setNewlyCreatedId(null)
     setEditingId(incident.id)
+    // Strip any default field names from customFieldsData to prevent UI duplicates
+    const filteredCustomData: Record<string, string> = {}
+    if (incident.customFieldsData) {
+      Object.entries(incident.customFieldsData).forEach(([key, val]) => {
+        const normalizedKey = key.toLowerCase().replace(/\s+/g, '')
+        if (!DEFAULT_FIELD_NAMES_NORMALIZED.has(normalizedKey)) {
+          filteredCustomData[key] = val
+        }
+      })
+    }
     const values: Record<string, string> = {
       title: incident.title,
       description: incident.description,
@@ -227,39 +255,34 @@ export default function InputterIncidentsPage() {
       location: incident.location || "",
       status: incident.status,
       incidentReportNumber: incident.incidentReportNumber || "",
-      ...(incident.customFieldsData || {}),
+      ...filteredCustomData,
     }
     setEditFormValues(values)
   }
-
   function closeEditModal() {
     setEditingId(null)
     setNewlyCreatedId(null)
     setEditFormValues({})
   }
-
   function handleFormChange(key: string, value: string) {
     setFormValues(prev => ({ ...prev, [key]: value }))
   }
-
   function handleEditFormChange(key: string, value: string) {
     setEditFormValues(prev => ({ ...prev, [key]: value }))
   }
-
   async function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!editingId) return
     setError("")
     setEditSubmitting(true)
-
-    // Extract custom fields data
+    // Extract custom fields data (use normalized check to prevent duplicates)
     const customFieldsData: Record<string, string> = {}
     Object.entries(editFormValues).forEach(([key, val]) => {
-      if (!DEFAULT_FIELD_NAMES.has(key)) {
+      const normalizedKey = key.toLowerCase().replace(/\s+/g, '')
+      if (!DEFAULT_FIELD_NAMES_NORMALIZED.has(normalizedKey)) {
         customFieldsData[key] = val
       }
     })
-
     try {
       const res = await fetch(`/api/data/incidents/${editingId}`, {
         method: "PUT",
@@ -289,7 +312,6 @@ export default function InputterIncidentsPage() {
     }
     setEditSubmitting(false)
   }
-
   function toggleHistory(incidentId: string) {
     if (historyIncidentId === incidentId) {
       setHistoryIncidentId(null)
@@ -299,24 +321,26 @@ export default function InputterIncidentsPage() {
       fetchEditHistory(incidentId)
     }
   }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
     setSuccess("")
     setSubmitting(true)
-
-    // Extract custom fields data
+    // Extract custom fields data (use normalized check to prevent duplicates)
     const customFieldsData: Record<string, string> = {}
     Object.entries(formValues).forEach(([key, val]) => {
-      if (!DEFAULT_FIELD_NAMES.has(key)) {
+      const normalizedKey = key.toLowerCase().replace(/\s+/g, '')
+      if (!DEFAULT_FIELD_NAMES_NORMALIZED.has(normalizedKey)) {
         customFieldsData[key] = val
       }
     })
 
     try {
-      const res = await fetch("/api/data/incidents", {
-        method: "POST",
+      const isDraft = !!draftId
+      const url = isDraft ? `/api/data/incidents/${draftId}` : "/api/data/incidents"
+      const method = isDraft ? "PUT" : "POST"
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: formValues.title,
@@ -331,39 +355,40 @@ export default function InputterIncidentsPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || "Failed to create incident report")
+        setError(data.error || "Failed to save incident report")
         setSubmitting(false)
         return
       }
-      setSuccess("Incident report created successfully")
-      // Store newly created ID for file upload
-      if (data.incident?.id) {
+      setSuccess(isDraft ? "Incident report saved successfully" : "Incident report created successfully")
+      // Transfer draft ID to newlyCreatedId so upload keeps working
+      if (isDraft && draftId) {
+        setNewlyCreatedId(draftId)
+        setDraftId(null)
+      } else if (data.incident?.id) {
         setNewlyCreatedId(data.incident.id)
       } else {
         setFormValues({})
         setShowForm(false)
         await fetchIncidents()
       }
+
     } catch {
       setError("An error occurred")
     }
     setSubmitting(false)
   }
-
   const severityColors: Record<string, string> = {
     low: "border-slate-700/50 bg-slate-900/30 text-slate-300",
     medium: "border-yellow-700/50 bg-yellow-900/30 text-yellow-300",
     high: "border-orange-700/50 bg-orange-900/30 text-orange-300",
     critical: "border-red-700/50 bg-red-900/30 text-red-300",
   }
-
   const statusColors: Record<string, string> = {
     open: "border-red-700/50 bg-red-900/30 text-red-300",
     investigating: "border-yellow-700/50 bg-yellow-900/30 text-yellow-300",
     resolved: "border-emerald-700/50 bg-emerald-900/30 text-emerald-300",
     closed: "border-slate-700/50 bg-slate-900/30 text-slate-300",
   }
-
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
@@ -371,9 +396,7 @@ export default function InputterIncidentsPage() {
       </div>
     )
   }
-
   if (!user) return null
-
   if (!user.branchId) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
@@ -384,11 +407,9 @@ export default function InputterIncidentsPage() {
       </div>
     )
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
       <Sidebar role={user.role} branchName={user.branch?.name} />
-
       <main className="ml-64 p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Header */}
@@ -410,7 +431,6 @@ export default function InputterIncidentsPage() {
               </button>
             </div>
           </section>
-
           {/* Messages */}
           {error && (
             <div className="rounded-2xl border border-red-700/50 bg-red-900/30 px-4 py-3 text-sm text-red-300">{error}</div>
@@ -418,41 +438,35 @@ export default function InputterIncidentsPage() {
           {success && (
             <div className="rounded-2xl border border-emerald-700/50 bg-emerald-900/30 px-4 py-3 text-sm text-emerald-300">{success}</div>
           )}
-
           {/* Create Form */}
           {showForm && (
             <section className="rounded-[28px] border border-cyan-400/20 bg-white/5 p-6 backdrop-blur">
-              <h2 className="text-lg font-semibold text-white mb-4">New Incident Report</h2>
-              <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+              <h2 className="text-lg font-semibold text-white mb-4">
+                {newlyCreatedId ? "Incident Report" : "New Incident Report"}
+              </h2>
+              <form onSubmit={newlyCreatedId ? (e) => e.preventDefault() : handleSubmit} className="grid gap-4 md:grid-cols-2">
                 {allFields.map(field => renderField(field, formValues[field.key] || "", handleFormChange))}
-
-                {newlyCreatedId ? (
-                  <>
-                    <div className="md:col-span-2">
-                      <div className="rounded-2xl border border-emerald-400/30 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-300 mb-4">
-                        ✓ Incident report created successfully! You can now attach files below.
-                      </div>
-                      <IncidentFileUpload incidentId={newlyCreatedId} canUpload={true} />
-                    </div>
-                    <div className="md:col-span-2">
-                      <button type="button" onClick={() => { setShowForm(false); setNewlyCreatedId(null); setFormValues({}); fetchIncidents(); }}
-                        className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20">
-                        Done - Back to List
-                      </button>
-                    </div>
-                  </>
-                ) : (
+                {(draftId || newlyCreatedId) && (
                   <div className="md:col-span-2">
+                    <IncidentFileUpload incidentId={draftId || newlyCreatedId!} canUpload={true} />
+                  </div>
+                )}
+                <div className="md:col-span-2 flex gap-3">
+                  {(newlyCreatedId || draftId) ? (
+                    <button type="button" onClick={() => { setShowForm(false); setDraftId(null); setNewlyCreatedId(null); setFormValues({}); fetchIncidents(); }}
+                      className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20">
+                      Done - Back to List
+                    </button>
+                  ) : (
                     <button type="submit" disabled={submitting}
                       className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">
                       {submitting ? "Submitting..." : "Submit Report"}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </form>
             </section>
           )}
-
           {/* Edit Modal */}
           {editingId && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -468,14 +482,12 @@ export default function InputterIncidentsPage() {
                 </div>
                 <form onSubmit={handleEditSubmit} className="grid gap-4 md:grid-cols-2">
                   {allFields.map(field => renderField(field, editFormValues[field.key] || "", handleEditFormChange))}
-
                   {/* File Attachments */}
                   {editingId && (
                     <div className="md:col-span-2">
                       <IncidentFileUpload incidentId={editingId} canUpload={true} />
                     </div>
                   )}
-
                   <div className="md:col-span-2 flex gap-3">
                     <button type="submit" disabled={editSubmitting}
                       className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">
@@ -490,7 +502,6 @@ export default function InputterIncidentsPage() {
               </div>
             </div>
           )}
-
           {/* Incidents List */}
           <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
             <h2 className="text-lg font-semibold text-white mb-4">
@@ -546,7 +557,6 @@ export default function InputterIncidentsPage() {
                         </button>
                       </div>
                     </div>
-
                     {/* Edit History */}
                     {historyIncidentId === incident.id && (
                       <div className="mt-4 pt-4 border-t border-white/10">

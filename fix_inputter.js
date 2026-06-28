@@ -1,0 +1,1 @@
+const fs = require(\"fs\");const f = \"c:\\sub-con\\app\\inputter\\incidents\\page.tsx\";let c = fs.readFileSync(f, \"utf8\");c = c.replace(/const \\[error, setError\\] = useState\\(\\\\\"\\\\\"\\)/, \"const [error, setError] = useState(\"\")\");fs.writeFileSync(f, c);

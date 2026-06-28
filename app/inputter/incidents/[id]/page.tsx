@@ -16,6 +16,7 @@ interface Incident {
   date: string
   location: string | null
   status: string
+  incidentReportNumber: string | null
   branch: { id: string; name: string }
   reportedBy: { id: string; name: string }
   customFieldsData: Record<string, string> | null

@@ -152,7 +152,7 @@ export function DynamicFields({ module, values, onChange }: DynamicFieldsProps) 
 }
 
 const DEFAULT_FIELD_NAMES: Record<string, Set<string>> = {
-  incidents: new Set(["title", "description", "date", "severity", "status", "location"]),
+  incidents: new Set(["title", "description", "date", "severity", "status", "location", "incidentReportNumber"]),
   attendance: new Set(["employeeName", "date", "status", "notes"]),
   trainings: new Set(["title", "date", "duration", "trainer", "description", "participants"]),
   simulations: new Set(["title", "date", "scenario", "participants", "description", "result", "notes"]),

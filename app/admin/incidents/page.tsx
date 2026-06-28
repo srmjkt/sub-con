@@ -4,6 +4,7 @@ import { AdminDataPage } from "@/components/AdminDataPage"
 
 interface Incident {
   id: string
+  incidentReportNumber: string | null
   title: string
   description: string
   severity: string
@@ -37,6 +38,7 @@ export default function AdminIncidentsPage() {
       apiEndpoint="/api/data/incidents"
       module="incidents"
       columns={[
+        { key: "incidentReportNumber", label: "Report Number", render: (item) => item.incidentReportNumber || "-" },
         { key: "title", label: "Title" },
         {
           key: "severity",
@@ -62,6 +64,7 @@ export default function AdminIncidentsPage() {
         { key: "reportedBy", label: "Reported By", render: (item) => item.reportedBy?.name || "-" },
       ]}
       editFields={[
+                  { key: "incidentReportNumber", label: "Incident Report Number", type: "text", required: true },
         { key: "title", label: "Title", type: "text", required: true },
         { key: "description", label: "Description", type: "textarea", required: true },
         { key: "date", label: "Date", type: "date", required: true },
