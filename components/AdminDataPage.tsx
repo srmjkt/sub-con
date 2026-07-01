@@ -19,7 +19,7 @@ interface Column<T> {
 interface EditField {
   key: string
   label: string
-  type: "text" | "textarea" | "select" | "number" | "date"
+  type: "text" | "textarea" | "select" | "number" | "date" | "email" | "checkbox"
   required?: boolean
   options?: { value: string; label: string }[]
   colSpan?: number
@@ -35,6 +35,8 @@ interface AdminDataPageProps<T extends { id: string }> {
   emptyMessage?: string
   defaultFormValues?: Record<string, string | number>
   module?: string
+  searchable?: boolean
+  searchPlaceholder?: string
 }
 
 interface EditHistory {
@@ -60,10 +62,13 @@ export function AdminDataPage<T extends { id: string }>({
   emptyMessage = "No data available yet.",
   defaultFormValues = {},
   module,
+  searchable = false,
+  searchPlaceholder = "Search...",
 }: AdminDataPageProps<T>) {
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = useState<T[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState<T | null>(null)
   const [formValues, setFormValues] = useState<Record<string, string | number>>({})
@@ -536,6 +541,33 @@ export function AdminDataPage<T extends { id: string }>({
     setSuccess("")
   }
 
+  // Filter data based on search query
+  const filteredData = useMemo(() => {
+    if (!searchQuery.trim()) return data
+    const query = searchQuery.toLowerCase().trim()
+    return data.filter((item) => {
+      // Search across all string fields of the item
+      const record = item as unknown as Record<string, unknown>
+      for (const key in record) {
+        const val = record[key]
+        if (typeof val === 'string' && val.toLowerCase().includes(query)) {
+          return true
+        }
+        // Also search in nested objects like branch name
+        if (typeof val === 'object' && val !== null) {
+          const nested = val as Record<string, unknown>
+          for (const nk in nested) {
+            const nv = nested[nk]
+            if (typeof nv === 'string' && nv.toLowerCase().includes(query)) {
+              return true
+            }
+          }
+        }
+      }
+      return false
+    })
+  }, [data, searchQuery])
+
   const cols = mergedColumns
 
   // Use mergedColumns for rendering
@@ -710,7 +742,18 @@ export function AdminDataPage<T extends { id: string }>({
 
           {/* Data Table */}
           <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
-            <h2 className="text-lg font-semibold text-white mb-4">{title} ({data.length})</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">{title} ({data.length})</h2>
+              {searchable && (
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  className="w-72 rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2 text-sm text-white placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
+                />
+              )}
+            </div>
             {data.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-400">{emptyMessage}</p>
@@ -731,7 +774,17 @@ export function AdminDataPage<T extends { id: string }>({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {data.map((item) => (
+                    {(() => {
+                      if (filteredData.length === 0 && searchQuery.trim()) {
+                        return (
+                          <tr>
+                            <td colSpan={tableColumns.length + 1} className="px-4 py-12 text-center text-slate-400">
+                              No results found for "{searchQuery}"
+                            </td>
+                          </tr>
+                        )
+                      }
+                      return filteredData.map((item) => (
                       <React.Fragment key={item.id}>
                       <tr className="hover:bg-white/5 transition">
                         {tableColumns.map((col) => (
@@ -800,7 +853,8 @@ export function AdminDataPage<T extends { id: string }>({
                         </tr>
                       )}
                       </React.Fragment>
-                    ))}
+                      ))
+                    })()}
                   </tbody>
                 </table>
               </div>

@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
+import { EmployeeSearch } from "@/components/EmployeeSearch"
 import { useState, useEffect } from "react"
 
 interface AttendanceRecord {
@@ -91,9 +92,10 @@ export default function InputterAttendancePage() {
               <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-300 mb-1">Employee Name *</label>
-                  <input type="text" value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} required
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
-                    placeholder="Full name of employee" />
+                  <EmployeeSearch
+                    value={employeeName}
+                    onChange={setEmployeeName}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1">Date *</label>
@@ -133,17 +135,14 @@ export default function InputterAttendancePage() {
               <div className="space-y-3">
                 {records.map((r) => (
                   <div key={r.id} className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="font-medium text-white">{r.employeeName}</p>
+                      <p className="text-sm text-slate-400">{new Date(r.date).toLocaleDateString()}</p>
+                    </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-white">{r.employeeName}</h3>
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${statusColors[r.status] || ""}`}>
-                          {r.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                        <span>📅 {new Date(r.date).toLocaleDateString()}</span>
-                        {r.notes && <span>📝 {r.notes}</span>}
-                      </div>
+                      <span className={`inline-block rounded-full border px-3 py-1 text-xs font-semibold ${statusColors[r.status] || "border-slate-700/50 bg-slate-900/30 text-slate-300"}`}>
+                        {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+                      </span>
                     </div>
                   </div>
                 ))}

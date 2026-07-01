@@ -38,13 +38,13 @@ const DEFAULT_FIELD_NAMES_NORMALIZED = new Set(
   Array.from(DEFAULT_FIELD_NAMES).map(name => name.toLowerCase().replace(/\s+/g, ''))
 )
 const DEFAULT_FIELDS = [
-  { key: "title", label: "Title", type: "text", required: true, colSpan: 2, order: 0 },
-  { key: "description", label: "Description", type: "textarea", required: true, colSpan: 2, order: 1 },
-  { key: "date", label: "Date", type: "date", required: true, colSpan: 1, order: 2 },
-  { key: "severity", label: "Severity", type: "select", colSpan: 1, order: 3, options: ["low", "medium", "high", "critical"] },
-  { key: "status", label: "Status", type: "select", colSpan: 1, order: 4, options: ["open", "investigating", "resolved", "closed"] },
-  { key: "location", label: "Location", type: "text", colSpan: 1, order: 5 },
-  { key: "incidentReportNumber", label: "Incident Report Number", type: "text", colSpan: 1, order: 6 },
+  { key: "incidentReportNumber", label: "Incident Report Number", type: "text", colSpan: 1, order: 0 },
+  { key: "title", label: "Title", type: "text", required: true, colSpan: 2, order: 1 },
+  { key: "description", label: "Description", type: "textarea", required: true, colSpan: 2, order: 2 },
+  { key: "date", label: "Date", type: "date", required: true, colSpan: 1, order: 3 },
+  { key: "severity", label: "Severity", type: "select", colSpan: 1, order: 4, options: ["low", "medium", "high", "critical"] },
+  { key: "status", label: "Status", type: "select", colSpan: 1, order: 5, options: ["open", "investigating", "resolved", "closed"] },
+  { key: "location", label: "Location", type: "text", colSpan: 1, order: 6 },
 ]
 interface MergedField {
   key: string
@@ -87,7 +87,15 @@ function useMergedFields() {
         merged.push(field)
       }
     })
-    return merged.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    // Final deduplication: remove any fields with duplicate normalized keys
+    const seenKeys = new Set<string>()
+    const deduped = merged.filter(f => {
+      const normalizedKey = f.key.toLowerCase().replace(/\s+/g, '')
+      if (seenKeys.has(normalizedKey)) return false
+      seenKeys.add(normalizedKey)
+      return true
+    })
+    return deduped.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   }, [customFields])
   return allFields
 }

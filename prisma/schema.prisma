@@ -58,6 +58,7 @@ model Branch {
   mockDrills       MockDrill[]
   inventories      Inventory[]
   moduleConfigs    BranchModuleConfig[]
+  employees        Employee[]
 }
 
 enum UserRole {
@@ -69,7 +70,7 @@ enum UserRole {
 model User {
   id        String   @id @default(uuid())
   name      String
-  username  String?  @unique // Separate username field for login (optional for backward compat)
+  username  String?  @unique
   email     String   @unique
   password  String   // bcrypt hashed
   role      UserRole
@@ -78,20 +79,38 @@ model User {
   branchAccess Json?  // { "type": "all" | "custom" | "single", "branchIds": string[] }
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  // For tracking who created records
   createdIncidentReports  IncidentReport[]
   createdAttendanceRecords AttendanceRecord[]
   createdTrainings        Training[]
   createdSimulations      Simulation[]
   createdMockDrills       MockDrill[]
   createdInventories      Inventory[]
-
-  // For tracking edits to incident reports
   incidentReportEdits    IncidentReportEdit[]
-
-  // For tracking file uploads
   incidentAttachments   IncidentAttachment[]
+}
+
+// ─── Employee Management ──────────────────────────────────────────
+
+model Employee {
+  id              String   @id @default(uuid())
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId      String
+  fullName        String
+  email           String?
+  phone           String?
+  department      String?
+  position        String?
+  joinDate        DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  attendanceRecords AttendanceRecord[]
+
+  @@unique([branchId, employeeId])
+  @@index([branchId, fullName])
+  @@index([branchId, isActive])
 }
 
 // ─── Data models ───────────────────────────────────────────────────
@@ -102,17 +121,16 @@ model IncidentReport {
   branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   title       String
   description String
-  severity    String   @default("low") // low, medium, high, critical
+  severity    String   @default("low")
   date        DateTime
   location    String?
   incidentReportNumber String?
-  status      String   @default("open") // open, investigating, resolved, closed
+  status      String   @default("open")
   reportedById String
   reportedBy  User     @relation(fields: [reportedById], references: [id], onDelete: Cascade)
-  customFieldsData Json?  // Stores dynamic custom field values
+  customFieldsData Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
   attachments IncidentAttachment[]
   edits IncidentReportEdit[]
 }
@@ -121,10 +139,10 @@ model IncidentAttachment {
   id               String    @id @default(uuid())
   incidentReportId String
   incidentReport   IncidentReport @relation(fields: [incidentReportId], references: [id], onDelete: Cascade)
-  fileName         String    // Original file name
-  filePath         String    // Relative path (e.g. /uploads/incidents/uuid-filename.ext)
-  fileType         String    // MIME type
-  fileSize         Int       // Size in bytes
+  fileName         String
+  filePath         String
+  fileType         String
+  fileSize         Int
   uploadedById     String
   uploadedBy       User      @relation(fields: [uploadedById], references: [id])
   createdAt        DateTime  @default(now())
@@ -136,10 +154,10 @@ model IncidentReportEdit {
   incidentReport   IncidentReport @relation(fields: [incidentReportId], references: [id], onDelete: Cascade)
   editedById       String
   editedBy         User       @relation(fields: [editedById], references: [id], onDelete: Cascade)
-  fieldName        String     // e.g. "title", "description", "severity", "status", "location"
+  fieldName        String
   oldValue         String?
   newValue         String?
-  editedAt         DateTime   @default(now())
+  editedAt         DateTime  @default(now())
 }
 
 model AttendanceRecord {
@@ -147,12 +165,14 @@ model AttendanceRecord {
   branchId        String
   branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   employeeName    String
+  employeeId      String?
+  employee        Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   date            DateTime
-  status          String   @default("present") // present, absent, late, leave
+  status          String   @default("present")
   notes           String?
   recordedById    String
   recordedBy      User     @relation(fields: [recordedById], references: [id], onDelete: Cascade)
-  customFieldsData Json?  // Stores dynamic custom field values
+  customFieldsData Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -164,13 +184,13 @@ model Training {
   title           String
   description     String?
   date            DateTime
-  duration        String?  // e.g. "2 hours"
+  duration        String?
   participants    Int      @default(0)
   trainer         String?
-  status          String   @default("scheduled") // scheduled, completed, cancelled
+  status          String   @default("scheduled")
   createdById     String
   createdBy       User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  customFieldsData Json?  // Stores dynamic custom field values
+  customFieldsData Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -184,11 +204,11 @@ model Simulation {
   date            DateTime
   participants    Int      @default(0)
   scenario        String?
-  result          String?  // pass, fail, partial
+  result          String?
   notes           String?
   createdById     String
   createdBy       User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  customFieldsData Json?  // Stores dynamic custom field values
+  customFieldsData Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -201,12 +221,12 @@ model MockDrill {
   description     String?
   date            DateTime
   participants    Int      @default(0)
-  drillType       String?  // fire, evacuation, earthquake, etc.
-  result          String?  // pass, fail, partial
+  drillType       String?
+  result          String?
   notes           String?
   createdById     String
   createdBy       User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  customFieldsData Json?  // Stores dynamic custom field values
+  customFieldsData Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -218,12 +238,12 @@ model Inventory {
   itemName        String
   quantity        Int      @default(0)
   unit            String   @default("pcs")
-  category        String?  // equipment, supplies, safety, etc.
-  status          String   @default("available") // available, low, out_of_stock
+  category        String?
+  status          String   @default("available")
   lastUpdated     DateTime @default(now())
   createdById     String
   createdBy       User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  customFieldsData Json?  // Stores dynamic custom field values
+  customFieldsData Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -234,13 +254,11 @@ model BranchModuleConfig {
   id        String   @id @default(uuid())
   branchId  String
   branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  module    String   // e.g. "incidents", "attendance", "trainings", "inventory", etc.
+  module    String
   isEnabled Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   customFields CustomField[]
-
   @@unique([branchId, module])
 }
 
@@ -248,11 +266,12 @@ model CustomField {
   id               String   @id @default(uuid())
   moduleConfigId   String
   moduleConfig     BranchModuleConfig @relation(fields: [moduleConfigId], references: [id], onDelete: Cascade)
-  fieldName        String   // e.g. "customField1", "notes2", etc.
-  fieldLabel       String   // e.g. "Custom Note", "Additional Info", etc.
-  fieldType        String   // "text", "textarea", "number", "date", "select"
+  fieldName        String
+  fieldLabel       String
+  fieldType        String
   isRequired       Boolean  @default(false)
-  options          String?  // JSON array for select fields: ["option1", "option2"]
+  options          String?
+  optionColors     Json?
   order            Int      @default(0)
   colSpan          Int      @default(1)
   createdAt        DateTime @default(now())

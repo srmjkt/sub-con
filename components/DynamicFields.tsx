@@ -12,6 +12,7 @@ interface CustomField {
   options: string | null
   order: number
   colSpan?: number
+  optionColors?: Record<string, string> | null
 }
 
 interface DynamicFieldsProps {
@@ -176,6 +177,27 @@ export function CustomFieldDisplay({ module, data }: { module: string; data: Rec
     <>
       {fieldsWithValues.map((field) => {
         const value = data?.[field.fieldName]
+        
+        // For select fields with colors, display colored badge
+        if (field.fieldType === 'select' && field.optionColors && value) {
+          const color = field.optionColors[value] || '#6b7280'
+          return (
+            <div key={field.id} className="mt-2">
+              <span className="text-xs text-slate-500">{field.fieldLabel}:</span>
+              <span
+                className="inline-block ml-2 px-3 py-1 rounded-lg border text-sm"
+                style={{
+                  backgroundColor: color + '20',
+                  borderColor: color + '40',
+                  color: color
+                }}
+              >
+                {value}
+              </span>
+            </div>
+          )
+        }
+        
         return (
           <div key={field.id} className="mt-2">
             <span className="text-xs text-slate-500">{field.fieldLabel}:</span>

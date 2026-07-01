@@ -2,25 +2,41 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState } from "react"
 
 interface SidebarProps {
   role: "ADMIN" | "INPUTTER" | "VIEWER"
   branchName?: string | null
 }
 
-const adminLinks = [
+interface LinkItem {
+  href: string
+  label: string
+  icon?: string
+  children?: { href: string; label: string }[]
+}
+
+const adminLinks: LinkItem[] = [
   { href: "/admin", label: "Dashboard", icon: "📊" },
   { href: "/admin/branches", label: "Branches", icon: "🏢" },
   { href: "/admin/users", label: "Users", icon: "👥" },
   { href: "/admin/incidents", label: "Incidents", icon: "⚠️" },
-  { href: "/admin/attendance", label: "Attendance", icon: "📋" },
+  {
+    href: "/admin/attendance",
+    label: "Attendance",
+    icon: "📋",
+    children: [
+      { href: "/admin/attendance/records", label: "Records" },
+      { href: "/admin/attendance/employees", label: "Employees" },
+    ]
+  },
   { href: "/admin/trainings", label: "Trainings", icon: "📚" },
   { href: "/admin/simulations", label: "Simulations", icon: "🎯" },
   { href: "/admin/mock-drills", label: "Mock Drills", icon: "🚨" },
   { href: "/admin/inventory", label: "Inventory", icon: "📦" },
 ]
 
-const inputterLinks = [
+const inputterLinks: LinkItem[] = [
   { href: "/inputter", label: "Dashboard", icon: "📊" },
   { href: "/inputter/incidents", label: "Incidents", icon: "⚠️" },
   { href: "/inputter/attendance", label: "Attendance", icon: "📋" },
@@ -30,7 +46,7 @@ const inputterLinks = [
   { href: "/inputter/inventory", label: "Inventory", icon: "📦" },
 ]
 
-const viewerLinks = [
+const viewerLinks: LinkItem[] = [
   { href: "/viewer", label: "Dashboard", icon: "📊" },
   { href: "/viewer/incidents", label: "Incidents", icon: "⚠️" },
   { href: "/viewer/attendance", label: "Attendance", icon: "📋" },
@@ -42,25 +58,18 @@ const viewerLinks = [
 
 export function Sidebar({ role, branchName }: SidebarProps) {
   const pathname = usePathname()
+  const [expandedItems, setExpandedItems] = useState<string[]>([])
 
-  const links =
-    role === "ADMIN"
-      ? adminLinks
-      : role === "INPUTTER"
-        ? inputterLinks
-        : viewerLinks
+  const links = role === "ADMIN" ? adminLinks : role === "INPUTTER" ? inputterLinks : viewerLinks
+  const roleLabel = role === "ADMIN" ? "Administrator" : role === "INPUTTER" ? "Data Inputter" : "Data Viewer"
 
-  const roleLabel =
-    role === "ADMIN"
-      ? "Administrator"
-      : role === "INPUTTER"
-        ? "Data Inputter"
-        : "Data Viewer"
+  function toggleExpand(href: string) {
+    setExpandedItems(prev => prev.includes(href) ? prev.filter(h => h !== href) : [...prev, href])
+  }
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-white/10 bg-slate-950/80 backdrop-blur-xl">
       <div className="flex h-full flex-col">
-        {/* Logo */}
         <div className="flex h-16 items-center gap-3 border-b border-white/10 px-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-400/10 border border-cyan-400/30">
             <span className="text-sm">🛡️</span>
@@ -71,46 +80,68 @@ export function Sidebar({ role, branchName }: SidebarProps) {
           </div>
         </div>
 
-        {/* Branch info */}
         {branchName && (
           <div className="mx-4 mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">
-              Active Branch
-            </p>
-            <p className="text-sm font-medium text-white truncate">
-              {branchName}
-            </p>
+            <p className="text-[10px] uppercase tracking-wider text-slate-400">Active Branch</p>
+            <p className="text-sm font-medium text-white truncate">{branchName}</p>
           </div>
         )}
 
-        {/* Navigation */}
         <nav className="mt-4 flex-1 space-y-1 px-3">
           {links.map((link) => {
-            const isActive =
-              pathname === link.href ||
-              (link.href !== "/admin" &&
-                link.href !== "/inputter" &&
-                link.href !== "/viewer" &&
-                pathname.startsWith(link.href))
+            const isActive = pathname === link.href || pathname.startsWith(link.href + "/")
+            const hasChildren = link.children && link.children.length > 0
+            const isExpanded = expandedItems.includes(link.href) || isActive
 
             return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-                  isActive
-                    ? "bg-cyan-400/10 text-cyan-200 border border-cyan-400/20"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white border border-transparent"
-                }`}
-              >
-                <span className="text-base">{link.icon}</span>
-                {link.label}
-              </Link>
+              <div key={link.href}>
+                <div className="flex items-center">
+                  {hasChildren ? (
+                    <button
+                      onClick={() => toggleExpand(link.href)}
+                      className={`flex-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                        isActive ? "bg-cyan-400/10 text-cyan-200 border border-cyan-400/20" : "text-slate-400 hover:bg-white/5 hover:text-white border border-transparent"
+                      }`}
+                    >
+                      {link.icon && <span className="text-base">{link.icon}</span>}
+                      {link.label}
+                      <span className={`ml-auto transition ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+                    </button>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      className={`flex-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                        isActive ? "bg-cyan-400/10 text-cyan-200 border border-cyan-400/20" : "text-slate-400 hover:bg-white/5 hover:text-white border border-transparent"
+                      }`}
+                    >
+                      {link.icon && <span className="text-base">{link.icon}</span>}
+                      {link.label}
+                    </Link>
+                  )}
+                </div>
+                {hasChildren && isExpanded && (
+                  <div className="ml-4 mt-1 space-y-1">
+                    {link.children!.map((child) => {
+                      const isChildActive = pathname === child.href
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={`block rounded-lg px-3 py-2 text-sm transition ${
+                            isChildActive ? "bg-cyan-400/10 text-cyan-200" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })}
         </nav>
 
-        {/* Logout */}
         <div className="border-t border-white/10 p-4">
           <button
             onClick={async () => {

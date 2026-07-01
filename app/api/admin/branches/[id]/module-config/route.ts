@@ -40,6 +40,54 @@ export async function GET(
   }
 }
 
+// DELETE module config
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession()
+  if (!session || session.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { id } = await params
+  const { searchParams } = new URL(request.url)
+  const module = searchParams.get('module')
+
+  if (!module) {
+    return NextResponse.json({ error: 'Module name is required' }, { status: 400 })
+  }
+
+  try {
+    // Find the module config
+    const moduleConfig = await prisma.branchModuleConfig.findUnique({
+      where: {
+        branchId_module: {
+          branchId: id,
+          module,
+        },
+      },
+    })
+
+    if (!moduleConfig) {
+      return NextResponse.json({ error: 'Module not found' }, { status: 404 })
+    }
+
+    // Delete the module config (cascade will delete custom fields)
+    await prisma.branchModuleConfig.delete({
+      where: { id: moduleConfig.id },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[ADMIN] Delete module config error:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete module config' },
+      { status: 500 }
+    )
+  }
+}
+
 // POST create or update module config
 export async function POST(
   request: Request,

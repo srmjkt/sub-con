@@ -1,6 +1,7 @@
 "use client"
 
-import { AdminDataPage } from "@/components/AdminDataPage"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 interface AttendanceRecord {
   id: string
@@ -20,44 +21,11 @@ const statusColors: Record<string, string> = {
 }
 
 export default function AdminAttendancePage() {
-  return (
-    <AdminDataPage<AttendanceRecord>
-      title="Attendance"
-      subtitle="Configure and manage attendance records across all branches"
-      apiEndpoint="/api/data/attendance"
-      columns={[
-        { key: "employeeName", label: "Employee Name" },
-        {
-          key: "status",
-          label: "Status",
-          render: (item) => (
-            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${statusColors[item.status] || statusColors.present}`}>
-              {item.status}
-            </span>
-          ),
-        },
-        { key: "date", label: "Date", render: (item) => new Date(item.date).toLocaleDateString() },
-        { key: "notes", label: "Notes", render: (item) => item.notes || "-" },
-        { key: "branch", label: "Branch", render: (item) => item.branch?.name || "-" },
-        { key: "recordedBy", label: "Recorded By", render: (item) => item.recordedBy?.name || "-" },
-      ]}
-      editFields={[
-        { key: "employeeName", label: "Employee Name", type: "text", required: true },
-        { key: "date", label: "Date", type: "date", required: true },
-        {
-          key: "status",
-          label: "Status",
-          type: "select",
-          options: [
-            { value: "present", label: "Present" },
-            { value: "absent", label: "Absent" },
-            { value: "late", label: "Late" },
-            { value: "leave", label: "Leave" },
-          ],
-        },
-        { key: "notes", label: "Notes", type: "textarea" },
-      ]}
-      emptyMessage="No attendance records found in any branch."
-    />
-  )
+  const router = useRouter()
+  
+  useEffect(() => {
+    router.replace("/admin/attendance/records")
+  }, [router])
+  
+  return null
 }
