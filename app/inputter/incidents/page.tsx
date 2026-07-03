@@ -1,7 +1,7 @@
 "use client"
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import Link from "next/link"
 import { useCustomFields, CustomFieldDisplay } from "@/components/DynamicFields"
 import { IncidentFileUpload } from "@/components/IncidentFileUpload"
@@ -155,7 +155,6 @@ export default function InputterIncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [draftId, setDraftId] = useState<string | null>(null)
   const [error, setError] = useState("")
   // Merged fields
   const allFields = useMergedFields()
@@ -173,37 +172,9 @@ export default function InputterIncidentsPage() {
   const [success, setSuccess] = useState("")
   const [editHistory, setEditHistory] = useState<EditHistory[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
-  // Create draft incident when form opens for file upload
-  useEffect(() => {
-    if (showForm && !draftId && !editingId && !newlyCreatedId) {
-      createDraftIncident()
-    }
-  }, [showForm])
-  async function createDraftIncident() {
-    try {
-      const branchId = user?.branchId
-      if (!branchId) return
-      const res = await fetch("/api/data/incidents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "(draft)",
-          description: "(draft)",
-          date: new Date().toISOString().split("T")[0],
-          branchId,
-          status: "open",
-          severity: "low",
-          isDraft: true,
-        }),
-      })
-      const data = await res.json()
-      if (res.ok && data.incident?.id) {
-        setDraftId(data.incident.id)
-      }
-    } catch (err) {
-      console.error("Failed to create draft:", err)
-    }
-  }
+  // File upload state for incidents
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   async function fetchIncidents() {
     try {
       const res = await fetch("/api/data/incidents")
@@ -344,47 +315,66 @@ export default function InputterIncidentsPage() {
     })
 
     try {
-      const isDraft = !!draftId
-      const url = isDraft ? `/api/data/incidents/${draftId}` : "/api/data/incidents"
-      const method = isDraft ? "PUT" : "POST"
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: formValues.title,
-          description: formValues.description,
-          severity: formValues.severity || "low",
-          date: formValues.date,
-          location: formValues.location,
-          status: formValues.status || "open",
-          incidentReportNumber: formValues.incidentReportNumber,
-          customFieldsData,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || "Failed to save incident report")
-        setSubmitting(false)
-        return
-      }
-      setSuccess(isDraft ? "Incident report saved successfully" : "Incident report created successfully")
-      // Transfer draft ID to newlyCreatedId so upload keeps working
-      if (isDraft && draftId) {
-        setNewlyCreatedId(draftId)
-        setDraftId(null)
-      } else if (data.incident?.id) {
-        setNewlyCreatedId(data.incident.id)
+      // Use FormData if there's a file to upload
+      if (selectedFile) {
+        const formData = new FormData()
+        Object.entries(formValues).forEach(([key, val]) => {
+          formData.append(key, String(val))
+        })
+        formData.append('customFieldsData', JSON.stringify(customFieldsData))
+        formData.append('file', selectedFile)
+        
+        const res = await fetch("/api/data/incidents", {
+          method: "POST",
+          body: formData,
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setError(data.error || "Failed to create incident report")
+          setSubmitting(false)
+          return
+        }
+        setSuccess("Incident report created successfully")
+        if (data.incident?.id) {
+          setNewlyCreatedId(data.incident.id)
+        }
       } else {
-        setFormValues({})
-        setShowForm(false)
-        await fetchIncidents()
+        // Standard JSON submission
+        const res = await fetch("/api/data/incidents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: formValues.title,
+            description: formValues.description,
+            severity: formValues.severity || "low",
+            date: formValues.date,
+            location: formValues.location,
+            status: formValues.status || "open",
+            incidentReportNumber: formValues.incidentReportNumber,
+            customFieldsData,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setError(data.error || "Failed to create incident report")
+          setSubmitting(false)
+          return
+        }
+        setSuccess("Incident report created successfully")
+        if (data.incident?.id) {
+          setNewlyCreatedId(data.incident.id)
+        } else {
+          setFormValues({})
+          setShowForm(false)
+          await fetchIncidents()
+        }
       }
-
     } catch {
       setError("An error occurred")
     }
     setSubmitting(false)
   }
+
   const severityColors: Record<string, string> = {
     low: "border-slate-700/50 bg-slate-900/30 text-slate-300",
     medium: "border-yellow-700/50 bg-yellow-900/30 text-yellow-300",
@@ -454,14 +444,39 @@ export default function InputterIncidentsPage() {
               </h2>
               <form onSubmit={newlyCreatedId ? (e) => e.preventDefault() : handleSubmit} className="grid gap-4 md:grid-cols-2">
                 {allFields.map(field => renderField(field, formValues[field.key] || "", handleFormChange))}
-                {(draftId || newlyCreatedId) && (
+                <div className="md:col-span-2">
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-4 backdrop-blur">
+                    <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                      Attachments {selectedFile ? `(${selectedFile.name})` : "(0)"}
+                    </h3>
+                    <div className="flex items-center gap-3">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20">
+                        📎 Choose File
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          className="hidden"
+                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                          accept="image/*,audio/*,video/*,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        />
+                      </label>
+                      {selectedFile && (
+                        <span className="text-xs text-slate-400">
+                          {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">Accepted: Images, Audio, Video, PDF, Word, Excel, Text (max 10MB per file)</p>
+                  </div>
+                </div>
+                {newlyCreatedId && (
                   <div className="md:col-span-2">
-                    <IncidentFileUpload incidentId={draftId || newlyCreatedId!} canUpload={true} />
+                    <IncidentFileUpload incidentId={newlyCreatedId} canUpload={true} />
                   </div>
                 )}
                 <div className="md:col-span-2 flex gap-3">
-                  {(newlyCreatedId || draftId) ? (
-                    <button type="button" onClick={() => { setShowForm(false); setDraftId(null); setNewlyCreatedId(null); setFormValues({}); fetchIncidents(); }}
+                  {newlyCreatedId ? (
+                    <button type="button" onClick={() => { setShowForm(false); setNewlyCreatedId(null); setFormValues({}); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; fetchIncidents(); }}
                       className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20">
                       Done - Back to List
                     </button>

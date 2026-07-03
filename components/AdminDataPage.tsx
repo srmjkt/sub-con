@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useRef } from "react"
 import { IncidentFileUpload } from "@/components/IncidentFileUpload"
 
 interface Branch {
@@ -80,6 +80,9 @@ export function AdminDataPage<T extends { id: string }>({
   const [branches, setBranches] = useState<Branch[]>([])
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
+  // File upload state for incidents module
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   // History state for incidents module
   const [historyIncidentId, setHistoryIncidentId] = useState<string | null>(null)
   const [editHistory, setEditHistory] = useState<EditHistory[]>([])
@@ -420,46 +423,96 @@ export function AdminDataPage<T extends { id: string }>({
       const url = isEdit ? `${apiEndpoint}/${editingItem!.id}` : apiEndpoint
       const method = isEdit ? "PUT" : "POST"
 
-      const payload: Record<string, unknown> = { ...formValues }
-      // Only include truly custom field values (strip any default field names from customValues)
-      if (customFields.length > 0) {
-        const editFieldNormalizedKeys = new Set(editFields.map(f => f.key.toLowerCase().replace(/\s+/g, '')))
-        const filtered: Record<string, string> = {}
-        Object.entries(customValues).forEach(([key, val]) => {
-          const normalizedKey = key.toLowerCase().replace(/\s+/g, '')
-          if (!editFieldNormalizedKeys.has(normalizedKey)) {
-            filtered[key] = val
-          }
+      // For incidents with file upload, use FormData
+      if (module === "incidents" && selectedFile) {
+        const formData = new FormData()
+        Object.entries(formValues).forEach(([key, val]) => {
+          formData.append(key, String(val))
         })
-        payload.customFieldsData = filtered
-      }
-      if (!editingItem && user?.role === 'ADMIN' && selectedBranchId) {
-        payload.branchId = selectedBranchId
-      }
+        // Only include truly custom field values (strip any default field names from customValues)
+        if (customFields.length > 0) {
+          const editFieldNormalizedKeys = new Set(editFields.map(f => f.key.toLowerCase().replace(/\s+/g, '')))
+          const filtered: Record<string, string> = {}
+          Object.entries(customValues).forEach(([key, val]) => {
+            const normalizedKey = key.toLowerCase().replace(/\s+/g, '')
+            if (!editFieldNormalizedKeys.has(normalizedKey)) {
+              filtered[key] = val
+            }
+          })
+          formData.append('customFieldsData', JSON.stringify(filtered))
+        }
+        if (!editingItem && user?.role === 'ADMIN' && selectedBranchId) {
+          formData.append('branchId', selectedBranchId)
+        }
+        formData.append('file', selectedFile)
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      const result = await res.json()
-      if (!res.ok) {
-        setError(result.error || `Failed to ${isEdit ? "update" : "create"} record`)
-        setSubmitting(false)
-        return
-      }
-      setSuccess(isEdit ? "Record updated successfully" : "Record created successfully")
+        const res = await fetch(url, {
+          method,
+          body: formData,
+        })
+        const result = await res.json()
+        if (!res.ok) {
+          setError(result.error || `Failed to ${isEdit ? "update" : "create"} record`)
+          setSubmitting(false)
+          return
+        }
+        setSuccess(isEdit ? "Record updated successfully" : "Record created successfully")
 
-      if (!isEdit && module === "incidents" && result.incident?.id) {
-        setNewlyCreatedId(result.incident.id)
+        if (!isEdit && result.incident?.id) {
+          setNewlyCreatedId(result.incident.id)
+        } else {
+          resetForm()
+          const dataRes = await fetch(apiEndpoint)
+          const text = await dataRes.text()
+          if (text) {
+            const dataJson = JSON.parse(text)
+            const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
+            if (dataKey) setData(dataJson[dataKey])
+          }
+        }
       } else {
-        resetForm()
-        const dataRes = await fetch(apiEndpoint)
-        const text = await dataRes.text()
-        if (text) {
-          const dataJson = JSON.parse(text)
-          const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
-          if (dataKey) setData(dataJson[dataKey])
+        // Standard JSON submission for other cases
+        const payload: Record<string, unknown> = { ...formValues }
+        // Only include truly custom field values (strip any default field names from customValues)
+        if (customFields.length > 0) {
+          const editFieldNormalizedKeys = new Set(editFields.map(f => f.key.toLowerCase().replace(/\s+/g, '')))
+          const filtered: Record<string, string> = {}
+          Object.entries(customValues).forEach(([key, val]) => {
+            const normalizedKey = key.toLowerCase().replace(/\s+/g, '')
+            if (!editFieldNormalizedKeys.has(normalizedKey)) {
+              filtered[key] = val
+            }
+          })
+          payload.customFieldsData = filtered
+        }
+        if (!editingItem && user?.role === 'ADMIN' && selectedBranchId) {
+          payload.branchId = selectedBranchId
+        }
+
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const result = await res.json()
+        if (!res.ok) {
+          setError(result.error || `Failed to ${isEdit ? "update" : "create"} record`)
+          setSubmitting(false)
+          return
+        }
+        setSuccess(isEdit ? "Record updated successfully" : "Record created successfully")
+
+        if (!isEdit && module === "incidents" && result.incident?.id) {
+          setNewlyCreatedId(result.incident.id)
+        } else {
+          resetForm()
+          const dataRes = await fetch(apiEndpoint)
+          const text = await dataRes.text()
+          if (text) {
+            const dataJson = JSON.parse(text)
+            const dataKey = Object.keys(dataJson).find((k) => Array.isArray(dataJson[k]))
+            if (dataKey) setData(dataJson[dataKey])
+          }
         }
       }
     } catch {
@@ -528,6 +581,10 @@ export function AdminDataPage<T extends { id: string }>({
     setNewlyCreatedId(null)
     setFormValues({})
     setCustomValues({})
+    setSelectedFile(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
   }
 
   function openCreateForm() {
@@ -697,23 +754,33 @@ export function AdminDataPage<T extends { id: string }>({
                   })
                 })()}
 
-                {module === "incidents" && (
+{module === "incidents" && (
                   <div className="md:col-span-2">
-                    {newlyCreatedId || editingItem ? (
-                      <IncidentFileUpload incidentId={newlyCreatedId || editingItem!.id} canUpload={true} />
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-4 backdrop-blur">
-                        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Attachments (0)</h3>
-                        <div className="flex items-center justify-center py-6">
-                          <p className="text-sm text-slate-500 text-center">
-                            Click <strong>Create Record</strong> first to enable file uploads
-                          </p>
-                        </div>
+                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-4 backdrop-blur">
+                      <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                        Attachments {selectedFile ? `(${selectedFile.name})` : "(0)"}
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20">
+                          📎 Choose File
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                            accept="image/*,audio/*,video/*,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                          />
+                        </label>
+                        {selectedFile && (
+                          <span className="text-xs text-slate-400">
+                            {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+                          </span>
+                        )}
                       </div>
-                    )}
+                      <p className="text-xs text-slate-500 mt-2">Accepted: Images, Audio, Video, PDF, Word, Excel, Text (max 10MB per file)</p>
+                    </div>
                   </div>
                 )}
-
 
                 <div className="md:col-span-2 flex gap-3">
                   {module === "incidents" && newlyCreatedId ? (

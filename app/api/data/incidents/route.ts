@@ -76,16 +76,61 @@ export async function POST(request: Request) {
     )
   }
 
-  const body: any = await request.json()
-  const { title, description, severity, date, location, status, branchId, customFieldsData, incidentReportNumber, isDraft } = body
+  // Check if the request is multipart/form-data (for file uploads)
+  const isFormData = request.headers.get('content-type')?.includes('multipart/form-data')
+  
+  let title: string | null = null
+  let description: string | null = null
+  let severity: string | null = null
+  let date: string | null = null
+  let location: string | null = null
+  let status: string | null = null
+  let branchId: string | null = null
+  let customFieldsData: Record<string, string> | null = null
+  let incidentReportNumber: string | null = null
+  let isDraft: boolean = false
+  let file: File | null = null
 
-  if (!isDraft) {
-    if (!title || !description || !date) {
-      return NextResponse.json(
-        { error: 'Title, description, and date are required' },
-        { status: 400 }
-      )
+  if (isFormData) {
+    const formData = await request.formData()
+    title = formData.get('title') as string
+    description = formData.get('description') as string
+    severity = formData.get('severity') as string
+    date = formData.get('date') as string
+    location = formData.get('location') as string
+    status = formData.get('status') as string
+    branchId = formData.get('branchId') as string
+    incidentReportNumber = formData.get('incidentReportNumber') as string
+    isDraft = formData.get('isDraft') === 'true'
+    const customFieldsDataStr = formData.get('customFieldsData') as string
+    if (customFieldsDataStr) {
+      try {
+        customFieldsData = JSON.parse(customFieldsDataStr)
+      } catch {
+        // Ignore parse errors
+      }
     }
+    file = formData.get('file') as File | null
+  } else {
+    const body: any = await request.json()
+    title = body.title
+    description = body.description
+    severity = body.severity
+    date = body.date
+    location = body.location
+    status = body.status
+    branchId = body.branchId
+    customFieldsData = body.customFieldsData
+    incidentReportNumber = body.incidentReportNumber
+    isDraft = body.isDraft
+  }
+
+  // Validate required fields (only for non-draft submissions)
+  if (!isDraft && (!title || !description || !date)) {
+    return NextResponse.json(
+      { error: 'Title, description, and date are required' },
+      { status: 400 }
+    )
   }
 
   // Determine the target branch
@@ -116,6 +161,75 @@ export async function POST(request: Request) {
       reportedBy: { select: { id: true, name: true } },
     },
   })
+
+  // Handle file upload if present
+  if (file && file.size > 0) {
+    const { writeFile, mkdir } = await import('fs/promises')
+    const path = await import('path')
+    const { v4: uuidv4 } = await import('uuid')
+    
+    // Validate file type
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'audio/mpeg',
+      'audio/wav',
+      'audio/ogg',
+      'video/mp4',
+      'video/webm',
+      'application/pdf',
+      'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ]
+
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: 'File type not allowed' },
+        { status: 400 }
+      )
+    }
+
+    // 10MB size limit
+    const maxSize = 10 * 1024 * 1024
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: 'File too large (max 10MB)' },
+        { status: 400 }
+      )
+    }
+
+    // Generate unique filename
+    const ext = path.extname(file.name) || '.bin'
+    const uniqueName = `${uuidv4()}${ext}`
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'incidents')
+    const filePath = `/uploads/incidents/${uniqueName}`
+
+    try {
+      await mkdir(uploadDir, { recursive: true })
+      const buffer = Buffer.from(await file.arrayBuffer())
+      await writeFile(path.join(uploadDir, uniqueName), buffer)
+    } catch (writeError) {
+      console.error('Failed to save file:', writeError)
+      // Don't fail the request, just log the error
+    }
+
+    // Save to database
+    await prisma.incidentAttachment.create({
+      data: {
+        incidentReportId: incident.id,
+        fileName: file.name,
+        filePath: filePath,
+        fileType: file.type,
+        fileSize: file.size,
+        uploadedById: session.userId,
+      },
+    })
+  }
 
   return NextResponse.json({ incident }, { status: 201 })
 }

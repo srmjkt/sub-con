@@ -64,7 +64,7 @@ export default function AdminIncidentsPage() {
         { key: "reportedBy", label: "Reported By", render: (item) => item.reportedBy?.name || "-" },
       ]}
       editFields={[
-                  { key: "incidentReportNumber", label: "Incident Report Number", type: "text", required: true },
+                { key: "incidentReportNumber", label: "Incident Report Number", type: "text", required: true },
         { key: "title", label: "Title", type: "text", required: true },
         { key: "description", label: "Description", type: "textarea", required: true },
         { key: "date", label: "Date", type: "date", required: true },

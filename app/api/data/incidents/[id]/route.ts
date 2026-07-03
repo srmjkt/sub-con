@@ -88,8 +88,51 @@ export async function PUT(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await request.json()
-  const { title, description, severity, date, location, status, branchId, customFieldsData, incidentReportNumber } = body
+  // Check if the request is multipart/form-data (for file uploads)
+  const isFormData = request.headers.get('content-type')?.includes('multipart/form-data')
+  
+  let title: string | undefined = undefined
+  let description: string | undefined = undefined
+  let severity: string | undefined = undefined
+  let date: string | undefined = undefined
+  let location: string | undefined = undefined
+  let status: string | undefined = undefined
+  let branchId: string | undefined = undefined
+  let customFieldsData: Record<string, string> | undefined = undefined
+  let incidentReportNumber: string | undefined = undefined
+  let file: File | null = null
+
+  if (isFormData) {
+    const formData = await request.formData()
+    title = formData.get('title') as string
+    description = formData.get('description') as string
+    severity = formData.get('severity') as string
+    date = formData.get('date') as string
+    location = formData.get('location') as string
+    status = formData.get('status') as string
+    branchId = formData.get('branchId') as string
+    incidentReportNumber = formData.get('incidentReportNumber') as string
+    const customFieldsDataStr = formData.get('customFieldsData') as string
+    if (customFieldsDataStr) {
+      try {
+        customFieldsData = JSON.parse(customFieldsDataStr)
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    file = formData.get('file') as File | null
+  } else {
+    const body = await request.json()
+    title = body.title
+    description = body.description
+    severity = body.severity
+    date = body.date
+    location = body.location
+    status = body.status
+    branchId = body.branchId
+    customFieldsData = body.customFieldsData
+    incidentReportNumber = body.incidentReportNumber
+  }
 
   // Track changes for edit history
   const changes: { fieldName: string; oldValue: string | null; newValue: string | null }[] = []
@@ -155,6 +198,75 @@ export async function PUT(
       reportedBy: { select: { id: true, name: true } },
     },
   })
+
+  // Handle file upload if present
+  if (file && file.size > 0) {
+    const { writeFile, mkdir } = await import('fs/promises')
+    const path = await import('path')
+    const { v4: uuidv4 } = await import('uuid')
+    
+    // Validate file type
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'audio/mpeg',
+      'audio/wav',
+      'audio/ogg',
+      'video/mp4',
+      'video/webm',
+      'application/pdf',
+      'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ]
+
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: 'File type not allowed' },
+        { status: 400 }
+      )
+    }
+
+    // 10MB size limit
+    const maxSize = 10 * 1024 * 1024
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: 'File too large (max 10MB)' },
+        { status: 400 }
+      )
+    }
+
+    // Generate unique filename
+    const ext = path.extname(file.name) || '.bin'
+    const uniqueName = `${uuidv4()}${ext}`
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'incidents')
+    const filePath = `/uploads/incidents/${uniqueName}`
+
+    try {
+      await mkdir(uploadDir, { recursive: true })
+      const buffer = Buffer.from(await file.arrayBuffer())
+      await writeFile(path.join(uploadDir, uniqueName), buffer)
+    } catch (writeError) {
+      console.error('Failed to save file:', writeError)
+      // Don't fail the request, just log the error
+    }
+
+    // Save to database
+    await prisma.incidentAttachment.create({
+      data: {
+        incidentReportId: id,
+        fileName: file.name,
+        filePath: filePath,
+        fileType: file.type,
+        fileSize: file.size,
+        uploadedById: session.userId,
+      },
+    })
+  }
 
   // Save edit history
   if (changes.length > 0) {
