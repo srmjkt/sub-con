@@ -25,6 +25,7 @@ export default function AdminInventoryPage() {
       title="Inventory"
       subtitle="Configure and manage inventory across all branches"
       apiEndpoint="/api/data/inventory"
+      module="inventory"
       columns={[
         { key: "itemName", label: "Item Name" },
         { key: "quantity", label: "Quantity" },

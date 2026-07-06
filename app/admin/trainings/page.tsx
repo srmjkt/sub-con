@@ -27,6 +27,7 @@ export default function AdminTrainingsPage() {
       title="Trainings"
       subtitle="Configure and manage trainings across all branches"
       apiEndpoint="/api/data/trainings"
+      module="trainings"
       columns={[
         { key: "title", label: "Title" },
         { key: "date", label: "Date", render: (item) => new Date(item.date).toLocaleDateString() },

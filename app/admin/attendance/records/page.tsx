@@ -23,8 +23,9 @@ export default function AdminAttendanceRecordsPage() {
   return (
     <AdminDataPage<AttendanceRecord>
       title="Attendance Records"
-      subtitle="View and manage attendance records across all branches"
+      subtitle="Configure and manage attendance across all branches"
       apiEndpoint="/api/data/attendance"
+      module="attendance"
       columns={[
         { key: "employeeName", label: "Employee Name" },
         {

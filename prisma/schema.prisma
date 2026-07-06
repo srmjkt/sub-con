@@ -87,6 +87,7 @@ model User {
   createdInventories      Inventory[]
   incidentReportEdits    IncidentReportEdit[]
   incidentAttachments   IncidentAttachment[]
+  attachments   Attachment[]
 }
 
 // ─── Employee Management ──────────────────────────────────────────
@@ -276,4 +277,18 @@ model CustomField {
   colSpan          Int      @default(1)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+// Generic Attachment model for all modules
+model Attachment {
+  id               String   @id @default(uuid())
+  module           String   // e.g., "incidents", "attendance", "trainings", etc.
+  recordId         String   // ID of the record in the module
+  fileName         String
+  filePath         String
+  fileType         String
+  fileSize         Int
+  uploadedById     String
+  uploadedBy       User     @relation(fields: [uploadedById], references: [id])
+  createdAt        DateTime @default(now())
 }

@@ -27,6 +27,7 @@ export default function AdminSimulationsPage() {
       title="Simulations"
       subtitle="Configure and manage simulations across all branches"
       apiEndpoint="/api/data/simulations"
+      module="simulations"
       columns={[
         { key: "title", label: "Title" },
         { key: "date", label: "Date", render: (item) => new Date(item.date).toLocaleDateString() },

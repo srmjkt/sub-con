@@ -27,6 +27,7 @@ export default function AdminMockDrillsPage() {
       title="Mock Drills"
       subtitle="Configure and manage mock drills across all branches"
       apiEndpoint="/api/data/mock-drills"
+      module="mock_drills"
       columns={[
         { key: "title", label: "Title" },
         { key: "date", label: "Date", render: (item) => new Date(item.date).toLocaleDateString() },

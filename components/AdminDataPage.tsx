@@ -3,7 +3,6 @@
 import { useAuth } from "@/hooks/useAuth"
 import { Sidebar } from "@/components/Sidebar"
 import React, { useState, useEffect, useMemo, useRef } from "react"
-import { IncidentFileUpload } from "@/components/IncidentFileUpload"
 
 interface Branch {
   id: string
@@ -80,11 +79,10 @@ export function AdminDataPage<T extends { id: string }>({
   const [branches, setBranches] = useState<Branch[]>([])
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
-  // File upload state for incidents module
+  // File upload state for any module
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // History state for incidents module
-  const [historyIncidentId, setHistoryIncidentId] = useState<string | null>(null)
   const [editHistory, setEditHistory] = useState<EditHistory[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyExpandedId, setHistoryExpandedId] = useState<string | null>(null)
@@ -271,7 +269,13 @@ export function AdminDataPage<T extends { id: string }>({
         colSpan: cf.colSpan || 1,
         options: cf.fieldType === "select" ? (() => {
           try {
-            return JSON.parse(cf.options || "[]").map((opt: string) => ({ value: opt, label: opt }))
+            // Options can be newline-separated or JSON array
+            if (!cf.options) return []
+            const trimmed = cf.options.trim()
+            if (trimmed.startsWith('[')) {
+              return JSON.parse(trimmed).map((opt: string) => ({ value: opt, label: opt }))
+            }
+            return trimmed.split('\n').filter(Boolean).map((opt: string) => ({ value: opt.trim(), label: opt.trim() }))
           } catch {
             return []
           }
@@ -423,8 +427,8 @@ export function AdminDataPage<T extends { id: string }>({
       const url = isEdit ? `${apiEndpoint}/${editingItem!.id}` : apiEndpoint
       const method = isEdit ? "PUT" : "POST"
 
-      // For incidents with file upload, use FormData
-      if (module === "incidents" && selectedFile) {
+      // Use FormData if file is selected (for any module with attachments)
+      if (selectedFile) {
         const formData = new FormData()
         Object.entries(formValues).forEach(([key, val]) => {
           formData.append(key, String(val))
@@ -458,7 +462,7 @@ export function AdminDataPage<T extends { id: string }>({
         }
         setSuccess(isEdit ? "Record updated successfully" : "Record created successfully")
 
-        if (!isEdit && result.incident?.id) {
+        if (!isEdit && module === "incidents" && result.incident?.id) {
           setNewlyCreatedId(result.incident.id)
         } else {
           resetForm()
@@ -471,7 +475,7 @@ export function AdminDataPage<T extends { id: string }>({
           }
         }
       } else {
-        // Standard JSON submission for other cases
+        // Standard JSON submission when no file is selected
         const payload: Record<string, unknown> = { ...formValues }
         // Only include truly custom field values (strip any default field names from customValues)
         if (customFields.length > 0) {
@@ -754,7 +758,7 @@ export function AdminDataPage<T extends { id: string }>({
                   })
                 })()}
 
-{module === "incidents" && (
+{module && (
                   <div className="md:col-span-2">
                     <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-4 backdrop-blur">
                       <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">

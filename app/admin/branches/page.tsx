@@ -102,7 +102,7 @@ export default function AdminBranchesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-      <Sidebar role={user.role} />
+      <Sidebar role={user.role} branchId={user.branchId || undefined} />
 
       <main className="ml-64 p-8">
         <div className="max-w-7xl mx-auto space-y-8">

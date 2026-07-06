@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { getBranchFilter } from '@/lib/branchAccess'
+import { handleFileUpload, parseFormData } from '@/lib/fileUpload'
 
 // GET inventory (filtered by branch access)
 export async function GET(request: Request) {
@@ -40,8 +41,41 @@ export async function POST(request: Request) {
     )
   }
 
-  const { itemName, quantity, unit, category, status, branchId } =
-    await request.json()
+  let itemName: string | null = null
+  let quantity: string | null = null
+  let unit: string | null = null
+  let category: string | null = null
+  let status: string | null = null
+  let description: string | null = null
+  let branchId: string | null = null
+  let customFieldsData: Record<string, string> | null = null
+  let file: File | null = null
+
+  // Check if the request is multipart/form-data (for file uploads)
+  const isFormData = request.headers.get('content-type')?.includes('multipart/form-data')
+
+  if (isFormData) {
+    const parsed = await parseFormData(request)
+    itemName = parsed.fields['itemName']
+    quantity = parsed.fields['quantity']
+    unit = parsed.fields['unit']
+    category = parsed.fields['category']
+    status = parsed.fields['status']
+    description = parsed.fields['description']
+    branchId = parsed.fields['branchId']
+    customFieldsData = parsed.customFieldsData
+    file = parsed.file
+  } else {
+    const body = await request.json()
+    itemName = body.itemName
+    quantity = body.quantity
+    unit = body.unit
+    category = body.category
+    status = body.status
+    description = body.description
+    branchId = body.branchId
+    customFieldsData = body.customFieldsData
+  }
 
   if (!itemName) {
     return NextResponse.json(
@@ -62,10 +96,11 @@ export async function POST(request: Request) {
   const inventory = await prisma.inventory.create({
     data: {
       itemName: itemName.trim(),
-      quantity: quantity || 0,
+      quantity: quantity ? parseInt(quantity) : 0,
       unit: unit || 'pcs',
       category: category || null,
       status: status || 'available',
+      customFieldsData: customFieldsData || undefined,
       branchId: targetBranchId,
       createdById: session.userId,
     },
@@ -74,6 +109,14 @@ export async function POST(request: Request) {
       createdBy: { select: { id: true, name: true } },
     },
   })
+
+  // Handle file upload if present
+  if (file && file.size > 0) {
+    const uploadResult = await handleFileUpload(file, 'inventory', inventory.id, session.userId)
+    if (!uploadResult.success) {
+      console.error('File upload failed:', uploadResult.error)
+    }
+  }
 
   return NextResponse.json({ inventory }, { status: 201 })
 }

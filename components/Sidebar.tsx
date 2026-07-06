@@ -2,11 +2,12 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface SidebarProps {
   role: "ADMIN" | "INPUTTER" | "VIEWER"
   branchName?: string | null
+  branchId?: string | null
 }
 
 interface LinkItem {
@@ -56,12 +57,57 @@ const viewerLinks: LinkItem[] = [
   { href: "/viewer/inventory", label: "Inventory", icon: "📦" },
 ]
 
-export function Sidebar({ role, branchName }: SidebarProps) {
+export function Sidebar({ role, branchName, branchId }: SidebarProps) {
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const [customModules, setCustomModules] = useState<{ module: string; label: string }[]>([])
 
-  const links = role === "ADMIN" ? adminLinks : role === "INPUTTER" ? inputterLinks : viewerLinks
+  const baseLinks = role === "ADMIN" ? adminLinks : role === "INPUTTER" ? inputterLinks : viewerLinks
   const roleLabel = role === "ADMIN" ? "Administrator" : role === "INPUTTER" ? "Data Inputter" : "Data Viewer"
+
+  // Fetch custom modules for the branch
+  useEffect(() => {
+    if (!branchId || role !== "ADMIN") return
+
+    async function fetchCustomModules() {
+      try {
+        const res = await fetch(`/api/admin/branches/${branchId}/module-config`)
+        if (res.ok) {
+          const data = await res.json()
+          const configs = data.configs || []
+          
+          // Filter out default modules and only show custom ones
+          const defaultModules = ['incidents', 'attendance', 'trainings', 'simulations', 'mock_drills', 'inventory']
+          const custom = configs
+            .filter((config: { module: string; isEnabled: boolean }) => 
+              !defaultModules.includes(config.module) && config.isEnabled
+            )
+            .map((config: { module: string }) => ({
+              module: config.module,
+              label: config.module.split('_').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+              ).join(' ')
+            }))
+          
+          setCustomModules(custom)
+        }
+      } catch (error) {
+        console.error('Failed to fetch custom modules:', error)
+      }
+    }
+
+    fetchCustomModules()
+  }, [branchId, role])
+
+  // Add custom modules to admin links
+  const links = role === "ADMIN" && customModules.length > 0 
+    ? [...baseLinks, ...customModules.map(m => ({
+        href: `/admin/${m.module}`,
+        label: m.label,
+        icon: "📁",
+        children: undefined
+      } as LinkItem))]
+    : baseLinks
 
   function toggleExpand(href: string) {
     setExpandedItems(prev => prev.includes(href) ? prev.filter(h => h !== href) : [...prev, href])

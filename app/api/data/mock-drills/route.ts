@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { getBranchFilter } from '@/lib/branchAccess'
+import { handleFileUpload, parseFormData } from '@/lib/fileUpload'
 
 // GET mock drills (filtered by branch access)
 export async function GET(request: Request) {
@@ -40,8 +41,44 @@ export async function POST(request: Request) {
     )
   }
 
-  const { title, description, date, participants, drillType, result, notes, branchId } =
-    await request.json()
+  let title: string | null = null
+  let description: string | null = null
+  let date: string | null = null
+  let drillType: string | null = null
+  let participants: string | null = null
+  let result: string | null = null
+  let notes: string | null = null
+  let branchId: string | null = null
+  let customFieldsData: Record<string, string> | null = null
+  let file: File | null = null
+
+  // Check if the request is multipart/form-data (for file uploads)
+  const isFormData = request.headers.get('content-type')?.includes('multipart/form-data')
+
+  if (isFormData) {
+    const parsed = await parseFormData(request)
+    title = parsed.fields['title']
+    description = parsed.fields['description']
+    date = parsed.fields['date']
+    drillType = parsed.fields['drillType']
+    participants = parsed.fields['participants']
+    result = parsed.fields['result']
+    notes = parsed.fields['notes']
+    branchId = parsed.fields['branchId']
+    customFieldsData = parsed.customFieldsData
+    file = parsed.file
+  } else {
+    const body = await request.json()
+    title = body.title
+    description = body.description
+    date = body.date
+    drillType = body.drillType
+    participants = body.participants
+    result = body.result
+    notes = body.notes
+    branchId = body.branchId
+    customFieldsData = body.customFieldsData
+  }
 
   if (!title || !date) {
     return NextResponse.json(
@@ -64,10 +101,11 @@ export async function POST(request: Request) {
       title: title.trim(),
       description: description || null,
       date: new Date(date),
-      participants: participants || 0,
       drillType: drillType || null,
+      participants: participants ? parseInt(participants) : 0,
       result: result || null,
       notes: notes || null,
+      customFieldsData: customFieldsData || undefined,
       branchId: targetBranchId,
       createdById: session.userId,
     },
@@ -76,6 +114,14 @@ export async function POST(request: Request) {
       createdBy: { select: { id: true, name: true } },
     },
   })
+
+  // Handle file upload if present
+  if (file && file.size > 0) {
+    const uploadResult = await handleFileUpload(file, 'mock_drills', mockDrill.id, session.userId)
+    if (!uploadResult.success) {
+      console.error('File upload failed:', uploadResult.error)
+    }
+  }
 
   return NextResponse.json({ mockDrill }, { status: 201 })
 }

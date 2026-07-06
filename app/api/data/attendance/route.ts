@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { getBranchFilter } from '@/lib/branchAccess'
+import { handleFileUpload, parseFormData } from '@/lib/fileUpload'
 
 // GET attendance records (filtered by branch access)
 export async function GET(request: Request) {
@@ -40,7 +41,35 @@ export async function POST(request: Request) {
     )
   }
 
-  const { employeeName, date, status, notes, branchId } = await request.json()
+  let employeeName: string | null = null
+  let date: string | null = null
+  let status: string | null = null
+  let notes: string | null = null
+  let branchId: string | null = null
+  let customFieldsData: Record<string, string> | null = null
+  let file: File | null = null
+
+  // Check if the request is multipart/form-data (for file uploads)
+  const isFormData = request.headers.get('content-type')?.includes('multipart/form-data')
+
+  if (isFormData) {
+    const parsed = await parseFormData(request)
+    employeeName = parsed.fields['employeeName']
+    date = parsed.fields['date']
+    status = parsed.fields['status']
+    notes = parsed.fields['notes']
+    branchId = parsed.fields['branchId']
+    customFieldsData = parsed.customFieldsData
+    file = parsed.file
+  } else {
+    const body = await request.json()
+    employeeName = body.employeeName
+    date = body.date
+    status = body.status
+    notes = body.notes
+    branchId = body.branchId
+    customFieldsData = body.customFieldsData
+  }
 
   if (!employeeName || !date) {
     return NextResponse.json(
@@ -64,6 +93,7 @@ export async function POST(request: Request) {
       date: new Date(date),
       status: status || 'present',
       notes: notes || null,
+      customFieldsData: customFieldsData || undefined,
       branchId: targetBranchId,
       recordedById: session.userId,
     },
@@ -72,6 +102,14 @@ export async function POST(request: Request) {
       recordedBy: { select: { id: true, name: true } },
     },
   })
+
+  // Handle file upload if present
+  if (file && file.size > 0) {
+    const uploadResult = await handleFileUpload(file, 'attendance', record.id, session.userId)
+    if (!uploadResult.success) {
+      console.error('File upload failed:', uploadResult.error)
+    }
+  }
 
   return NextResponse.json({ record }, { status: 201 })
 }

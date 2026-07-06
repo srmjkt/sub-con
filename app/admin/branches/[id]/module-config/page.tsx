@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from "next/navigation"
 import { Sidebar } from "@/components/Sidebar"
 
@@ -11,7 +11,7 @@ export type CustomField = {
   id: string // Unique ID (UUID) - DO NOT change this on reorder or name change
   fieldName: string // Key used to look up the data column (This can be edited)
   fieldLabel: string
-  fieldType: "text" | "textarea" | "date" | "select" | "number"
+  fieldType: "text" | "textarea" | "date" | "select" | "number" | "file"
   isRequired: boolean
   options?: string | null 
   order: number
@@ -352,7 +352,7 @@ const FieldListContainer: React.FC<{
     setDragOverId(null);
   };
 
-  const fieldTypes: CustomField['fieldType'][] = ['text', 'textarea', 'date', 'select', 'number'];
+  const fieldTypes: CustomField['fieldType'][] = ['text', 'textarea', 'date', 'select', 'number', 'file'];
 
   return (
       <div className="border border-white/10 rounded-2xl bg-white/5 overflow-hidden">
@@ -503,6 +503,10 @@ const BranchModuleConfigPage: React.FC = () => {
     const [isAddingModule, setIsAddingModule] = useState(false);
     const [newModuleName, setNewModuleName] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    
+    // New module creation state
+    const [newModuleFields, setNewModuleFields] = useState<CustomField[]>([]);
+    const [showNewModuleForm, setShowNewModuleForm] = useState(false);
 
     // Fetch all module configs for this branch
     useEffect(() => {
@@ -860,10 +864,127 @@ const BranchModuleConfigPage: React.FC = () => {
         }
     }, [branchId, selectedModule, allModuleConfigs]);
 
+    /** Restore a single module to default configuration */
+    const handleRestoreModule = useCallback(async (moduleName: string) => {
+        if (!confirm(`Are you sure you want to restore the "${moduleName}" module to its default configuration? This will replace any custom fields you have created.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/admin/branches/${branchId}/module-config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ module: moduleName })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setAllModuleConfigs(prev => {
+                    const filtered = prev.filter(m => m.module !== moduleName);
+                    return [...filtered, ...data.configs];
+                });
+                if (data.configs.length > 0) {
+                    setSelectedModule(data.configs[0]);
+                }
+                alert(`Module "${moduleName}" restored to default configuration successfully!`);
+            } else {
+                alert('Failed to restore module');
+            }
+        } catch (error) {
+            console.error('Failed to restore module:', error);
+            alert('Failed to restore module');
+        }
+    }, [branchId]);
+
+    /** Add a field to the new module being created */
+    const handleAddFieldToNewModule = useCallback(() => {
+        const newField: CustomField = {
+            id: `field-${Date.now()}-${Math.random()}`,
+            fieldName: `field_${newModuleFields.length + 1}`,
+            fieldLabel: `Field ${newModuleFields.length + 1}`,
+            fieldType: 'text',
+            isRequired: false,
+            order: newModuleFields.length,
+            colSpan: 1
+        };
+        setNewModuleFields(prev => [...prev, newField]);
+    }, [newModuleFields]);
+
+    /** Update a field in the new module */
+    const handleUpdateNewModuleField = useCallback((id: string, updates: Partial<CustomField>) => {
+        setNewModuleFields(prev => prev.map(field => 
+            field.id === id ? { ...field, ...updates } : field
+        ));
+    }, []);
+
+    /** Remove a field from the new module */
+    const handleRemoveFieldFromNewModule = useCallback((id: string) => {
+        setNewModuleFields(prev => {
+            const filtered = prev.filter(f => f.id !== id);
+            return filtered.map((field, index) => ({ ...field, order: index }));
+        });
+    }, []);
+
+    /** Create the new module with all its fields */
+    const handleCreateNewModule = useCallback(async () => {
+        if (!newModuleName.trim()) {
+            alert('Please enter a module name');
+            return;
+        }
+
+        if (newModuleFields.length === 0) {
+            alert('Please add at least one field to the module');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/admin/branches/${branchId}/module-config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    module: newModuleName.toLowerCase().replace(/\s+/g, '_'),
+                    isEnabled: true,
+                    customFields: newModuleFields.map(field => ({
+                        fieldName: field.fieldName,
+                        fieldLabel: field.fieldLabel,
+                        fieldType: field.fieldType,
+                        isRequired: field.isRequired,
+                        options: field.options || null,
+                        order: field.order,
+                        colSpan: field.colSpan || 1,
+                        optionColors: field.optionColors || null,
+                    }))
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setAllModuleConfigs(prev => [...prev, data.config]);
+                setSelectedModule(data.config);
+                setNewModuleName('');
+                setNewModuleFields([]);
+                setShowNewModuleForm(false);
+                alert(`Module "${newModuleName}" created successfully!`);
+            } else {
+                alert('Failed to create module');
+            }
+        } catch (error) {
+            console.error('Failed to create module:', error);
+            alert('Failed to create module');
+        }
+    }, [branchId, newModuleName, newModuleFields]);
+
     const handleCancel = useCallback(() => {
       // Navigate back to the branches list
       router.push('/admin/branches');
     }, [router]);
+
+  /** Get list of missing pre-installed default modules that can be restored */
+  const missingDefaultModules = useMemo(() => {
+    const defaultModuleNames = ['incidents', 'attendance', 'trainings', 'simulations', 'mock_drills', 'inventory']
+    const existingModuleNames = new Set(allModuleConfigs.map(m => m.module))
+    return defaultModuleNames.filter(name => !existingModuleNames.has(name))
+  }, [allModuleConfigs])
 
   // Drag and drop handlers removed
 
@@ -878,7 +999,7 @@ const BranchModuleConfigPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-      <Sidebar role="ADMIN" />
+      <Sidebar role="ADMIN" branchId={branchId !== "UNKNOWN_BRANCH" ? branchId : undefined} />
       <main className="ml-64 p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Header */}
@@ -898,6 +1019,36 @@ const BranchModuleConfigPage: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-white">Modules</h2>
               <div className="flex space-x-2">
+                {allModuleConfigs.length > 0 && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Are you sure you want to restore all default modules? This will delete all current modules and replace them with the pre-configured defaults (incidents, attendance, trainings, simulations, mock drills, inventory). This action cannot be undone.')) {
+                        return;
+                      }
+                      try {
+                        const response = await fetch(`/api/admin/branches/${branchId}/module-config`, {
+                          method: 'PUT',
+                        });
+                        if (response.ok) {
+                          const data = await response.json();
+                          setAllModuleConfigs(data.configs);
+                          if (data.configs.length > 0) {
+                            setSelectedModule(data.configs[0]);
+                          }
+                          alert('Default modules restored successfully!');
+                        } else {
+                          alert('Failed to restore default modules');
+                        }
+                      } catch (error) {
+                        console.error('Failed to restore defaults:', error);
+                        alert('Failed to restore default modules');
+                      }
+                    }}
+                    className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2.5 font-medium text-emerald-200 transition hover:bg-emerald-400/20"
+                  >
+                    🔄 Restore Defaults
+                  </button>
+                )}
                 {allModuleConfigs.length > 1 && (
                   <button
                     onClick={handleDeleteAllModules}
@@ -906,39 +1057,24 @@ const BranchModuleConfigPage: React.FC = () => {
                     Delete All
                   </button>
                 )}
-                {!isAddingModule ? (
+                {!showNewModuleForm ? (
                   <button
-                    onClick={() => setIsAddingModule(true)}
+                    onClick={() => setShowNewModuleForm(true)}
                     className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20"
                   >
-                    + Add Module
+                    + Create New Module
                   </button>
                 ) : (
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={newModuleName}
-                      onChange={(e) => setNewModuleName(e.target.value)}
-                      placeholder="Module name (e.g., reports)"
-                      className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none"
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddModule()}
-                    />
-                    <button
-                      onClick={handleAddModule}
-                      className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsAddingModule(false);
-                        setNewModuleName('');
-                      }}
-                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 font-medium text-slate-400 transition hover:bg-white/10"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => {
+                      setShowNewModuleForm(false);
+                      setNewModuleName('');
+                      setNewModuleFields([]);
+                    }}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 font-medium text-slate-400 transition hover:bg-white/10"
+                  >
+                    Cancel Creation
+                  </button>
                 )}
               </div>
             </div>
@@ -975,18 +1111,32 @@ const BranchModuleConfigPage: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteModule(config);
-                        }}
-                        className="text-red-400 hover:text-red-300 p-1"
-                        title="Delete module"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRestoreModule(config.module);
+                          }}
+                          className="text-emerald-400 hover:text-emerald-300 p-1"
+                          title="Restore default configuration"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteModule(config);
+                          }}
+                          className="text-red-400 hover:text-red-300 p-1"
+                          title="Delete module"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -994,8 +1144,241 @@ const BranchModuleConfigPage: React.FC = () => {
             )}
           </section>
 
-          {/* Module Editor Section */}
-          {selectedModule ? (
+          {/* Available Pre-installed Modules Section */}
+          {missingDefaultModules.length > 0 && (
+            <section className="rounded-[28px] border border-emerald-400/20 bg-emerald-400/5 p-6 backdrop-blur">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Available Pre-installed Modules</h2>
+                  <p className="text-sm text-slate-400 mt-1">
+                    These default modules can be restored individually. Restoring a module will add it back with its default configuration.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {missingDefaultModules.map((moduleName) => (
+                  <div
+                    key={moduleName}
+                    className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4 hover:border-emerald-400/40 transition"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-semibold text-lg text-white capitalize">{moduleName.replace(/_/g, ' ')}</h3>
+                        <p className="text-xs text-slate-400 mt-1">Pre-installed module - not yet added</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Restore the "${moduleName.replace(/_/g, ' ')}" module with its default configuration?`)) return;
+                          try {
+                            const response = await fetch(`/api/admin/branches/${branchId}/module-config`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ module: moduleName })
+                            });
+                            if (response.ok) {
+                              const data = await response.json();
+                              setAllModuleConfigs(prev => {
+                                const filtered = prev.filter(m => m.module !== moduleName);
+                                return [...filtered, ...data.configs];
+                              });
+                              if (data.configs.length > 0) {
+                                setSelectedModule(data.configs[0]);
+                              }
+                              alert(`Module "${moduleName.replace(/_/g, ' ')}" restored successfully!`);
+                            } else {
+                              alert('Failed to restore module');
+                            }
+                          } catch (error) {
+                            console.error('Failed to restore module:', error);
+                            alert('Failed to restore module');
+                          }
+                        }}
+                        className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-400/20"
+                      >
+                        + Restore Module
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* New Module Creation Form */}
+          {showNewModuleForm && (
+            <section className="rounded-[28px] border border-cyan-400/30 bg-cyan-400/5 p-6 backdrop-blur">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-semibold text-white">Create New Module</h2>
+                  <p className="mt-1 text-sm text-slate-300">
+                    Build a custom module with your own fields and configuration
+                  </p>
+                </div>
+              </div>
+
+              {/* Module Name Input */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Module Name *
+                </label>
+                <input
+                  type="text"
+                  value={newModuleName}
+                  onChange={(e) => setNewModuleName(e.target.value)}
+                  placeholder="e.g., reports, audits, inspections"
+                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-2.5 text-white placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none w-full"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  This will be used as the module identifier (spaces will be converted to underscores)
+                </p>
+              </div>
+
+              {/* Fields Builder */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">Module Fields</h3>
+                  <button
+                    onClick={handleAddFieldToNewModule}
+                    className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                  >
+                    + Add Field
+                  </button>
+                </div>
+
+                {newModuleFields.length === 0 ? (
+                  <div className="text-center py-8 border border-dashed border-white/10 rounded-2xl">
+                    <p className="text-slate-400">No fields added yet. Click "Add Field" to build your module structure.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {newModuleFields.map((field, index) => (
+                      <div key={field.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-medium text-slate-400">Field {index + 1}</span>
+                          <button
+                            onClick={() => handleRemoveFieldFromNewModule(field.id)}
+                            className="text-xs px-2 py-1 rounded border border-red-400/30 bg-red-400/10 text-red-300 hover:bg-red-400/20 transition"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Field Label */}
+                          <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Field Label *</label>
+                            <input
+                              type="text"
+                              value={field.fieldLabel}
+                              onChange={(e) => handleUpdateNewModuleField(field.id, { fieldLabel: e.target.value })}
+                              placeholder="e.g., Title, Name, Date"
+                              className="rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none w-full"
+                            />
+                          </div>
+
+                          {/* Field Name */}
+                          <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Field Name (database key) *</label>
+                            <input
+                              type="text"
+                              value={field.fieldName}
+                              onChange={(e) => handleUpdateNewModuleField(field.id, { fieldName: e.target.value })}
+                              placeholder="e.g., title, employee_name"
+                              className="rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none w-full"
+                            />
+                          </div>
+
+                          {/* Field Type */}
+                          <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Field Type *</label>
+                            <select
+                              value={field.fieldType}
+                              onChange={(e) => handleUpdateNewModuleField(field.id, { fieldType: e.target.value as any })}
+                              className="rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none w-full"
+                            >
+                              <option value="text">Text</option>
+                              <option value="textarea">Textarea</option>
+                              <option value="date">Date</option>
+                              <option value="number">Number</option>
+                              <option value="select">Select (Dropdown)</option>
+                              <option value="file">File Upload</option>
+                            </select>
+                          </div>
+
+                          {/* Column Span */}
+                          <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Column Width</label>
+                            <select
+                              value={field.colSpan || 1}
+                              onChange={(e) => handleUpdateNewModuleField(field.id, { colSpan: parseInt(e.target.value) })}
+                              className="rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none w-full"
+                            >
+                              <option value="1">1 Column (Half width)</option>
+                              <option value="2">2 Columns (Full width)</option>
+                            </select>
+                          </div>
+
+                          {/* Required Checkbox */}
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`required-${field.id}`}
+                              checked={field.isRequired}
+                              onChange={(e) => handleUpdateNewModuleField(field.id, { isRequired: e.target.checked })}
+                              className="h-4 w-4 rounded border-white/10 bg-slate-950/50 text-cyan-400 focus:ring-cyan-400/50"
+                            />
+                            <label htmlFor={`required-${field.id}`} className="text-sm text-slate-300 cursor-pointer">
+                              Required field
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Select Options (only shown for select type) */}
+                        {field.fieldType === 'select' && (
+                          <div className="mt-3">
+                            <label className="block text-xs font-medium text-slate-400 mb-1">
+                              Select Options (one per line)
+                            </label>
+                            <textarea
+                              value={field.options || ''}
+                              onChange={(e) => handleUpdateNewModuleField(field.id, { options: e.target.value })}
+                              placeholder="Option 1&#10;Option 2&#10;Option 3"
+                              rows={3}
+                              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none resize-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowNewModuleForm(false);
+                    setNewModuleName('');
+                    setNewModuleFields([]);
+                  }}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-6 py-2.5 font-medium text-slate-400 transition hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateNewModule}
+                  disabled={!newModuleName.trim() || newModuleFields.length === 0}
+                  className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-6 py-2.5 font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Create Module
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* Module Editor Section - Hidden when creating new module */}
+          {selectedModule && !showNewModuleForm ? (
             <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold text-white capitalize">Configure: {selectedModule.module}</h2>
