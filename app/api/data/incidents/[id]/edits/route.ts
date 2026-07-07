@@ -74,7 +74,7 @@ export async function PATCH(
     // Use filtered data for the update logic
 
     // Start database transaction for atomicity
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
         // 1. Update the main incident record based on 'filteredChanges' payload
         await tx.incidentReport.update({
             where: { id: incidentId }, // Assuming the primary key of IncidentReport is available or inferable
