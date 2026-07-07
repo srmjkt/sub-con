@@ -12,8 +12,38 @@ export async function GET() {
     tests: [] as any[],
   }
 
-  // Test 1: Check which env var is being used
-  const connectionString = process.env.DB_URL || process.env.DATABASE_URL || process.env.DIRECT_URL
+  // Test 1: Show all env var values (masked)
+  const envVars = ['DB_URL', 'DATABASE_URL', 'DIRECT_URL'] as const
+  for (const varName of envVars) {
+    const val = process.env[varName]
+    if (val) {
+      try {
+        const url = new URL(val)
+        results.tests.push({
+          test: `env_${varName}`,
+          success: true,
+          host: url.hostname,
+          port: url.port,
+          database: url.pathname.slice(1),
+        })
+      } catch (e) {
+        results.tests.push({
+          test: `env_${varName}`,
+          success: false,
+          error: 'Failed to parse',
+        })
+      }
+    } else {
+      results.tests.push({
+        test: `env_${varName}`,
+        success: false,
+        error: 'not set',
+      })
+    }
+  }
+
+  // Test 2: Check which env var is being used
+  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL || process.env.DB_URL
   if (connectionString) {
     try {
       const url = new URL(connectionString)
