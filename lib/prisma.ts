@@ -7,8 +7,9 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPool() {
-  // Use DIRECT_URL for serverless (Vercel) to avoid PgBouncer prepared statement issues
-  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL!
+  // Use DATABASE_URL (Supabase connection pooler on port 6543) for serverless (Vercel)
+  // The pooler is more permissive with firewall rules than the direct connection (port 5432)
+  const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL!
   const url = new URL(connectionString)
   return new pg.Pool({
     host: url.hostname,
@@ -16,6 +17,10 @@ function createPool() {
     database: url.pathname.slice(1),
     user: url.username,
     password: decodeURIComponent(url.password),
+    // Supabase pooler uses PgBouncer which needs this for transaction mode
+    max: 1,
+    idleTimeoutMillis: 0,
+    connectionTimeoutMillis: 10000,
   })
 }
 
