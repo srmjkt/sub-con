@@ -7,9 +7,9 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPool() {
-  // Prefer DIRECT_URL (port 5432) for Vercel with SSL
-  // Falls back to DATABASE_URL (pooler port 6543), then DB_URL
-  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL || process.env.DB_URL!
+  // Use DATABASE_URL (pooler port 6543) for Vercel - pooler has better network routing
+  // Falls back to DIRECT_URL (port 5432), then DB_URL
+  const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL || process.env.DB_URL!
   const url = new URL(connectionString)
   return new pg.Pool({
     host: url.hostname,
