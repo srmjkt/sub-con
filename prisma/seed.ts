@@ -5,13 +5,14 @@ import pg from 'pg'
 import bcrypt from 'bcryptjs'
 
 const url = new URL(process.env.DATABASE_URL!)
-const pool = new pg.Pool({
-  host: url.hostname,
-  port: Number(url.port),
-  database: url.pathname.slice(1),
-  user: url.username,
-  password: decodeURIComponent(url.password),
-})
+  const pool = new pg.Pool({
+    host: url.hostname,
+    port: Number(url.port),
+    database: url.pathname.slice(1),
+    user: url.username,
+    password: decodeURIComponent(url.password),
+    ssl: { rejectUnauthorized: false },
+  })
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg(pool),
