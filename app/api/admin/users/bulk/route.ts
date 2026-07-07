@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     select: { id: true, email: true },
   })
 
-  const originalAdmin = usersToDelete.find((u) => u.email === 'admin@subcon.com')
+  const originalAdmin = usersToDelete.find((u: { id: string; email: string }) => u.email === 'admin@subcon.com')
   if (originalAdmin && session.email !== 'admin@subcon.com') {
     return NextResponse.json(
       { error: 'Cannot delete the original administrator (admin@subcon.com)' },
