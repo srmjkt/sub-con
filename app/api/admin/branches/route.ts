@@ -136,7 +136,7 @@ export async function POST(request: Request) {
           module: defaultModule.module,
           isEnabled: defaultModule.isEnabled,
           customFields: {
-            create: defaultModule.customFields.map(field => ({
+            create: defaultModule.customFields.map((field: any) => ({
               fieldName: field.fieldName,
               fieldLabel: field.fieldLabel,
               fieldType: field.fieldType,

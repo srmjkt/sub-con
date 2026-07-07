@@ -38,7 +38,7 @@ export async function GET(request: Request) {
         },
         orderBy: { date: 'desc' },
         take: 10,
-      }).catch(err => {
+      }).catch((err: unknown) => {
         console.error('[DASHBOARD] incidents error:', err)
         return []
       }),
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
         },
         orderBy: { date: 'desc' },
         take: 10,
-      }).catch(err => {
+      }).catch((err: unknown) => {
         console.error('[DASHBOARD] attendance error:', err)
         return []
       }),
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
         },
         orderBy: { date: 'desc' },
         take: 10,
-      }).catch(err => {
+      }).catch((err: unknown) => {
         console.error('[DASHBOARD] trainings error:', err)
         return []
       }),
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
         },
         orderBy: { date: 'desc' },
         take: 10,
-      }).catch(err => {
+      }).catch((err: unknown) => {
         console.error('[DASHBOARD] simulations error:', err)
         return []
       }),
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
         },
         orderBy: { date: 'desc' },
         take: 10,
-      }).catch(err => {
+      }).catch((err: unknown) => {
         console.error('[DASHBOARD] mockDrills error:', err)
         return []
       }),
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
           createdBy: { select: { id: true, name: true } },
         },
         orderBy: { itemName: 'asc' },
-      }).catch(err => {
+      }).catch((err: unknown) => {
         console.error('[DASHBOARD] inventory error:', err)
         return []
       }),

@@ -204,7 +204,7 @@ export async function PUT(
           module: moduleToRestore,
           isEnabled: defaultConfig.isEnabled,
           customFields: {
-            create: defaultConfig.customFields.map(field => ({
+            create: defaultConfig.customFields.map((field: any) => ({
               fieldName: field.fieldName,
               fieldLabel: field.fieldLabel,
               fieldType: field.fieldType,
@@ -238,7 +238,7 @@ export async function PUT(
             module: moduleName,
             isEnabled: defaultConfig.isEnabled,
             customFields: {
-              create: defaultConfig.customFields.map(field => ({
+              create: defaultConfig.customFields.map((field: any) => ({
                 fieldName: field.fieldName,
                 fieldLabel: field.fieldLabel,
                 fieldType: field.fieldType,
