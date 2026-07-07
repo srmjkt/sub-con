@@ -17,6 +17,8 @@ function createPool() {
     database: url.pathname.slice(1),
     user: url.username,
     password: decodeURIComponent(url.password),
+    // Supabase requires SSL for all connections
+    ssl: { rejectUnauthorized: false },
     // Supabase pooler uses PgBouncer which needs this for transaction mode
     max: 1,
     idleTimeoutMillis: 0,
