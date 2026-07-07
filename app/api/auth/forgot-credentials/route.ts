@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     // Log the request to console (in production, you'd send an email or create a notification)
     console.log(`[FORGOT CREDENTIALS] Request from: ${email}`)
     console.log(`[FORGOT CREDENTIALS] User found: ${user ? `${user.name} (${user.role}) in branch: ${user.branch?.name || 'N/A'}` : 'No user found with this email'}`)
-    console.log(`[FORGOT CREDENTIALS] Admins notified: ${admins.map(a => `${a.name} <${a.email}>`).join(', ') || 'None'}`)
+    console.log(`[FORGOT CREDENTIALS] Admins notified: ${admins.map((a: { id: string; name: string; email: string }) => `${a.name} <${a.email}>`).join(', ') || 'None'}`)
 
     // Always return a success message regardless of whether the email exists
     // This prevents email enumeration attacks
