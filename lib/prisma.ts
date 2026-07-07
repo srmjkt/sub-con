@@ -7,9 +7,9 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPool() {
-  // Use DATABASE_URL (Supabase connection pooler on port 6543) for serverless (Vercel)
-  // The pooler is more permissive with firewall rules than the direct connection (port 5432)
-  const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL!
+  // Use custom DB_URL env var to bypass Supabase integration's DATABASE_URL override
+  // Falls back to DATABASE_URL, then DIRECT_URL
+  const connectionString = process.env.DB_URL || process.env.DATABASE_URL || process.env.DIRECT_URL!
   const url = new URL(connectionString)
   return new pg.Pool({
     host: url.hostname,
