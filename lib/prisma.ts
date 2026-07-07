@@ -7,7 +7,9 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPool() {
-  const url = new URL(process.env.DATABASE_URL!)
+  // Use DIRECT_URL for serverless (Vercel) to avoid PgBouncer prepared statement issues
+  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL!
+  const url = new URL(connectionString)
   return new pg.Pool({
     host: url.hostname,
     port: Number(url.port),
