@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import Parser from 'rss-parser'
 import { classifySecurityRelevance } from '@/lib/securityClassifier'
+import { extractLocation } from '@/lib/locationExtractor'
 import type { SecurityClassification } from '@/types/security'
+import type { LocationInfo } from '@/lib/locationExtractor'
 
 const parser = new Parser({
   timeout: 10000,
@@ -23,6 +25,7 @@ interface NewsItemRaw {
   url: string
   timestamp: number
   security?: SecurityClassification
+  location?: LocationInfo
 }
 
 function mapRssItem(
@@ -48,6 +51,9 @@ function mapRssItem(
   // Classify security relevance
   const classification = classifySecurityRelevance(headline, summary)
 
+  // Extract location from headline and summary
+  const location = extractLocation(headline, summary)
+
   return {
     id: String(item.guid ?? item.link ?? `${source}-${timestamp}`),
     source,
@@ -57,6 +63,7 @@ function mapRssItem(
     url: rawUrl,
     timestamp,
     security: classification,
+    location,
   }
 }
 
@@ -177,6 +184,9 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = parseInt(searchParams.get('limit') || '6', 10)
   const refresh = searchParams.get('refresh') === 'true'
+  const filterProvince = searchParams.get('province')
+  const filterCity = searchParams.get('city')
+  const filterDistrict = searchParams.get('district')
 
   const sourcesToFetch: SourceKey[] = requestedSource
     ? [requestedSource]
@@ -196,6 +206,18 @@ export async function GET(request: Request) {
   let filteredNews = allNews
   if (!showAll) {
     filteredNews = allNews.filter((item) => item.security?.isRelevant === true)
+  }
+
+  // Apply location filter if specified
+  if (filterProvince || filterCity || filterDistrict) {
+    filteredNews = filteredNews.filter((item) => {
+      const loc = item.location
+      if (!loc) return false
+      if (filterProvince && loc.province !== filterProvince) return false
+      if (filterCity && loc.city !== filterCity) return false
+      if (filterDistrict && loc.district !== filterDistrict) return false
+      return true
+    })
   }
 
   // Paginate

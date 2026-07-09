@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { SEVERITY_LABELS } from "@/lib/securityClassifier"
+import { getProvinces, getCities, getDistricts, getVillageSuggestions, getRWOptions, getRTOptions } from "@/lib/indonesiaLocations"
 
 interface NewsItem {
   id: string
@@ -39,6 +40,18 @@ export default function HomePage() {
   const [pagination, setPagination] = useState<PaginationInfo | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [locationFilter, setLocationFilter] = useState({
+    province: "",
+    city: "",
+    district: "",
+    village: "",
+    rw: "",
+    rt: "",
+  })
+  const [availableCities, setAvailableCities] = useState<string[]>([])
+  const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
+  const [availableVillages, setAvailableVillages] = useState<string[]>([])
+  const [showLocationFilter, setShowLocationFilter] = useState(false)
 
   // Touch gesture state
   const touchStartY = useRef(0)
@@ -51,6 +64,45 @@ export default function HomePage() {
   const [atTop, setAtTop] = useState(false)
   const [atBottom, setAtBottom] = useState(false)
   const newsSectionRef = useRef<HTMLDivElement>(null)
+
+  // Update available cities/districts/villages when location filter changes
+  useEffect(() => {
+    if (locationFilter.province) {
+      setAvailableCities(getCities(locationFilter.province))
+    } else {
+      setAvailableCities([])
+    }
+    if (locationFilter.province && locationFilter.city) {
+      setAvailableDistricts(getDistricts(locationFilter.province, locationFilter.city))
+    } else {
+      setAvailableDistricts([])
+    }
+    if (locationFilter.district) {
+      setAvailableVillages(getVillageSuggestions(locationFilter.district))
+    } else {
+      setAvailableVillages([])
+    }
+  }, [locationFilter.province, locationFilter.city, locationFilter.district])
+
+  // Fetch news with location filter
+  const fetchNewsWithFilter = useCallback(async (pageNum: number = 1, isRefresh: boolean = false) => {
+    try {
+      const params = new URLSearchParams()
+      params.set('limit', String(INITIAL_LIMIT))
+      params.set('page', String(pageNum))
+      if (isRefresh) params.set('refresh', 'true')
+      if (locationFilter.province) params.set('province', locationFilter.province)
+      if (locationFilter.city) params.set('city', locationFilter.city)
+      if (locationFilter.district) params.set('district', locationFilter.district)
+      
+      const res = await fetch(`/api/news?${params.toString()}`)
+      const data = await res.json()
+      return data
+    } catch (error) {
+      console.error("Failed to fetch news:", error)
+      return null
+    }
+  }, [locationFilter])
 
   // Desktop wheel overscroll state
   const wheelAccumulator = useRef(0)
@@ -89,34 +141,36 @@ export default function HomePage() {
     async function fetchNews() {
       try {
         setNewsLoading(true)
-        const res = await fetch(`/api/news?limit=${INITIAL_LIMIT}&page=1`)
-        const data = await res.json()
-        setNews(data.items || [])
-        setPagination(data.pagination || null)
+        const data = await fetchNewsWithFilter(1)
+        if (data) {
+          setNews(data.items || [])
+          setPagination(data.pagination || null)
+        }
       } catch (error) {
         console.error("Failed to fetch news:", error)
       }
       setNewsLoading(false)
     }
     fetchNews()
-  }, [])
+  }, [fetchNewsWithFilter])
 
   // Pull-to-refresh: fetch newest news from top
   const handleRefresh = useCallback(async () => {
     if (refreshing) return
     setRefreshing(true)
     try {
-      const res = await fetch(`/api/news?limit=${INITIAL_LIMIT}&page=1&refresh=true`)
-      const data = await res.json()
-      setNews(data.items || [])
-      setPagination(data.pagination || null)
-      setShowAllNews(false)
+      const data = await fetchNewsWithFilter(1, true)
+      if (data) {
+        setNews(data.items || [])
+        setPagination(data.pagination || null)
+        setShowAllNews(false)
+      }
       vibrate(20)
     } catch (error) {
       console.error("Failed to refresh news:", error)
     }
     setRefreshing(false)
-  }, [refreshing, vibrate])
+  }, [refreshing, vibrate, fetchNewsWithFilter])
 
   // Load more: fetch next page of news (older items)
   const handleLoadMore = useCallback(async () => {
@@ -124,18 +178,19 @@ export default function HomePage() {
     setLoadingMore(true)
     const nextPage = (pagination?.page || 1) + 1
     try {
-      const res = await fetch(`/api/news?limit=${INITIAL_LIMIT}&page=${nextPage}&showAll=${showAllNews}`)
-      const data = await res.json()
-      const currentIds = new Set(news.map(n => n.id))
-      const newItems = (data.items || []).filter((item: NewsItem) => !currentIds.has(item.id))
-      setNews(prev => [...prev, ...newItems])
-      setPagination(data.pagination || null)
+      const data = await fetchNewsWithFilter(nextPage)
+      if (data) {
+        const currentIds = new Set(news.map(n => n.id))
+        const newItems = (data.items || []).filter((item: NewsItem) => !currentIds.has(item.id))
+        setNews(prev => [...prev, ...newItems])
+        setPagination(data.pagination || null)
+      }
       vibrate(15)
     } catch (error) {
       console.error("Failed to load more news:", error)
     }
     setLoadingMore(false)
-  }, [loadingMore, pagination, news, showAllNews, vibrate])
+  }, [loadingMore, pagination, news, vibrate, fetchNewsWithFilter])
 
   // Desktop wheel handler – same logic as touch but for mouse scroll
   const handleWheel = useCallback((e: WheelEvent) => {
@@ -440,7 +495,24 @@ export default function HomePage() {
                   {atBottom && pagination?.hasMore ? ' ↑ Scroll past bottom for older' : ''}
                 </p>
               </div>
-              <div className="flex gap-2 items-center">
+              <div className="flex flex-wrap gap-2 items-center">
+                {/* Location Filter Toggle */}
+                <button
+                  onClick={() => setShowLocationFilter(!showLocationFilter)}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                    showLocationFilter || locationFilter.province
+                      ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
+                      : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                  }`}
+                >
+                  <span className="flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {locationFilter.province ? locationFilter.city || locationFilter.province : "Filter by Location"}
+                  </span>
+                </button>
                 {/* Manual refresh button */}
                 <button
                   onClick={handleRefresh}
@@ -471,6 +543,139 @@ export default function HomePage() {
                 )}
               </div>
             </div>
+
+            {/* Location Filter Panel */}
+            {showLocationFilter && (
+              <div className="mb-6 p-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-emerald-200">Filter by Location</h3>
+                  <button
+                    onClick={() => {
+                      setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" })
+                      setShowLocationFilter(false)
+                    }}
+                    className="text-xs text-slate-400 hover:text-white transition"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {/* Province */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Province</label>
+                    <select
+                      value={locationFilter.province}
+                      onChange={(e) => setLocationFilter({ province: e.target.value, city: "", district: "", village: "", rw: "", rt: "" })}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                    >
+                      <option value="">All Provinces</option>
+                      {getProvinces().map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* City/Regency */}
+                  {locationFilter.province && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">City/Regency</label>
+                      <select
+                        value={locationFilter.city}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, city: e.target.value, district: "", village: "", rw: "", rt: "" }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All Cities</option>
+                        {availableCities.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* District */}
+                  {locationFilter.city && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">District</label>
+                      <select
+                        value={locationFilter.district}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, district: e.target.value, village: "", rw: "", rt: "" }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All Districts</option>
+                        {availableDistricts.map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Village */}
+                  {locationFilter.district && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Village</label>
+                      <select
+                        value={locationFilter.village}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, village: e.target.value, rw: "", rt: "" }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All Villages</option>
+                        {availableVillages.map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* RW */}
+                  {locationFilter.village && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">RW</label>
+                      <select
+                        value={locationFilter.rw}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, rw: e.target.value, rt: "" }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All RW</option>
+                        {getRWOptions().map(rw => (
+                          <option key={rw} value={rw}>RW {rw}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* RT */}
+                  {locationFilter.rw && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">RT</label>
+                      <select
+                        value={locationFilter.rt}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, rt: e.target.value }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All RT</option>
+                        {getRTOptions().map(rt => (
+                          <option key={rt} value={rt}>RT {rt}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                {/* Active Filter Summary */}
+                {locationFilter.province && (
+                  <div className="mt-3 text-xs text-slate-400">
+                    Showing news from:
+                    <span className="text-emerald-300 ml-1">
+                      {locationFilter.province}
+                      {locationFilter.city ? ` > ${locationFilter.city}` : ""}
+                      {locationFilter.district ? ` > ${locationFilter.district}` : ""}
+                      {locationFilter.village ? ` > ${locationFilter.village}` : ""}
+                      {locationFilter.rw ? ` > RW ${locationFilter.rw}` : ""}
+                      {locationFilter.rt ? ` > RT ${locationFilter.rt}` : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {newsLoading ? (
               <div className="text-center py-12">
