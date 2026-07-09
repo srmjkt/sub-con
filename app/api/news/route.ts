@@ -138,53 +138,93 @@ async function fetchSource(
   })
 }
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const requestedSource = searchParams.get('source') as SourceKey | null
-  const showAll = searchParams.get('showAll') === 'true'
+// Cache for storing fetched news so we can do pagination without re-fetching RSS every time
+let cachedNews: NewsItemRaw[] | null = null
+let cacheTimestamp = 0
+const CACHE_TTL = 60_000 // 1 minute cache
 
-  const sourcesToFetch: SourceKey[] = requestedSource
-    ? [requestedSource]
-    : (Object.keys(RSS_URLS) as SourceKey[])
+async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]> {
+  const now = Date.now()
+  if (!forceRefresh && cachedNews && (now - cacheTimestamp) < CACHE_TTL) {
+    return cachedNews
+  }
 
-  const results = await Promise.all(
-    sourcesToFetch.map(fetchSource),
-  )
+  const sourcesToFetch = Object.keys(RSS_URLS) as SourceKey[]
+  const results = await Promise.all(sourcesToFetch.map(fetchSource))
 
   let allNews = results
     .flat()
     .sort((a, b) => b.timestamp - a.timestamp)
 
-  // Filter: only return security-relevant items (unless showAll=true)
-  if (!showAll) {
-    allNews = allNews.filter((item) => item.security?.isRelevant === true)
+  // Deduplicate
+  const seen = new Set<string>()
+  allNews = allNews.filter((item) => {
+    const key = item.headline.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  cachedNews = allNews
+  cacheTimestamp = now
+  return allNews
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const requestedSource = searchParams.get('source') as SourceKey | null
+  const showAll = searchParams.get('showAll') === 'true'
+  const page = parseInt(searchParams.get('page') || '1', 10)
+  const limit = parseInt(searchParams.get('limit') || '6', 10)
+  const refresh = searchParams.get('refresh') === 'true'
+
+  const sourcesToFetch: SourceKey[] = requestedSource
+    ? [requestedSource]
+    : (Object.keys(RSS_URLS) as SourceKey[])
+
+  // If refresh is requested, force re-fetch from RSS
+  let allNews: NewsItemRaw[]
+  if (requestedSource) {
+    // Single source -> always fetch fresh
+    const results = await Promise.all(sourcesToFetch.map(fetchSource))
+    allNews = results.flat().sort((a, b) => b.timestamp - a.timestamp)
+  } else {
+    allNews = await getAllNews(refresh)
   }
 
-  // Return latest articles (up to 5 per source) — client handles deduplication
-  const limitedNews: NewsItemRaw[] = []
-  const perSourceLimit = 5
-  const sourceCounts: Record<string, number> = {}
-  for (const item of allNews) {
-    sourceCounts[item.source] = (sourceCounts[item.source] || 0) + 1
-    if (sourceCounts[item.source] <= perSourceLimit) {
-      limitedNews.push(item)
-    }
+  // Filter: only return security-relevant items (unless showAll=true)
+  let filteredNews = allNews
+  if (!showAll) {
+    filteredNews = allNews.filter((item) => item.security?.isRelevant === true)
   }
+
+  // Paginate
+  const totalItems = filteredNews.length
+  const totalPages = Math.ceil(totalItems / limit)
+  const startIndex = (page - 1) * limit
+  const paginatedItems = filteredNews.slice(startIndex, startIndex + limit)
 
   const now = Date.now()
 
   // Summary of how many items were filtered out
   const stats = {
-    totalFetched: results.flat().length,
-    securityFiltered: results.flat().filter((i) => i.security?.isRelevant === true).length,
+    totalFetched: allNews.length,
+    securityFiltered: allNews.filter((i) => i.security?.isRelevant === true).length,
     categories: countCategories(allNews),
   }
 
   return NextResponse.json(
     {
-      items: limitedNews,
+      items: paginatedItems,
       stats,
       fetchedAt: now,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasMore: page < totalPages,
+      },
     },
     {
       headers: {
