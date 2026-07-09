@@ -33,7 +33,7 @@ export interface ModuleConfig {
  * Defines default schema fields for various modules. 
  * Used to initialize state if no data is found or when creating a new module structure.
  */
-const DEFAULT_MODULE_FIELDS: Record<string, { fieldName: string; fieldLabel: string; fieldType: "text" | "textarea" | "date" | "select" | "number" ; isRequired: boolean; colSpan?: number; options?: string; optionColors?: Record<string, string> }[]> = {
+const DEFAULT_MODULE_FIELDS: Record<string, { fieldName: string; fieldLabel: string; fieldType: "text" | "textarea" | "date" | "select" | "number" | "file"; isRequired: boolean; colSpan?: number; options?: string; optionColors?: Record<string, string> }[]> = {
   incidents: [
     { fieldName: "incidentReportNumber", fieldLabel: "Incident Report Number", fieldType: "text", isRequired: true, colSpan: 1 },
     { fieldName: "title", fieldLabel: "Title", fieldType: "text", isRequired: true, colSpan: 2 },
@@ -42,6 +42,7 @@ const DEFAULT_MODULE_FIELDS: Record<string, { fieldName: string; fieldLabel: str
     { fieldName: "severity", fieldLabel: "Severity", fieldType: "select", isRequired: true, colSpan: 1, options: "Low\nMedium\nHigh\nCritical", optionColors: { 'Low': '#10b981', 'Medium': '#f59e0b', 'High': '#ef4444', 'Critical': '#7f1d1d' } },
     { fieldName: "status", fieldLabel: "Status", fieldType: "select", isRequired: true, colSpan: 1, options: "Open\nInvestigating\nResolved\nClosed", optionColors: { 'Open': '#3b82f6', 'Investigating': '#f59e0b', 'Resolved': '#10b981', 'Closed': '#6b7280' } },
     { fieldName: "location", fieldLabel: "Location", fieldType: "text", isRequired: false, colSpan: 1 },
+    { fieldName: "fileUpload", fieldLabel: "File Upload", fieldType: "file", isRequired: false, colSpan: 2 },
   ],
   attendance: [
     { fieldName: "employeeName", fieldLabel: "Employee Name", fieldType: "text", isRequired: true, colSpan: 1 },
