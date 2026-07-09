@@ -184,6 +184,8 @@ export default function HomePage() {
         const newItems = (data.items || []).filter((item: NewsItem) => !currentIds.has(item.id))
         setNews(prev => [...prev, ...newItems])
         setPagination(data.pagination || null)
+        // Reveal the newly loaded items (displayedNews slices to INITIAL_LIMIT unless showAllNews)
+        setShowAllNews(true)
       }
       vibrate(15)
     } catch (error) {
@@ -729,7 +731,7 @@ export default function HomePage() {
                 </div>
 
                 {/* Load more button at bottom (for desktop / fallback) */}
-                {pagination?.hasMore && !showAllNews && (
+                {pagination?.hasMore && (
                   <div className="mt-6 text-center">
                     <button
                       onClick={handleLoadMore}
