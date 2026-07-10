@@ -55,53 +55,53 @@ const NEWS_SOURCES = [
 ]
 
 // Provincial capitals with SVG map positions (x%, y%) for interactive dots
-// Coordinates adjusted to match standard Indonesia map projection
+// Coordinates adjusted to match the uploaded Indonesia map image
 const PROVINCE_CAPITALS = [
-  // Sumatra
-  { name: "Banda Aceh", province: "Aceh", x: 10, y: 6 },
-  { name: "Medan", province: "Sumatera Utara", x: 14, y: 16 },
-  { name: "Padang", province: "Sumatera Barat", x: 10, y: 28 },
-  { name: "Pekanbaru", province: "Riau", x: 20, y: 20 },
-  { name: "Tanjung Pinang", province: "Kepulauan Riau", x: 28, y: 22 },
-  { name: "Jambi", province: "Jambi", x: 20, y: 32 },
-  { name: "Palembang", province: "Sumatera Selatan", x: 24, y: 40 },
-  { name: "Bengkulu", province: "Bengkulu", x: 16, y: 38 },
-  { name: "Bandar Lampung", province: "Lampung", x: 24, y: 48 },
-  { name: "Pangkal Pinang", province: "Kepulauan Bangka Belitung", x: 28, y: 34 },
-  // Java
-  { name: "Serang", province: "Banten", x: 32, y: 44 },
-  { name: "Jakarta", province: "DKI Jakarta", x: 36, y: 46 },
-  { name: "Bandung", province: "Jawa Barat", x: 38, y: 48 },
-  { name: "Semarang", province: "Jawa Tengah", x: 44, y: 47 },
-  { name: "Yogyakarta", province: "Daerah Istimewa Yogyakarta", x: 42, y: 51 },
-  { name: "Surabaya", province: "Jawa Timur", x: 52, y: 47 },
-  // Kalimantan
-  { name: "Pontianak", province: "Kalimantan Barat", x: 36, y: 22 },
-  { name: "Palangka Raya", province: "Kalimantan Tengah", x: 46, y: 30 },
-  { name: "Banjarmasin", province: "Kalimantan Selatan", x: 48, y: 38 },
-  { name: "Samarinda", province: "Kalimantan Timur", x: 56, y: 24 },
-  { name: "Tanjung Selor", province: "Kalimantan Utara", x: 56, y: 16 },
-  // Sulawesi
-  { name: "Manado", province: "Sulawesi Utara", x: 64, y: 10 },
-  { name: "Gorontalo", province: "Gorontalo", x: 66, y: 16 },
-  { name: "Palu", province: "Sulawesi Tengah", x: 60, y: 24 },
-  { name: "Mamuju", province: "Sulawesi Barat", x: 58, y: 32 },
-  { name: "Makassar", province: "Sulawesi Selatan", x: 62, y: 40 },
-  { name: "Kendari", province: "Sulawesi Tenggara", x: 68, y: 36 },
-  // Nusa Tenggara
-  { name: "Denpasar", province: "Bali", x: 56, y: 52 },
-  { name: "Mataram", province: "Nusa Tenggara Barat", x: 58, y: 56 },
-  { name: "Kupang", province: "Nusa Tenggara Timur", x: 68, y: 58 },
-  // Maluku
-  { name: "Ambon", province: "Maluku", x: 76, y: 34 },
-  { name: "Sofifi", province: "Maluku Utara", x: 74, y: 22 },
-  // Papua
-  { name: "Jayapura", province: "Papua", x: 88, y: 28 },
-  { name: "Manokwari", province: "Papua Barat", x: 80, y: 20 },
-  { name: "Merauke", province: "Papua Selatan", x: 90, y: 40 },
-  { name: "Nabire", province: "Papua Tengah", x: 84, y: 32 },
-  { name: "Wamena", province: "Papua Pegunungan", x: 88, y: 34 },
-  { name: "Sorong", province: "Papua Barat Daya", x: 78, y: 26 },
+  // Sumatra (left side, vertical)
+  { name: "Banda Aceh", province: "Aceh", x: 8, y: 5 },
+  { name: "Medan", province: "Sumatera Utara", x: 12, y: 14 },
+  { name: "Padang", province: "Sumatera Barat", x: 8, y: 26 },
+  { name: "Pekanbaru", province: "Riau", x: 18, y: 18 },
+  { name: "Tanjung Pinang", province: "Kepulauan Riau", x: 26, y: 20 },
+  { name: "Jambi", province: "Jambi", x: 18, y: 30 },
+  { name: "Palembang", province: "Sumatera Selatan", x: 22, y: 38 },
+  { name: "Bengkulu", province: "Bengkulu", x: 14, y: 36 },
+  { name: "Bandar Lampung", province: "Lampung", x: 22, y: 46 },
+  { name: "Pangkal Pinang", province: "Kepulauan Bangka Belitung", x: 26, y: 32 },
+  // Java (middle, horizontal)
+  { name: "Serang", province: "Banten", x: 30, y: 42 },
+  { name: "Jakarta", province: "DKI Jakarta", x: 34, y: 44 },
+  { name: "Bandung", province: "Jawa Barat", x: 36, y: 46 },
+  { name: "Semarang", province: "Jawa Tengah", x: 42, y: 45 },
+  { name: "Yogyakarta", province: "Daerah Istimewa Yogyakarta", x: 40, y: 49 },
+  { name: "Surabaya", province: "Jawa Timur", x: 50, y: 45 },
+  // Kalimantan (center)
+  { name: "Pontianak", province: "Kalimantan Barat", x: 34, y: 20 },
+  { name: "Palangka Raya", province: "Kalimantan Tengah", x: 44, y: 28 },
+  { name: "Banjarmasin", province: "Kalimantan Selatan", x: 46, y: 36 },
+  { name: "Samarinda", province: "Kalimantan Timur", x: 54, y: 22 },
+  { name: "Tanjung Selor", province: "Kalimantan Utara", x: 54, y: 14 },
+  // Sulawesi (right of center, vertical)
+  { name: "Manado", province: "Sulawesi Utara", x: 62, y: 8 },
+  { name: "Gorontalo", province: "Gorontalo", x: 64, y: 14 },
+  { name: "Palu", province: "Sulawesi Tengah", x: 58, y: 22 },
+  { name: "Mamuju", province: "Sulawesi Barat", x: 56, y: 30 },
+  { name: "Makassar", province: "Sulawesi Selatan", x: 60, y: 38 },
+  { name: "Kendari", province: "Sulawesi Tenggara", x: 66, y: 34 },
+  // Nusa Tenggara (bottom right)
+  { name: "Denpasar", province: "Bali", x: 54, y: 50 },
+  { name: "Mataram", province: "Nusa Tenggara Barat", x: 56, y: 54 },
+  { name: "Kupang", province: "Nusa Tenggara Timur", x: 66, y: 56 },
+  // Maluku (far right)
+  { name: "Ambon", province: "Maluku", x: 74, y: 32 },
+  { name: "Sofifi", province: "Maluku Utara", x: 72, y: 20 },
+  // Papua (far right)
+  { name: "Jayapura", province: "Papua", x: 86, y: 26 },
+  { name: "Manokwari", province: "Papua Barat", x: 78, y: 18 },
+  { name: "Merauke", province: "Papua Selatan", x: 88, y: 38 },
+  { name: "Nabire", province: "Papua Tengah", x: 82, y: 30 },
+  { name: "Wamena", province: "Papua Pegunungan", x: 86, y: 32 },
+  { name: "Sorong", province: "Papua Barat Daya", x: 76, y: 24 },
 ]
 
 export default function HomePage() {
