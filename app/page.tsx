@@ -369,17 +369,6 @@ export default function HomePage() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Full-screen map background */}
-      <div className="fixed inset-0 z-0 flex items-center justify-center">
-        <img
-          src="/indonesia-map.png"
-          alt="Indonesia Map"
-          className="w-full h-full object-contain opacity-40"
-          draggable={false}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-900/70 to-slate-950/80" />
-      </div>
-
       {/* Pull-to-refresh indicators */}
       {pullVisualOffset > 0 && (
         <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-transform" style={{ transform: `translateY(${pullVisualOffset}px)` }}>
