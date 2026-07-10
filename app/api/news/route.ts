@@ -97,12 +97,15 @@ function extractCategory(
 
 const RSS_URLS: Record<SourceKey, string[]> = {
   Kompas: [
+    'https://rss.kompas.com/',
     'https://news.google.com/rss/search?q=site:kompas.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Detik: [
+    'https://rss.detik.com/',
     'https://news.google.com/rss/search?q=site:detik.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Liputan6: [
+    'https://rss.liputan6.com/',
     'https://news.google.com/rss/search?q=site:liputan6.com&hl=id&gl=ID&ceid=ID:id',
   ],
   CNNIndonesia: [
@@ -110,6 +113,7 @@ const RSS_URLS: Record<SourceKey, string[]> = {
     'https://news.google.com/rss/search?q=site:cnnindonesia.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Kumparan: [
+    'https://lapi.kumparan.com/v2.0/rss/',
     'https://news.google.com/rss/search?q=site:kumparan.com&hl=id&gl=ID&ceid=ID:id',
   ],
 }
@@ -126,11 +130,11 @@ async function fetchSource(
     try {
       const feed = await parser.parseURL(url)
       const items = (feed.items ?? [])
-        .slice(0, 20)
+        .slice(0, 30)
         .map((item) => mapRssItem(item as unknown as Record<string, unknown>, source))
         .filter((item) => item.headline && item.url)
       allItems.push(...items)
-      if (allItems.length >= 5) break
+      if (allItems.length >= 10) break
     } catch (error) {
       console.error(`[RSS] ${source} fetch error:`, error)
     }
