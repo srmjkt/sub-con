@@ -498,7 +498,7 @@ export default function HomePage() {
                   }`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedDot === cap.province ? "bg-red-400" : "bg-red-700"}`} />
-                  {cap.name}
+                  {`${cap.province} (${cap.name})`}
                 </button>
               ))}
             </div>
