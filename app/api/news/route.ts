@@ -6,7 +6,7 @@ import type { SecurityClassification } from '@/types/security'
 import type { LocationInfo } from '@/lib/locationExtractor'
 
 const parser = new Parser({
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'User-Agent':
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -14,7 +14,7 @@ const parser = new Parser({
   },
 })
 
-type SourceKey = 'Kompas' | 'Detik' | 'Liputan6' | 'CNNIndonesia' | 'Kumparan'
+type SourceKey = 'Kompas' | 'Detik' | 'Liputan6' | 'CNNIndonesia' | 'Kumparan' | 'Tempo' | 'Tribun' | 'Okezone'
 
 interface NewsItemRaw {
   id: string
@@ -98,23 +98,40 @@ function extractCategory(
 const RSS_URLS: Record<SourceKey, string[]> = {
   Kompas: [
     'https://rss.kompas.com/',
+    'https://indeks.kompas.com/headline/rss.xml',
     'https://news.google.com/rss/search?q=site:kompas.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Detik: [
     'https://rss.detik.com/',
+    'https://news.detik.com/index.rss',
     'https://news.google.com/rss/search?q=site:detik.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Liputan6: [
     'https://rss.liputan6.com/',
+    'https://feed.liputan6.com/',
     'https://news.google.com/rss/search?q=site:liputan6.com&hl=id&gl=ID&ceid=ID:id',
   ],
   CNNIndonesia: [
     'https://www.cnnindonesia.com/nasional/rss',
+    'https://www.cnnindonesia.com/rss',
     'https://news.google.com/rss/search?q=site:cnnindonesia.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Kumparan: [
     'https://lapi.kumparan.com/v2.0/rss/',
+    'https://kumparan.com/rss',
     'https://news.google.com/rss/search?q=site:kumparan.com&hl=id&gl=ID&ceid=ID:id',
+  ],
+  Tempo: [
+    'https://rss.tempo.co/',
+    'https://news.google.com/rss/search?q=site:tempo.co&hl=id&gl=ID&ceid=ID:id',
+  ],
+  Tribun: [
+    'https://rss.tribunnews.com/',
+    'https://news.google.com/rss/search?q=site:tribunnews.com&hl=id&gl=ID&ceid=ID:id',
+  ],
+  Okezone: [
+    'https://rss.okezone.com/',
+    'https://news.google.com/rss/search?q=site:okezone.com&hl=id&gl=ID&ceid=ID:id',
   ],
 }
 
