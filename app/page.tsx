@@ -55,9 +55,7 @@ const NEWS_SOURCES = [
 ]
 
 // Provincial capitals with SVG map positions (x%, y%) for interactive dots
-// Coordinates adjusted to match the uploaded Indonesia map image
 const PROVINCE_CAPITALS = [
-  // Sumatra (left side, vertical)
   { name: "Banda Aceh", province: "Aceh", x: 8, y: 5 },
   { name: "Medan", province: "Sumatera Utara", x: 12, y: 14 },
   { name: "Padang", province: "Sumatera Barat", x: 8, y: 26 },
@@ -68,34 +66,28 @@ const PROVINCE_CAPITALS = [
   { name: "Bengkulu", province: "Bengkulu", x: 14, y: 36 },
   { name: "Bandar Lampung", province: "Lampung", x: 22, y: 46 },
   { name: "Pangkal Pinang", province: "Kepulauan Bangka Belitung", x: 26, y: 32 },
-  // Java (middle, horizontal)
   { name: "Serang", province: "Banten", x: 30, y: 42 },
   { name: "Jakarta", province: "DKI Jakarta", x: 34, y: 44 },
   { name: "Bandung", province: "Jawa Barat", x: 36, y: 46 },
   { name: "Semarang", province: "Jawa Tengah", x: 42, y: 45 },
   { name: "Yogyakarta", province: "Daerah Istimewa Yogyakarta", x: 40, y: 49 },
   { name: "Surabaya", province: "Jawa Timur", x: 50, y: 45 },
-  // Kalimantan (center)
   { name: "Pontianak", province: "Kalimantan Barat", x: 34, y: 20 },
   { name: "Palangka Raya", province: "Kalimantan Tengah", x: 44, y: 28 },
   { name: "Banjarmasin", province: "Kalimantan Selatan", x: 46, y: 36 },
   { name: "Samarinda", province: "Kalimantan Timur", x: 54, y: 22 },
   { name: "Tanjung Selor", province: "Kalimantan Utara", x: 54, y: 14 },
-  // Sulawesi (right of center, vertical)
   { name: "Manado", province: "Sulawesi Utara", x: 62, y: 8 },
   { name: "Gorontalo", province: "Gorontalo", x: 64, y: 14 },
   { name: "Palu", province: "Sulawesi Tengah", x: 58, y: 22 },
   { name: "Mamuju", province: "Sulawesi Barat", x: 56, y: 30 },
   { name: "Makassar", province: "Sulawesi Selatan", x: 60, y: 38 },
   { name: "Kendari", province: "Sulawesi Tenggara", x: 66, y: 34 },
-  // Nusa Tenggara (bottom right)
   { name: "Denpasar", province: "Bali", x: 54, y: 50 },
   { name: "Mataram", province: "Nusa Tenggara Barat", x: 56, y: 54 },
   { name: "Kupang", province: "Nusa Tenggara Timur", x: 66, y: 56 },
-  // Maluku (far right)
   { name: "Ambon", province: "Maluku", x: 74, y: 32 },
   { name: "Sofifi", province: "Maluku Utara", x: 72, y: 20 },
-  // Papua (far right)
   { name: "Jayapura", province: "Papua", x: 86, y: 26 },
   { name: "Manokwari", province: "Papua Barat", x: 78, y: 18 },
   { name: "Merauke", province: "Papua Selatan", x: 88, y: 38 },
@@ -125,6 +117,7 @@ export default function HomePage() {
   const [availableVillages, setAvailableVillages] = useState<string[]>([])
   const [showLocationFilter, setShowLocationFilter] = useState(false)
   const [sourceFilter, setSourceFilter] = useState<string>("")
+  const [showMapPanel, setShowMapPanel] = useState(false)
   const [selectedDot, setSelectedDot] = useState<string>("")
   const [hoveredDot, setHoveredDot] = useState<string>("")
   const [mapImageError, setMapImageError] = useState(false)
@@ -192,10 +185,7 @@ export default function HomePage() {
       const viewportHeight = window.innerHeight
       const docHeight = document.documentElement.scrollHeight
 
-      // At top: near scroll start
       setAtTop(scrollY <= 10)
-
-      // At bottom: near the very bottom of the page
       setAtBottom(scrollY + viewportHeight >= docHeight - 50)
     }
   }, [])
@@ -216,7 +206,6 @@ export default function HomePage() {
   // Handle clicking a province dot on the map
   const handleProvinceClick = useCallback((province: string) => {
     if (selectedDot === province) {
-      // Deselect
       setSelectedDot("")
       setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
     } else {
@@ -374,12 +363,23 @@ export default function HomePage() {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950"
+      className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 relative"
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Full-screen map background */}
+      <div className="fixed inset-0 z-0">
+        <img
+          src="/indonesia-map.png"
+          alt="Indonesia Map"
+          className="w-full h-full object-cover opacity-40"
+          draggable={false}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-900/70 to-slate-950/80" />
+      </div>
+
       {/* Pull-to-refresh indicators */}
       {pullVisualOffset > 0 && (
         <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-transform" style={{ transform: `translateY(${pullVisualOffset}px)` }}>
@@ -404,47 +404,28 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* TOP BAR */}
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-slate-500">v.2026.1.0</div>
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-slate-400">
-              <span className="text-emerald-400 font-semibold">Sub-Con</span> — Security Risk Management
-            </div>
-            {user ? (
-              <div className="text-sm text-slate-400">
-                {user.name} ({user.role}) &middot;{" "}
-                <Link href="/login" className="text-cyan-400 hover:text-cyan-300 hover:underline">Dashboard</Link>
-              </div>
-            ) : (
-              <Link href="/login" className="text-sm text-cyan-400 hover:text-cyan-300 hover:underline">Sign In</Link>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* MAIN CONTENT: MAP LEFT + NEWS RIGHT */}
-      <div className="flex flex-col lg:flex-row gap-0 min-h-[calc(100vh-60px)]">
-        {/* LEFT PANEL - Interactive Indonesia Map */}
-        <div className="lg:w-[45%] xl:w-[40%] flex-shrink-0 p-4 lg:p-6 lg:sticky lg:top-0 lg:self-start lg:h-screen overflow-y-auto">
-          <div className="rounded-[28px] border border-slate-700/50 bg-slate-900/60 p-4 lg:p-6 backdrop-blur">
+      {/* Map Panel Overlay (left side) */}
+      {showMapPanel && (
+        <div className="fixed left-0 top-0 h-screen w-[400px] lg:w-[450px] z-40 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 shadow-2xl transform transition-transform duration-300">
+          <div className="p-4 lg:p-6 h-full overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Indonesia</h2>
-              {selectedDot && (
-                <button
-                  onClick={() => {
-                    setSelectedDot("")
-                    setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
-                  }}
-                  className="text-xs text-slate-400 hover:text-white transition px-2 py-1 rounded-lg border border-white/10"
-                >
-                  Clear: {selectedProvinceName}
-                </button>
-              )}
+              <h2 className="text-lg font-semibold text-white">Select Region</h2>
+              <button
+                onClick={() => {
+                  setShowMapPanel(false)
+                  setSelectedDot("")
+                  setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
+                }}
+                className="text-slate-400 hover:text-white transition p-2 rounded-lg border border-white/10 hover:border-white/20"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <div className="relative w-full" style={{ paddingBottom: "75%" }}>
-              {/* Background map image */}
+            
+            {/* Map Image with Dots */}
+            <div className="relative w-full mb-4" style={{ paddingBottom: "75%" }}>
               {!mapImageError ? (
                 <img
                   src="/indonesia-map.png"
@@ -454,17 +435,14 @@ export default function HomePage() {
                   onError={() => setMapImageError(true)}
                 />
               ) : (
-                /* Fallback gradient background if image fails to load */
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl" />
               )}
               
-              {/* Interactive dots overlay */}
               <svg
                 viewBox="0 0 100 75"
                 className="absolute inset-0 w-full h-full"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                {/* Province dots */}
                 {PROVINCE_CAPITALS.map((cap) => {
                   const isSelected = selectedDot === cap.province
                   const isHovered = hoveredDot === cap.province
@@ -472,7 +450,6 @@ export default function HomePage() {
 
                   return (
                     <g key={cap.province}>
-                      {/* Glow effect for selected */}
                       {isSelected && (
                         <circle
                           cx={cap.x}
@@ -487,7 +464,6 @@ export default function HomePage() {
                           <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite" />
                         </circle>
                       )}
-                      {/* Dot */}
                       <circle
                         cx={cap.x}
                         cy={cap.y}
@@ -501,7 +477,6 @@ export default function HomePage() {
                         onMouseEnter={() => setHoveredDot(cap.province)}
                         onMouseLeave={() => setHoveredDot("")}
                       />
-                      {/* Label on hover or selected */}
                       {(isHovered || isSelected) && (
                         <text
                           x={cap.x}
@@ -521,13 +496,13 @@ export default function HomePage() {
               </svg>
             </div>
 
-            {/* Province legend / list below map */}
-            <div className="mt-4 max-h-[200px] overflow-y-auto scrollbar-thin grid grid-cols-2 gap-1">
+            {/* Province list */}
+            <div className="max-h-[300px] overflow-y-auto scrollbar-thin grid grid-cols-2 gap-1">
               {PROVINCE_CAPITALS.map((cap) => (
                 <button
                   key={cap.province}
                   onClick={() => handleProvinceClick(cap.province)}
-                  className={`text-left text-xs px-2 py-1 rounded-lg transition flex items-center gap-1.5 ${
+                  className={`text-left text-xs px-2 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
                     selectedDot === cap.province
                       ? "bg-red-900/30 text-red-200 border border-red-700/30"
                       : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
@@ -540,172 +515,266 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+      )}
 
-        {/* RIGHT PANEL - News Feed */}
-        <div className="flex-1 min-w-0 p-4 lg:p-6">
-          <div ref={newsSectionRef}>
-            <div className="rounded-[28px] border border-white/10 bg-white/5 p-4 lg:p-6 backdrop-blur">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-                <div>
-                  <h2 className="text-2xl font-semibold text-white">Security News</h2>
-                  <p className="text-sm text-slate-400 mt-1">
-                    {selectedDot
-                      ? `News from ${selectedProvinceName}`
-                      : "Latest security & compliance news across Indonesia"}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {atTop ? '↓ Scroll past top to refresh' : ''}
-                    {atBottom && pagination?.hasMore ? ' ↑ Scroll past bottom for older' : ''}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                  {/* Source Filter */}
-                  <div className="flex flex-wrap gap-1">
-                    {NEWS_SOURCES.map((s) => (
-                      <button
-                        key={s.key}
-                        onClick={() => { setSourceFilter(s.key); setShowAllNews(false) }}
-                        className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium transition ${
-                          sourceFilter === s.key
-                            ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
-                            : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Refresh */}
-                  <button
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
-                  >
-                    {refreshing ? (
-                      <span className="flex items-center gap-1">
-                        <div className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-cyan-400 border-t-transparent"></div>
-                        Refreshing...
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Refresh
-                      </span>
-                    )}
-                  </button>
-                  {news.length > INITIAL_LIMIT && (
-                    <button
-                      onClick={() => setShowAllNews(!showAllNews)}
-                      className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
-                    >
-                      {showAllNews ? "Show Less" : "Show All"}
-                    </button>
-                  )}
-                </div>
+      {/* Main Content */}
+      <div className="relative z-10 container mx-auto px-4 py-16">
+        {/* Top Bar */}
+        <div className="flex justify-between items-center mb-8">
+          <div className="text-sm text-slate-500">v.2026.1.0</div>
+          <div className="flex items-center gap-4">
+            {showMapPanel && (
+              <button
+                onClick={() => {
+                  setShowMapPanel(false)
+                  setSelectedDot("")
+                  setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
+                }}
+                className="text-sm text-slate-400 hover:text-white transition px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20"
+              >
+                Close Map
+              </button>
+            )}
+            {!showMapPanel && (
+              <button
+                onClick={() => setShowMapPanel(true)}
+                className="text-sm text-cyan-400 hover:text-cyan-300 transition px-3 py-1.5 rounded-lg border border-cyan-400/30 hover:border-cyan-400/50"
+              >
+                Show Map
+              </button>
+            )}
+            {user ? (
+              <div className="text-sm text-slate-400">
+                {user.name} ({user.role}) &middot;{" "}
+                <Link href="/login" className="text-cyan-400 hover:text-cyan-300 hover:underline">
+                  Dashboard
+                </Link>
               </div>
+            ) : (
+              <Link href="/login" className="text-sm text-cyan-400 hover:text-cyan-300 hover:underline">
+                Sign In
+              </Link>
+            )}
+          </div>
+        </div>
 
-              {newsLoading ? (
-                <div className="text-center py-12">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-cyan-400 border-t-transparent"></div>
-                  <p className="text-slate-400 mt-4">Loading news...</p>
+        {/* Welcome Section */}
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold text-white mb-4">
+            {user ? "Welcome to Sub-Con" : "Security Risk Management System."}
+          </h1>
+          <p className="text-xl text-slate-300">Mitigate your risks. Secure your surroundings.</p>
+        </div>
+
+        {/* Dashboard Cards (only for logged in users) */}
+        {user && (
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">
+            <Link
+              href={
+                user.role === "ADMIN"
+                  ? "/admin"
+                  : user.role === "INPUTTER"
+                  ? "/inputter"
+                  : "/viewer"
+              }
+              className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"
+            >
+              <div className="text-center">
+                <div className="text-4xl mb-4">📊</div>
+                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">
+                  Dashboard
+                </h2>
+                <p className="text-sm text-slate-400">View your personalized dashboard</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/admin/branches"
+              className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"
+            >
+              <div className="text-center">
+                <div className="text-4xl mb-4">🏢</div>
+                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">
+                  Branches
+                </h2>
+                <p className="text-sm text-slate-400">Manage branch configurations</p>
+              </div>
+            </Link>
+
+            {user.role === "ADMIN" && (
+              <Link
+                href="/admin/users"
+                className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-4">👥</div>
+                  <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">
+                    Users
+                  </h2>
+                  <p className="text-sm text-slate-400">Manage user accounts</p>
                 </div>
-              ) : news.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-slate-400">No security news available at the moment.</p>
-                  {selectedDot && (
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* News Section */}
+        <div className="max-w-6xl mx-auto" ref={newsSectionRef}>
+          <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <div>
+                <h2 className="text-2xl font-semibold text-white">Security News</h2>
+                <p className="text-sm text-slate-400 mt-1">
+                  {selectedDot ? `News from ${selectedProvinceName}` : "Latest security & compliance news across Indonesia"}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                {/* Source Filter */}
+                <div className="flex flex-wrap gap-1">
+                  {NEWS_SOURCES.map((s) => (
                     <button
-                      onClick={() => {
-                        setSelectedDot("")
-                        setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
-                      }}
-                      className="mt-3 text-sm text-cyan-400 hover:text-cyan-300 underline"
+                      key={s.key}
+                      onClick={() => { setSourceFilter(s.key); setShowAllNews(false) }}
+                      className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium transition ${
+                        sourceFilter === s.key
+                          ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
+                          : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
                     >
-                      Clear province filter to see all news
+                      {s.label}
                     </button>
-                  )}
+                  ))}
                 </div>
-              ) : (
-                <>
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {displayedNews.map((item) => (
-                      <a
-                        key={item.id}
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 hover:bg-slate-950/80 transition group"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <span className="inline-flex rounded-full border border-cyan-700/50 bg-cyan-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-cyan-300">
-                            {item.source}
-                          </span>
-                          {item.security?.isRelevant && (
-                            <div className="flex gap-1">
-                              <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.bgColor || 'bg-slate-900/30 border-slate-700/50'} ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.color || 'text-slate-300'}`}>
-                                {SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.label || item.security.severity}
-                              </span>
-                              <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
-                                {item.security.category.replace(/_/g, ' ')}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-300 transition line-clamp-2">
-                          {item.headline}
-                        </h3>
-                        <p className="text-sm text-slate-400 mb-3 line-clamp-3">{item.summary}</p>
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <span>{item.category}</span>
-                          <span title={new Date(item.timestamp).toLocaleString()}>
-                            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            {' '}
-                            {formatDateID(item.timestamp)}
-                          </span>
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-
-                  {pagination?.hasMore && (
-                    <div className="mt-6 text-center">
-                      <button
-                        onClick={handleLoadMore}
-                        disabled={loadingMore}
-                        className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-6 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50"
-                      >
-                        {loadingMore ? (
-                          <span className="flex items-center gap-2">
-                            <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent"></div>
-                            Loading older news...
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                            </svg>
-                            Load Older News
-                          </span>
-                        )}
-                      </button>
-                    </div>
+                {/* Refresh */}
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
+                >
+                  {refreshing ? (
+                    <span className="flex items-center gap-1">
+                      <div className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-cyan-400 border-t-transparent"></div>
+                      Refreshing...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh
+                    </span>
                   )}
-
-                  {pagination && (
-                    <div className="mt-4 text-center text-xs text-slate-600">
-                      Showing page {pagination.page} of {pagination.totalPages} ({pagination.totalItems} total)
-                    </div>
-                  )}
-                </>
-              )}
+                </button>
+                {news.length > INITIAL_LIMIT && (
+                  <button
+                    onClick={() => setShowAllNews(!showAllNews)}
+                    className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                  >
+                    {showAllNews ? "Show Less" : "Show All"}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Footer */}
-          <div className="mt-8 text-center">
-            <p className="text-sm text-slate-500">© F4W. All rights reserved.</p>
+            {newsLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-cyan-400 border-t-transparent"></div>
+                <p className="text-slate-400 mt-4">Loading news...</p>
+              </div>
+            ) : news.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-slate-400">No security news available at the moment.</p>
+                {selectedDot && (
+                  <button
+                    onClick={() => {
+                      setSelectedDot("")
+                      setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
+                    }}
+                    className="mt-3 text-sm text-cyan-400 hover:text-cyan-300 underline"
+                  >
+                    Clear province filter to see all news
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {displayedNews.map((item) => (
+                    <a
+                      key={item.id}
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 hover:bg-slate-950/80 transition group"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span className="inline-flex rounded-full border border-cyan-700/50 bg-cyan-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-cyan-300">
+                          {item.source}
+                        </span>
+                        {item.security?.isRelevant && (
+                          <div className="flex gap-1">
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.bgColor || 'bg-slate-900/30 border-slate-700/50'} ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.color || 'text-slate-300'}`}>
+                              {SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.label || item.security.severity}
+                            </span>
+                            <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
+                              {item.security.category.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-300 transition line-clamp-2">
+                        {item.headline}
+                      </h3>
+                      <p className="text-sm text-slate-400 mb-3 line-clamp-3">{item.summary}</p>
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>{item.category}</span>
+                        <span title={new Date(item.timestamp).toLocaleString()}>
+                          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {' '}
+                          {formatDateID(item.timestamp)}
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+
+                {pagination?.hasMore && (
+                  <div className="mt-6 text-center">
+                    <button
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-6 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50"
+                    >
+                      {loadingMore ? (
+                        <span className="flex items-center gap-2">
+                          <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent"></div>
+                          Loading older news...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          </svg>
+                          Load Older News
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {pagination && (
+                  <div className="mt-4 text-center text-xs text-slate-600">
+                    Showing page {pagination.page} of {pagination.totalPages} ({pagination.totalItems} total)
+                  </div>
+                )}
+              </>
+            )}
           </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-slate-500">© F4W. All rights reserved.</p>
         </div>
       </div>
     </div>
