@@ -41,6 +41,19 @@ function formatDateID(timestamp: number): string {
   return `${day}/${month}/${year}`
 }
 
+// Available news sources
+const NEWS_SOURCES = [
+  { key: "", label: "All Sources" },
+  { key: "Kompas", label: "Kompas" },
+  { key: "Detik", label: "Detik" },
+  { key: "Liputan6", label: "Liputan6" },
+  { key: "CNNIndonesia", label: "CNN Indonesia" },
+  { key: "Kumparan", label: "Kumparan" },
+  { key: "Tempo", label: "Tempo" },
+  { key: "Tribun", label: "Tribun" },
+  { key: "Okezone", label: "Okezone" },
+]
+
 export default function HomePage() {
   const { user, loading } = useAuth()
   const [news, setNews] = useState<NewsItem[]>([])
@@ -61,6 +74,7 @@ export default function HomePage() {
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
   const [availableVillages, setAvailableVillages] = useState<string[]>([])
   const [showLocationFilter, setShowLocationFilter] = useState(false)
+  const [sourceFilter, setSourceFilter] = useState<string>("")
 
   // Touch gesture state
   const touchStartY = useRef(0)
@@ -93,7 +107,7 @@ export default function HomePage() {
     }
   }, [locationFilter.province, locationFilter.city, locationFilter.district])
 
-  // Fetch news with location filter
+  // Fetch news with location filter and source filter
   const fetchNewsWithFilter = useCallback(async (pageNum: number = 1, isRefresh: boolean = false) => {
     try {
       const params = new URLSearchParams()
@@ -103,6 +117,7 @@ export default function HomePage() {
       if (locationFilter.province) params.set('province', locationFilter.province)
       if (locationFilter.city) params.set('city', locationFilter.city)
       if (locationFilter.district) params.set('district', locationFilter.district)
+      if (sourceFilter) params.set('source', sourceFilter)
       
       const res = await fetch(`/api/news?${params.toString()}`)
       const data = await res.json()
@@ -111,7 +126,7 @@ export default function HomePage() {
       console.error("Failed to fetch news:", error)
       return null
     }
-  }, [locationFilter])
+  }, [locationFilter, sourceFilter])
 
   // Desktop wheel overscroll state
   const wheelAccumulator = useRef(0)
@@ -507,6 +522,25 @@ export default function HomePage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 items-center">
+                {/* Source Filter */}
+                <div className="flex flex-wrap gap-1">
+                  {NEWS_SOURCES.map((s) => (
+                    <button
+                      key={s.key}
+                      onClick={() => {
+                        setSourceFilter(s.key)
+                        setShowAllNews(false)
+                      }}
+                      className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium transition ${
+                        sourceFilter === s.key
+                          ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
+                          : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
                 {/* Location Filter Toggle */}
                 <button
                   onClick={() => setShowLocationFilter(!showLocationFilter)}
