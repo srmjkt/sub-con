@@ -32,6 +32,15 @@ interface PaginationInfo {
 
 const INITIAL_LIMIT = 6
 
+// Helper to format date in dd/mm/yyyy (Indonesian format)
+function formatDateID(timestamp: number): string {
+  const d = new Date(timestamp)
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const year = d.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
 export default function HomePage() {
   const { user, loading } = useAuth()
   const [news, setNews] = useState<NewsItem[]>([])
@@ -723,7 +732,7 @@ export default function HomePage() {
                          <span title={new Date(item.timestamp).toLocaleString()}>
                            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                            {' '}
-                           {new Date(item.timestamp).toLocaleDateString()}
+                           {formatDateID(item.timestamp)}
                          </span>
                       </div>
                     </a>
