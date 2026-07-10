@@ -414,17 +414,17 @@ export default function HomePage() {
             </div>
             
             {/* Map Image with Dots */}
-            <div className="relative w-full mb-4" style={{ paddingBottom: "75%" }}>
+            <div className="relative w-full mb-4 bg-slate-950 rounded-xl overflow-hidden" style={{ paddingBottom: "75%" }}>
               {!mapImageError ? (
                 <img
                   src="/indonesia-map.png"
                   alt="Indonesia Map"
-                  className="absolute inset-0 w-full h-full object-cover rounded-xl"
+                  className="absolute inset-0 w-full h-full object-contain"
                   draggable={false}
                   onError={() => setMapImageError(true)}
                 />
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl" />
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50" />
               )}
               
               <svg
