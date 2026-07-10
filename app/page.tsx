@@ -55,45 +55,53 @@ const NEWS_SOURCES = [
 ]
 
 // Provincial capitals with SVG map positions (x%, y%) for interactive dots
+// Coordinates adjusted to match standard Indonesia map projection
 const PROVINCE_CAPITALS = [
-  { name: "Banda Aceh", province: "Aceh", x: 12, y: 8 },
-  { name: "Medan", province: "Sumatera Utara", x: 16, y: 18 },
-  { name: "Padang", province: "Sumatera Barat", x: 12, y: 30 },
-  { name: "Pekanbaru", province: "Riau", x: 22, y: 22 },
-  { name: "Tanjung Pinang", province: "Kepulauan Riau", x: 30, y: 25 },
-  { name: "Jambi", province: "Jambi", x: 22, y: 33 },
-  { name: "Palembang", province: "Sumatera Selatan", x: 26, y: 40 },
-  { name: "Bengkulu", province: "Bengkulu", x: 18, y: 38 },
-  { name: "Bandar Lampung", province: "Lampung", x: 26, y: 47 },
-  { name: "Pangkal Pinang", province: "Kepulauan Bangka Belitung", x: 30, y: 34 },
-  { name: "Serang", province: "Banten", x: 34, y: 44 },
-  { name: "Jakarta", province: "DKI Jakarta", x: 38, y: 45 },
-  { name: "Bandung", province: "Jawa Barat", x: 40, y: 47 },
-  { name: "Semarang", province: "Jawa Tengah", x: 46, y: 46 },
-  { name: "Yogyakarta", province: "Daerah Istimewa Yogyakarta", x: 44, y: 50 },
-  { name: "Surabaya", province: "Jawa Timur", x: 54, y: 46 },
-  { name: "Denpasar", province: "Bali", x: 58, y: 52 },
-  { name: "Mataram", province: "Nusa Tenggara Barat", x: 60, y: 56 },
-  { name: "Kupang", province: "Nusa Tenggara Timur", x: 70, y: 58 },
-  { name: "Pontianak", province: "Kalimantan Barat", x: 38, y: 22 },
-  { name: "Palangka Raya", province: "Kalimantan Tengah", x: 48, y: 30 },
-  { name: "Banjarmasin", province: "Kalimantan Selatan", x: 50, y: 38 },
-  { name: "Samarinda", province: "Kalimantan Timur", x: 58, y: 24 },
-  { name: "Tanjung Selor", province: "Kalimantan Utara", x: 58, y: 16 },
-  { name: "Manado", province: "Sulawesi Utara", x: 66, y: 12 },
-  { name: "Gorontalo", province: "Gorontalo", x: 68, y: 18 },
-  { name: "Palu", province: "Sulawesi Tengah", x: 62, y: 26 },
-  { name: "Mamuju", province: "Sulawesi Barat", x: 60, y: 33 },
-  { name: "Makassar", province: "Sulawesi Selatan", x: 64, y: 40 },
-  { name: "Kendari", province: "Sulawesi Tenggara", x: 70, y: 36 },
-  { name: "Ambon", province: "Maluku", x: 78, y: 34 },
-  { name: "Sofifi", province: "Maluku Utara", x: 76, y: 22 },
-  { name: "Jayapura", province: "Papua", x: 90, y: 28 },
-  { name: "Manokwari", province: "Papua Barat", x: 82, y: 20 },
-  { name: "Merauke", province: "Papua Selatan", x: 92, y: 40 },
-  { name: "Nabire", province: "Papua Tengah", x: 86, y: 32 },
-  { name: "Wamena", province: "Papua Pegunungan", x: 90, y: 34 },
-  { name: "Sorong", province: "Papua Barat Daya", x: 80, y: 26 },
+  // Sumatra
+  { name: "Banda Aceh", province: "Aceh", x: 10, y: 6 },
+  { name: "Medan", province: "Sumatera Utara", x: 14, y: 16 },
+  { name: "Padang", province: "Sumatera Barat", x: 10, y: 28 },
+  { name: "Pekanbaru", province: "Riau", x: 20, y: 20 },
+  { name: "Tanjung Pinang", province: "Kepulauan Riau", x: 28, y: 22 },
+  { name: "Jambi", province: "Jambi", x: 20, y: 32 },
+  { name: "Palembang", province: "Sumatera Selatan", x: 24, y: 40 },
+  { name: "Bengkulu", province: "Bengkulu", x: 16, y: 38 },
+  { name: "Bandar Lampung", province: "Lampung", x: 24, y: 48 },
+  { name: "Pangkal Pinang", province: "Kepulauan Bangka Belitung", x: 28, y: 34 },
+  // Java
+  { name: "Serang", province: "Banten", x: 32, y: 44 },
+  { name: "Jakarta", province: "DKI Jakarta", x: 36, y: 46 },
+  { name: "Bandung", province: "Jawa Barat", x: 38, y: 48 },
+  { name: "Semarang", province: "Jawa Tengah", x: 44, y: 47 },
+  { name: "Yogyakarta", province: "Daerah Istimewa Yogyakarta", x: 42, y: 51 },
+  { name: "Surabaya", province: "Jawa Timur", x: 52, y: 47 },
+  // Kalimantan
+  { name: "Pontianak", province: "Kalimantan Barat", x: 36, y: 22 },
+  { name: "Palangka Raya", province: "Kalimantan Tengah", x: 46, y: 30 },
+  { name: "Banjarmasin", province: "Kalimantan Selatan", x: 48, y: 38 },
+  { name: "Samarinda", province: "Kalimantan Timur", x: 56, y: 24 },
+  { name: "Tanjung Selor", province: "Kalimantan Utara", x: 56, y: 16 },
+  // Sulawesi
+  { name: "Manado", province: "Sulawesi Utara", x: 64, y: 10 },
+  { name: "Gorontalo", province: "Gorontalo", x: 66, y: 16 },
+  { name: "Palu", province: "Sulawesi Tengah", x: 60, y: 24 },
+  { name: "Mamuju", province: "Sulawesi Barat", x: 58, y: 32 },
+  { name: "Makassar", province: "Sulawesi Selatan", x: 62, y: 40 },
+  { name: "Kendari", province: "Sulawesi Tenggara", x: 68, y: 36 },
+  // Nusa Tenggara
+  { name: "Denpasar", province: "Bali", x: 56, y: 52 },
+  { name: "Mataram", province: "Nusa Tenggara Barat", x: 58, y: 56 },
+  { name: "Kupang", province: "Nusa Tenggara Timur", x: 68, y: 58 },
+  // Maluku
+  { name: "Ambon", province: "Maluku", x: 76, y: 34 },
+  { name: "Sofifi", province: "Maluku Utara", x: 74, y: 22 },
+  // Papua
+  { name: "Jayapura", province: "Papua", x: 88, y: 28 },
+  { name: "Manokwari", province: "Papua Barat", x: 80, y: 20 },
+  { name: "Merauke", province: "Papua Selatan", x: 90, y: 40 },
+  { name: "Nabire", province: "Papua Tengah", x: 84, y: 32 },
+  { name: "Wamena", province: "Papua Pegunungan", x: 88, y: 34 },
+  { name: "Sorong", province: "Papua Barat Daya", x: 78, y: 26 },
 ]
 
 export default function HomePage() {
@@ -119,6 +127,7 @@ export default function HomePage() {
   const [sourceFilter, setSourceFilter] = useState<string>("")
   const [selectedDot, setSelectedDot] = useState<string>("")
   const [hoveredDot, setHoveredDot] = useState<string>("")
+  const [mapImageError, setMapImageError] = useState(false)
 
   // Touch gesture state
   const touchStartY = useRef(0)
@@ -436,12 +445,18 @@ export default function HomePage() {
             </div>
             <div className="relative w-full" style={{ paddingBottom: "75%" }}>
               {/* Background map image */}
-              <img
-                src="/indonesia-map.png"
-                alt="Indonesia Map"
-                className="absolute inset-0 w-full h-full object-cover rounded-xl"
-                draggable={false}
-              />
+              {!mapImageError ? (
+                <img
+                  src="/indonesia-map.png"
+                  alt="Indonesia Map"
+                  className="absolute inset-0 w-full h-full object-cover rounded-xl"
+                  draggable={false}
+                  onError={() => setMapImageError(true)}
+                />
+              ) : (
+                /* Fallback gradient background if image fails to load */
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl" />
+              )}
               
               {/* Interactive dots overlay */}
               <svg
