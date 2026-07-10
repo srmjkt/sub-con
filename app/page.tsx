@@ -54,6 +54,48 @@ const NEWS_SOURCES = [
   { key: "Okezone", label: "Okezone" },
 ]
 
+// Provincial capitals with SVG map positions (x%, y%) for interactive dots
+const PROVINCE_CAPITALS = [
+  { name: "Banda Aceh", province: "Aceh", x: 12, y: 8 },
+  { name: "Medan", province: "Sumatera Utara", x: 16, y: 18 },
+  { name: "Padang", province: "Sumatera Barat", x: 12, y: 30 },
+  { name: "Pekanbaru", province: "Riau", x: 22, y: 22 },
+  { name: "Tanjung Pinang", province: "Kepulauan Riau", x: 30, y: 25 },
+  { name: "Jambi", province: "Jambi", x: 22, y: 33 },
+  { name: "Palembang", province: "Sumatera Selatan", x: 26, y: 40 },
+  { name: "Bengkulu", province: "Bengkulu", x: 18, y: 38 },
+  { name: "Bandar Lampung", province: "Lampung", x: 26, y: 47 },
+  { name: "Pangkal Pinang", province: "Kepulauan Bangka Belitung", x: 30, y: 34 },
+  { name: "Serang", province: "Banten", x: 34, y: 44 },
+  { name: "Jakarta", province: "DKI Jakarta", x: 38, y: 45 },
+  { name: "Bandung", province: "Jawa Barat", x: 40, y: 47 },
+  { name: "Semarang", province: "Jawa Tengah", x: 46, y: 46 },
+  { name: "Yogyakarta", province: "Daerah Istimewa Yogyakarta", x: 44, y: 50 },
+  { name: "Surabaya", province: "Jawa Timur", x: 54, y: 46 },
+  { name: "Denpasar", province: "Bali", x: 58, y: 52 },
+  { name: "Mataram", province: "Nusa Tenggara Barat", x: 60, y: 56 },
+  { name: "Kupang", province: "Nusa Tenggara Timur", x: 70, y: 58 },
+  { name: "Pontianak", province: "Kalimantan Barat", x: 38, y: 22 },
+  { name: "Palangka Raya", province: "Kalimantan Tengah", x: 48, y: 30 },
+  { name: "Banjarmasin", province: "Kalimantan Selatan", x: 50, y: 38 },
+  { name: "Samarinda", province: "Kalimantan Timur", x: 58, y: 24 },
+  { name: "Tanjung Selor", province: "Kalimantan Utara", x: 58, y: 16 },
+  { name: "Manado", province: "Sulawesi Utara", x: 66, y: 12 },
+  { name: "Gorontalo", province: "Gorontalo", x: 68, y: 18 },
+  { name: "Palu", province: "Sulawesi Tengah", x: 62, y: 26 },
+  { name: "Mamuju", province: "Sulawesi Barat", x: 60, y: 33 },
+  { name: "Makassar", province: "Sulawesi Selatan", x: 64, y: 40 },
+  { name: "Kendari", province: "Sulawesi Tenggara", x: 70, y: 36 },
+  { name: "Ambon", province: "Maluku", x: 78, y: 34 },
+  { name: "Sofifi", province: "Maluku Utara", x: 76, y: 22 },
+  { name: "Jayapura", province: "Papua", x: 90, y: 28 },
+  { name: "Manokwari", province: "Papua Barat", x: 82, y: 20 },
+  { name: "Merauke", province: "Papua Selatan", x: 92, y: 40 },
+  { name: "Nabire", province: "Papua Tengah", x: 86, y: 32 },
+  { name: "Wamena", province: "Papua Pegunungan", x: 90, y: 34 },
+  { name: "Sorong", province: "Papua Barat Daya", x: 80, y: 26 },
+]
+
 export default function HomePage() {
   const { user, loading } = useAuth()
   const [news, setNews] = useState<NewsItem[]>([])
@@ -75,6 +117,8 @@ export default function HomePage() {
   const [availableVillages, setAvailableVillages] = useState<string[]>([])
   const [showLocationFilter, setShowLocationFilter] = useState(false)
   const [sourceFilter, setSourceFilter] = useState<string>("")
+  const [selectedDot, setSelectedDot] = useState<string>("")
+  const [hoveredDot, setHoveredDot] = useState<string>("")
 
   // Touch gesture state
   const touchStartY = useRef(0)
@@ -160,6 +204,19 @@ export default function HomePage() {
     }
   }, [])
 
+  // Handle clicking a province dot on the map
+  const handleProvinceClick = useCallback((province: string) => {
+    if (selectedDot === province) {
+      // Deselect
+      setSelectedDot("")
+      setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
+    } else {
+      setSelectedDot(province)
+      setLocationFilter(prev => ({ ...prev, province, city: "", district: "", village: "", rw: "", rt: "" }))
+    }
+    setShowAllNews(false)
+  }, [selectedDot])
+
   // Fetch initial news
   useEffect(() => {
     async function fetchNews() {
@@ -208,7 +265,6 @@ export default function HomePage() {
         const newItems = (data.items || []).filter((item: NewsItem) => !currentIds.has(item.id))
         setNews(prev => [...prev, ...newItems])
         setPagination(data.pagination || null)
-        // Reveal the newly loaded items (displayedNews slices to INITIAL_LIMIT unless showAllNews)
         setShowAllNews(true)
       }
       vibrate(15)
@@ -218,20 +274,15 @@ export default function HomePage() {
     setLoadingMore(false)
   }, [loadingMore, pagination, news, vibrate, fetchNewsWithFilter])
 
-  // Desktop wheel handler – same logic as touch but for mouse scroll
+  // Desktop wheel handler
   const handleWheel = useCallback((e: WheelEvent) => {
-    // Ignore if touch device is handling this
     if (isTouching.current) return
-
-    const deltaY = e.deltaY // positive = scroll down, negative = scroll up
-
+    const deltaY = e.deltaY
     if (deltaY < 0 && atTop && news.length > 0 && !refreshing) {
-      // Scrolling UP past top → pull-to-refresh
       e.preventDefault()
       wheelAccumulator.current = Math.min(Math.abs(deltaY) * 0.5 + wheelAccumulator.current, 120)
       setDesktopOverOffset(wheelAccumulator.current)
       wheelActive.current = true
-
       if (wheelAccumulator.current >= 80) {
         wheelAccumulator.current = 0
         setDesktopOverOffset(0)
@@ -239,12 +290,10 @@ export default function HomePage() {
         handleRefresh()
       }
     } else if (deltaY > 0 && atBottom && pagination?.hasMore && news.length > 0 && !loadingMore) {
-      // Scrolling DOWN past bottom → load more
       e.preventDefault()
       wheelAccumulator.current = Math.min(deltaY * 0.5 + wheelAccumulator.current, 120)
       setDesktopOverOffset(-wheelAccumulator.current)
       wheelActive.current = true
-
       if (wheelAccumulator.current >= 80) {
         wheelAccumulator.current = 0
         setDesktopOverOffset(0)
@@ -252,7 +301,6 @@ export default function HomePage() {
         handleLoadMore()
       }
     } else {
-      // Reset accumulator when not overscrolling
       if (wheelActive.current) {
         wheelAccumulator.current = 0
         setDesktopOverOffset(0)
@@ -262,7 +310,6 @@ export default function HomePage() {
   }, [atTop, atBottom, pagination, news, refreshing, loadingMore, handleRefresh, handleLoadMore])
 
   useEffect(() => {
-    // Only attach wheel listener on desktop (no touch support)
     const isTouchDevice = 'ontouchstart' in window
     if (!isTouchDevice) {
       window.addEventListener('wheel', handleWheel, { passive: false })
@@ -282,15 +329,11 @@ export default function HomePage() {
     if (!isTouching.current) return
     touchCurrentY.current = e.touches[0].clientY
     const deltaY = touchCurrentY.current - touchStartY.current
-
-    // Swipe DOWN at top → pull-to-refresh
     if (deltaY > 0 && atTop && news.length > 0) {
-      pullDistance.current = Math.min(deltaY * 0.5, 120) // dampened pull distance, max 120px
+      pullDistance.current = Math.min(deltaY * 0.5, 120)
       setPullVisualOffset(pullDistance.current)
-    }
-    // Swipe UP at bottom → load more (only if has more)
-    else if (deltaY < 0 && atBottom && pagination?.hasMore && news.length > 0) {
-      pullDistance.current = Math.min(Math.abs(deltaY) * 0.5, 120) // dampened
+    } else if (deltaY < 0 && atBottom && pagination?.hasMore && news.length > 0) {
+      pullDistance.current = Math.min(Math.abs(deltaY) * 0.5, 120)
       setPullVisualOffset(-pullDistance.current)
     } else {
       setPullVisualOffset(0)
@@ -300,30 +343,25 @@ export default function HomePage() {
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     isTouching.current = false
     const deltaY = touchCurrentY.current - touchStartY.current
-
-    // Pulled down far enough at top → refresh
     if (deltaY > 60 && atTop && news.length > 0) {
       handleRefresh()
-    }
-    // Pulled up far enough at bottom → load more
-    else if (deltaY < -60 && atBottom && pagination?.hasMore && news.length > 0) {
+    } else if (deltaY < -60 && atBottom && pagination?.hasMore && news.length > 0) {
       handleLoadMore()
     }
-
-    // Reset visual
     setPullVisualOffset(0)
     pullDistance.current = 0
   }, [atTop, atBottom, news, pagination, handleRefresh, handleLoadMore])
 
   if (loading) {
     return (
-        <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <div className="text-white">Loading...</div>
       </div>
     )
   }
 
   const displayedNews = showAllNews ? news : news.slice(0, INITIAL_LIMIT)
+  const selectedProvinceName = PROVINCE_CAPITALS.find(p => p.province === selectedDot)?.name || selectedDot
 
   return (
     <div
@@ -333,484 +371,338 @@ export default function HomePage() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Pull-to-refresh indicator (mobile touch) */}
+      {/* Pull-to-refresh indicators */}
       {pullVisualOffset > 0 && (
-        <div
-          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-transform"
-          style={{ transform: `translateY(${pullVisualOffset}px)` }}
-        >
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-transform" style={{ transform: `translateY(${pullVisualOffset}px)` }}>
           <div className="flex items-center gap-2 rounded-full bg-slate-800/90 border border-cyan-400/30 px-4 py-2 mt-2 backdrop-blur">
             {refreshing ? (
-              <>
-                <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-cyan-400 border-t-transparent"></div>
-                <span className="text-sm text-cyan-200">Refreshing...</span>
-              </>
+              <><div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-cyan-400 border-t-transparent"></div><span className="text-sm text-cyan-200">Refreshing...</span></>
             ) : (
-              <>
-                <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="text-sm text-slate-300">Release to refresh</span>
-              </>
+              <><svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span className="text-sm text-slate-300">Release to refresh</span></>
             )}
           </div>
         </div>
       )}
-
-      {/* Desktop overscroll indicator (scroll past top) */}
-      {desktopOverOffset > 0 && !pullVisualOffset && (
-        <div
-          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-transform"
-          style={{ transform: `translateY(${desktopOverOffset}px)` }}
-        >
-          <div className="flex items-center gap-2 rounded-full bg-slate-800/90 border border-cyan-400/30 px-4 py-2 mt-2 backdrop-blur">
-            {refreshing ? (
-              <>
-                <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-cyan-400 border-t-transparent"></div>
-                <span className="text-sm text-cyan-200">Refreshing...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 text-cyan-400 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                </svg>
-                <span className="text-sm text-slate-300">Scroll more to refresh</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Load-more indicator at bottom (mobile touch) */}
       {pullVisualOffset < 0 && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center transition-transform"
-          style={{ transform: `translateY(${-pullVisualOffset}px)` }}
-        >
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center transition-transform" style={{ transform: `translateY(${-pullVisualOffset}px)` }}>
           <div className="flex items-center gap-2 rounded-full bg-slate-800/90 border border-emerald-400/30 px-4 py-2 mb-2 backdrop-blur">
             {loadingMore ? (
-              <>
-                <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent"></div>
-                <span className="text-sm text-emerald-200">Loading older news...</span>
-              </>
+              <><div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent"></div><span className="text-sm text-emerald-200">Loading older news...</span></>
             ) : (
-              <>
-                <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                </svg>
-                <span className="text-sm text-slate-300">Release to load older news</span>
-              </>
+              <><svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg><span className="text-sm text-slate-300">Release to load older news</span></>
             )}
           </div>
         </div>
       )}
 
-      {/* Desktop load-more indicator (scroll past bottom) */}
-      {desktopOverOffset < 0 && !pullVisualOffset && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center transition-transform"
-          style={{ transform: `translateY(${-desktopOverOffset}px)` }}
-        >
-          <div className="flex items-center gap-2 rounded-full bg-slate-800/90 border border-emerald-400/30 px-4 py-2 mb-2 backdrop-blur">
-            {loadingMore ? (
-              <>
-                <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent"></div>
-                <span className="text-sm text-emerald-200">Loading older news...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 text-emerald-400 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                </svg>
-                <span className="text-sm text-slate-300">Scroll more to load older news</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="container mx-auto px-4 py-16">
-        {/* Top Bar */}
-        <div className="flex justify-between items-center mb-8">
+      {/* TOP BAR */}
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex justify-between items-center">
           <div className="text-sm text-slate-500">v.2026.1.0</div>
-          {user ? (
+          <div className="flex items-center gap-4">
             <div className="text-sm text-slate-400">
-              {user.name} ({user.role}) &middot;{" "}
-              <Link href="/login" className="text-cyan-400 hover:text-cyan-300 hover:underline">
-                Dashboard
-              </Link>
+              <span className="text-emerald-400 font-semibold">Sub-Con</span> — Security Risk Management
             </div>
-          ) : (
-            <Link href="/login" className="text-sm text-cyan-400 hover:text-cyan-300 hover:underline">
-              Sign In
-            </Link>
-          )}
-        </div>
-
-        {/* Welcome Section */}
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            {user ? `Welcome to Sub-Con` : "Security Risk Management System."}
-          </h1>
-          <p className="text-xl text-slate-300">Mitigate your risks. Secure your surroundings.</p>
-        </div>
-
-        {/* Dashboard Cards (only for logged in users) */}
-        {user && (
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16">
-            <Link
-              href={
-                user.role === "ADMIN"
-                  ? "/admin"
-                  : user.role === "INPUTTER"
-                  ? "/inputter"
-                  : "/viewer"
-              }
-              className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"
-            >
-              <div className="text-center">
-                <div className="text-4xl mb-4">📊</div>
-                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">
-                  Dashboard
-                </h2>
-                <p className="text-sm text-slate-400">View your personalized dashboard</p>
+            {user ? (
+              <div className="text-sm text-slate-400">
+                {user.name} ({user.role}) &middot;{" "}
+                <Link href="/login" className="text-cyan-400 hover:text-cyan-300 hover:underline">Dashboard</Link>
               </div>
-            </Link>
-
-            <Link
-              href="/admin/branches"
-              className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"
-            >
-              <div className="text-center">
-                <div className="text-4xl mb-4">🏢</div>
-                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">
-                  Branches
-                </h2>
-                <p className="text-sm text-slate-400">Manage branch configurations</p>
-              </div>
-            </Link>
-
-            {user.role === "ADMIN" && (
-              <Link
-                href="/admin/users"
-                className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"
-              >
-                <div className="text-center">
-                  <div className="text-4xl mb-4">👥</div>
-                  <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">
-                    Users
-                  </h2>
-                  <p className="text-sm text-slate-400">Manage user accounts</p>
-                </div>
-              </Link>
+            ) : (
+              <Link href="/login" className="text-sm text-cyan-400 hover:text-cyan-300 hover:underline">Sign In</Link>
             )}
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* News Section */}
-        <div className="max-w-6xl mx-auto" ref={newsSectionRef}>
-          <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-semibold text-white">Security News</h2>
-                <p className="text-sm text-slate-400 mt-1">
-                  Latest security & compliance news from Detik, Kumparan, Kompas, and more
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {atTop ? '↓ Scroll past top to refresh' : ''}
-                  {atBottom && pagination?.hasMore ? ' ↑ Scroll past bottom for older' : ''}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 items-center">
-                {/* Source Filter */}
-                <div className="flex flex-wrap gap-1">
-                  {NEWS_SOURCES.map((s) => (
-                    <button
-                      key={s.key}
-                      onClick={() => {
-                        setSourceFilter(s.key)
-                        setShowAllNews(false)
-                      }}
-                      className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium transition ${
-                        sourceFilter === s.key
-                          ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
-                          : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-                {/* Location Filter Toggle */}
+      {/* MAIN CONTENT: MAP LEFT + NEWS RIGHT */}
+      <div className="flex flex-col lg:flex-row gap-0 min-h-[calc(100vh-60px)]">
+        {/* LEFT PANEL - Interactive Indonesia Map */}
+        <div className="lg:w-[45%] xl:w-[40%] flex-shrink-0 p-4 lg:p-6 lg:sticky lg:top-0 lg:self-start lg:h-screen overflow-y-auto">
+          <div className="rounded-[28px] border border-slate-700/50 bg-slate-900/60 p-4 lg:p-6 backdrop-blur">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Indonesia</h2>
+              {selectedDot && (
                 <button
-                  onClick={() => setShowLocationFilter(!showLocationFilter)}
-                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                    showLocationFilter || locationFilter.province
-                      ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
-                      : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                  onClick={() => {
+                    setSelectedDot("")
+                    setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
+                  }}
+                  className="text-xs text-slate-400 hover:text-white transition px-2 py-1 rounded-lg border border-white/10"
+                >
+                  Clear: {selectedProvinceName}
+                </button>
+              )}
+            </div>
+            <div className="relative w-full" style={{ paddingBottom: "75%" }}>
+              <svg
+                viewBox="0 0 100 75"
+                className="absolute inset-0 w-full h-full"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                {/* Background ocean */}
+                <rect x="0" y="0" width="100" height="75" fill="#0c1929" rx="12" />
+
+                {/* Simplified Indonesia island shapes */}
+                {/* Sumatra */}
+                <ellipse cx="20" cy="27" rx="9" ry="18" fill="#1a2d4a" opacity="0.6" />
+                {/* Java */}
+                <ellipse cx="43" cy="46" rx="12" ry="3.5" fill="#1a2d4a" opacity="0.6" />
+                {/* Kalimantan */}
+                <ellipse cx="47" cy="26" rx="10" ry="8" fill="#1a2d4a" opacity="0.6" />
+                {/* Sulawesi */}
+                <ellipse cx="64" cy="27" rx="5" ry="12" fill="#1a2d4a" opacity="0.6" />
+                {/* Nusa Tenggara */}
+                <ellipse cx="65" cy="54" rx="8" ry="2.5" fill="#1a2d4a" opacity="0.6" />
+                {/* Maluku */}
+                <ellipse cx="76" cy="28" rx="4" ry="7" fill="#1a2d4a" opacity="0.6" />
+                {/* Papua */}
+                <ellipse cx="87" cy="30" rx="9" ry="10" fill="#1a2d4a" opacity="0.6" />
+                {/* Bali */}
+                <ellipse cx="58" cy="50" rx="2" ry="1" fill="#1a2d4a" opacity="0.6" />
+
+                {/* Province dots */}
+                {PROVINCE_CAPITALS.map((cap) => {
+                  const isSelected = selectedDot === cap.province
+                  const isHovered = hoveredDot === cap.province
+                  const dotRadius = isSelected ? 2.2 : isHovered ? 1.8 : 1.2
+
+                  return (
+                    <g key={cap.province}>
+                      {/* Glow effect for selected */}
+                      {isSelected && (
+                        <circle
+                          cx={cap.x}
+                          cy={cap.y}
+                          r={4}
+                          fill="none"
+                          stroke="#ef4444"
+                          strokeWidth="0.3"
+                          opacity="0.4"
+                        >
+                          <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite" />
+                        </circle>
+                      )}
+                      {/* Dot */}
+                      <circle
+                        cx={cap.x}
+                        cy={cap.y}
+                        r={dotRadius}
+                        fill={isSelected ? "#ef4444" : "#dc2626"}
+                        stroke={isSelected ? "#fca5a5" : isHovered ? "#f87171" : "#7f1d1d"}
+                        strokeWidth="0.3"
+                        className="cursor-pointer transition-all duration-200"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => handleProvinceClick(cap.province)}
+                        onMouseEnter={() => setHoveredDot(cap.province)}
+                        onMouseLeave={() => setHoveredDot("")}
+                      />
+                      {/* Label on hover or selected */}
+                      {(isHovered || isSelected) && (
+                        <text
+                          x={cap.x}
+                          y={cap.y - (isSelected ? 4 : 3.5)}
+                          textAnchor="middle"
+                          fill={isSelected ? "#fca5a5" : "#94a3b8"}
+                          fontSize="1.5"
+                          fontWeight={isSelected ? "bold" : "normal"}
+                          className="pointer-events-none"
+                        >
+                          {cap.name}
+                        </text>
+                      )}
+                    </g>
+                  )
+                })}
+              </svg>
+            </div>
+
+            {/* Province legend / list below map */}
+            <div className="mt-4 max-h-[200px] overflow-y-auto scrollbar-thin grid grid-cols-2 gap-1">
+              {PROVINCE_CAPITALS.map((cap) => (
+                <button
+                  key={cap.province}
+                  onClick={() => handleProvinceClick(cap.province)}
+                  className={`text-left text-xs px-2 py-1 rounded-lg transition flex items-center gap-1.5 ${
+                    selectedDot === cap.province
+                      ? "bg-red-900/30 text-red-200 border border-red-700/30"
+                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
                   }`}
                 >
-                  <span className="flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    {locationFilter.province ? locationFilter.city || locationFilter.province : "Filter by Location"}
-                  </span>
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedDot === cap.province ? "bg-red-400" : "bg-red-700"}`} />
+                  {cap.name}
                 </button>
-                {/* Manual refresh button */}
-                <button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
-                >
-                  {refreshing ? (
-                    <span className="flex items-center gap-1">
-                      <div className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-cyan-400 border-t-transparent"></div>
-                      Refreshing...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Refresh
-                    </span>
-                  )}
-                </button>
-                {news.length > INITIAL_LIMIT && (
-                  <button
-                    onClick={() => setShowAllNews(!showAllNews)}
-                    className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
-                  >
-                    {showAllNews ? "Show Less" : "Show All"}
-                  </button>
-                )}
-              </div>
+              ))}
             </div>
-
-            {/* Location Filter Panel */}
-            {showLocationFilter && (
-              <div className="mb-6 p-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-emerald-200">Filter by Location</h3>
-                  <button
-                    onClick={() => {
-                      setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" })
-                      setShowLocationFilter(false)
-                    }}
-                    className="text-xs text-slate-400 hover:text-white transition"
-                  >
-                    Clear Filter
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {/* Province */}
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">Province</label>
-                    <select
-                      value={locationFilter.province}
-                      onChange={(e) => setLocationFilter({ province: e.target.value, city: "", district: "", village: "", rw: "", rt: "" })}
-                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
-                    >
-                      <option value="">All Provinces</option>
-                      {getProvinces().map(p => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* City/Regency */}
-                  {locationFilter.province && (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">City/Regency</label>
-                      <select
-                        value={locationFilter.city}
-                        onChange={(e) => setLocationFilter(prev => ({ ...prev, city: e.target.value, district: "", village: "", rw: "", rt: "" }))}
-                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
-                      >
-                        <option value="">All Cities</option>
-                        {availableCities.map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* District */}
-                  {locationFilter.city && (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">District</label>
-                      <select
-                        value={locationFilter.district}
-                        onChange={(e) => setLocationFilter(prev => ({ ...prev, district: e.target.value, village: "", rw: "", rt: "" }))}
-                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
-                      >
-                        <option value="">All Districts</option>
-                        {availableDistricts.map(d => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Village */}
-                  {locationFilter.district && (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Village</label>
-                      <select
-                        value={locationFilter.village}
-                        onChange={(e) => setLocationFilter(prev => ({ ...prev, village: e.target.value, rw: "", rt: "" }))}
-                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
-                      >
-                        <option value="">All Villages</option>
-                        {availableVillages.map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* RW */}
-                  {locationFilter.village && (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">RW</label>
-                      <select
-                        value={locationFilter.rw}
-                        onChange={(e) => setLocationFilter(prev => ({ ...prev, rw: e.target.value, rt: "" }))}
-                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
-                      >
-                        <option value="">All RW</option>
-                        {getRWOptions().map(rw => (
-                          <option key={rw} value={rw}>RW {rw}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* RT */}
-                  {locationFilter.rw && (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">RT</label>
-                      <select
-                        value={locationFilter.rt}
-                        onChange={(e) => setLocationFilter(prev => ({ ...prev, rt: e.target.value }))}
-                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
-                      >
-                        <option value="">All RT</option>
-                        {getRTOptions().map(rt => (
-                          <option key={rt} value={rt}>RT {rt}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-                {/* Active Filter Summary */}
-                {locationFilter.province && (
-                  <div className="mt-3 text-xs text-slate-400">
-                    Showing news from:
-                    <span className="text-emerald-300 ml-1">
-                      {locationFilter.province}
-                      {locationFilter.city ? ` > ${locationFilter.city}` : ""}
-                      {locationFilter.district ? ` > ${locationFilter.district}` : ""}
-                      {locationFilter.village ? ` > ${locationFilter.village}` : ""}
-                      {locationFilter.rw ? ` > RW ${locationFilter.rw}` : ""}
-                      {locationFilter.rt ? ` > RT ${locationFilter.rt}` : ""}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {newsLoading ? (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-cyan-400 border-t-transparent"></div>
-                <p className="text-slate-400 mt-4">Loading news...</p>
-              </div>
-            ) : news.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-slate-400">No security news available at the moment.</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {displayedNews.map((item) => (
-                    <a
-                      key={item.id}
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 hover:bg-slate-950/80 transition group"
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className="inline-flex rounded-full border border-cyan-700/50 bg-cyan-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-cyan-300">
-                          {item.source}
-                        </span>
-                        {item.security?.isRelevant && (
-                          <div className="flex gap-1">
-                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.bgColor || 'bg-slate-900/30 border-slate-700/50'} ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.color || 'text-slate-300'}`}>
-                              {SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.label || item.security.severity}
-                            </span>
-                            <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
-                              {item.security.category.replace(/_/g, ' ')}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-300 transition line-clamp-2">
-                        {item.headline}
-                      </h3>
-                      <p className="text-sm text-slate-400 mb-3 line-clamp-3">{item.summary}</p>
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span>{item.category}</span>
-                         <span title={new Date(item.timestamp).toLocaleString()}>
-                           {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                           {' '}
-                           {formatDateID(item.timestamp)}
-                         </span>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-
-                {/* Load more button at bottom (for desktop / fallback) */}
-                {pagination?.hasMore && (
-                  <div className="mt-6 text-center">
-                    <button
-                      onClick={handleLoadMore}
-                      disabled={loadingMore}
-                      className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-6 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50"
-                    >
-                      {loadingMore ? (
-                        <span className="flex items-center gap-2">
-                          <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent"></div>
-                          Loading older news...
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                          </svg>
-                          Load Older News
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {pagination && (
-                  <div className="mt-4 text-center text-xs text-slate-600">
-                    Showing page {pagination.page} of {pagination.totalPages} ({pagination.totalItems} total)
-                  </div>
-                )}
-              </>
-            )}
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="mt-16 text-center">
-          <p className="text-sm text-slate-500">© F4W. All rights reserved.</p>
+        {/* RIGHT PANEL - News Feed */}
+        <div className="flex-1 min-w-0 p-4 lg:p-6">
+          <div ref={newsSectionRef}>
+            <div className="rounded-[28px] border border-white/10 bg-white/5 p-4 lg:p-6 backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <div>
+                  <h2 className="text-2xl font-semibold text-white">Security News</h2>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {selectedDot
+                      ? `News from ${selectedProvinceName}`
+                      : "Latest security & compliance news across Indonesia"}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {atTop ? '↓ Scroll past top to refresh' : ''}
+                    {atBottom && pagination?.hasMore ? ' ↑ Scroll past bottom for older' : ''}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 items-center">
+                  {/* Source Filter */}
+                  <div className="flex flex-wrap gap-1">
+                    {NEWS_SOURCES.map((s) => (
+                      <button
+                        key={s.key}
+                        onClick={() => { setSourceFilter(s.key); setShowAllNews(false) }}
+                        className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium transition ${
+                          sourceFilter === s.key
+                            ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
+                            : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Refresh */}
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
+                  >
+                    {refreshing ? (
+                      <span className="flex items-center gap-1">
+                        <div className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-cyan-400 border-t-transparent"></div>
+                        Refreshing...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                      </span>
+                    )}
+                  </button>
+                  {news.length > INITIAL_LIMIT && (
+                    <button
+                      onClick={() => setShowAllNews(!showAllNews)}
+                      className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                    >
+                      {showAllNews ? "Show Less" : "Show All"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {newsLoading ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-cyan-400 border-t-transparent"></div>
+                  <p className="text-slate-400 mt-4">Loading news...</p>
+                </div>
+              ) : news.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-slate-400">No security news available at the moment.</p>
+                  {selectedDot && (
+                    <button
+                      onClick={() => {
+                        setSelectedDot("")
+                        setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
+                      }}
+                      className="mt-3 text-sm text-cyan-400 hover:text-cyan-300 underline"
+                    >
+                      Clear province filter to see all news
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {displayedNews.map((item) => (
+                      <a
+                        key={item.id}
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 hover:bg-slate-950/80 transition group"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <span className="inline-flex rounded-full border border-cyan-700/50 bg-cyan-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-cyan-300">
+                            {item.source}
+                          </span>
+                          {item.security?.isRelevant && (
+                            <div className="flex gap-1">
+                              <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.bgColor || 'bg-slate-900/30 border-slate-700/50'} ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.color || 'text-slate-300'}`}>
+                                {SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.label || item.security.severity}
+                              </span>
+                              <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
+                                {item.security.category.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-300 transition line-clamp-2">
+                          {item.headline}
+                        </h3>
+                        <p className="text-sm text-slate-400 mb-3 line-clamp-3">{item.summary}</p>
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span>{item.category}</span>
+                          <span title={new Date(item.timestamp).toLocaleString()}>
+                            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {' '}
+                            {formatDateID(item.timestamp)}
+                          </span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+
+                  {pagination?.hasMore && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={handleLoadMore}
+                        disabled={loadingMore}
+                        className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-6 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50"
+                      >
+                        {loadingMore ? (
+                          <span className="flex items-center gap-2">
+                            <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent"></div>
+                            Loading older news...
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                            </svg>
+                            Load Older News
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {pagination && (
+                    <div className="mt-4 text-center text-xs text-slate-600">
+                      Showing page {pagination.page} of {pagination.totalPages} ({pagination.totalItems} total)
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <p className="text-sm text-slate-500">© F4W. All rights reserved.</p>
+          </div>
         </div>
       </div>
     </div>
