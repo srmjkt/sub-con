@@ -370,11 +370,11 @@ export default function HomePage() {
       onTouchEnd={handleTouchEnd}
     >
       {/* Full-screen map background */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0 flex items-center justify-center">
         <img
           src="/indonesia-map.png"
           alt="Indonesia Map"
-          className="w-full h-full object-cover opacity-40"
+          className="w-full h-full object-contain opacity-40"
           draggable={false}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-900/70 to-slate-950/80" />
@@ -487,7 +487,7 @@ export default function HomePage() {
                           fontWeight={isSelected ? "bold" : "normal"}
                           className="pointer-events-none"
                         >
-                          {cap.name}
+                          {`${cap.province} (${cap.name})`}
                         </text>
                       )}
                     </g>
