@@ -435,32 +435,20 @@ export default function HomePage() {
               )}
             </div>
             <div className="relative w-full" style={{ paddingBottom: "75%" }}>
+              {/* Background map image */}
+              <img
+                src="/indonesia-map.png"
+                alt="Indonesia Map"
+                className="absolute inset-0 w-full h-full object-cover rounded-xl"
+                draggable={false}
+              />
+              
+              {/* Interactive dots overlay */}
               <svg
                 viewBox="0 0 100 75"
                 className="absolute inset-0 w-full h-full"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                {/* Background ocean */}
-                <rect x="0" y="0" width="100" height="75" fill="#0c1929" rx="12" />
-
-                {/* Simplified Indonesia island shapes */}
-                {/* Sumatra */}
-                <ellipse cx="20" cy="27" rx="9" ry="18" fill="#1a2d4a" opacity="0.6" />
-                {/* Java */}
-                <ellipse cx="43" cy="46" rx="12" ry="3.5" fill="#1a2d4a" opacity="0.6" />
-                {/* Kalimantan */}
-                <ellipse cx="47" cy="26" rx="10" ry="8" fill="#1a2d4a" opacity="0.6" />
-                {/* Sulawesi */}
-                <ellipse cx="64" cy="27" rx="5" ry="12" fill="#1a2d4a" opacity="0.6" />
-                {/* Nusa Tenggara */}
-                <ellipse cx="65" cy="54" rx="8" ry="2.5" fill="#1a2d4a" opacity="0.6" />
-                {/* Maluku */}
-                <ellipse cx="76" cy="28" rx="4" ry="7" fill="#1a2d4a" opacity="0.6" />
-                {/* Papua */}
-                <ellipse cx="87" cy="30" rx="9" ry="10" fill="#1a2d4a" opacity="0.6" />
-                {/* Bali */}
-                <ellipse cx="58" cy="50" rx="2" ry="1" fill="#1a2d4a" opacity="0.6" />
-
                 {/* Province dots */}
                 {PROVINCE_CAPITALS.map((cap) => {
                   const isSelected = selectedDot === cap.province
