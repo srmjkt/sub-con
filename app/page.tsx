@@ -158,6 +158,16 @@ export default function HomePage() {
   const [atBottom, setAtBottom] = useState(false)
   const newsSectionRef = useRef<HTMLDivElement>(null)
 
+  // Handle source click from dropdown
+  const handleSourceClick = useCallback((sourceKey: string) => {
+    if (sourceFilter.includes(sourceKey)) {
+      setSourceFilter(sourceFilter.filter(s => s !== sourceKey))
+    } else {
+      setSourceFilter([...sourceFilter, sourceKey])
+    }
+    setShowAllNews(false)
+  }, [sourceFilter])
+
   // Update available cities/districts/villages when location filter changes
   useEffect(() => {
     if (locationFilter.province) {
@@ -384,16 +394,6 @@ export default function HomePage() {
 
   const displayedNews = showAllNews ? news : news.slice(0, INITIAL_LIMIT)
   const selectedProvinceName = PROVINCE_CAPITALS_ACTIVE.find(p => p.province === selectedDot)?.name || selectedDot
-
-  // Handle source click from dropdown
-  const handleSourceClick = useCallback((sourceKey: string) => {
-    if (sourceFilter.includes(sourceKey)) {
-      setSourceFilter(sourceFilter.filter(s => s !== sourceKey))
-    } else {
-      setSourceFilter([...sourceFilter, sourceKey])
-    }
-    setShowAllNews(false)
-  }, [sourceFilter])
 
   return (
     <div
