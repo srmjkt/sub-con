@@ -64,13 +64,12 @@ export default function MapEditorPage() {
   const svgRef = useRef<SVGSVGElement>(null)
   const dragOffset = useRef({ x: 0, y: 0 })
   
-  // Zoom and pan state
-  const [zoom, setZoom] = useState(1)
-  const [panX, setPanX] = useState(0)
-  const [panY, setPanY] = useState(0)
+  // Zoom and pan state (viewBox based)
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 100, h: 75 })
+  const zoomLevel = 100 / viewBox.w
   const isPanning = useRef(false)
   const panStart = useRef({ x: 0, y: 0 })
-  const panStartValues = useRef({ x: 0, y: 0 })
+  const panStartVB = useRef({ x: 0, y: 0 })
 
   // Load saved positions from localStorage on mount
   useEffect(() => {
@@ -85,24 +84,17 @@ export default function MapEditorPage() {
     }
   }, [])
 
-  // Convert mouse/touch coordinates to SVG viewBox coordinates (accounting for zoom/pan)
+  // Convert screen coords to viewBox coords
   const screenToViewBox = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
     const rect = svg.getBoundingClientRect()
-    const baseWidth = 100
-    const baseHeight = 75
-    
-    // Convert screen coords to viewBox coords accounting for zoom and pan
-    const x = ((clientX - rect.left) / rect.width) * baseWidth
-    const y = ((clientY - rect.top) / rect.height) * baseHeight
-    
-    // Undo pan and zoom to get original viewBox coordinates
-    const vbX = (x - panX) / zoom
-    const vbY = (y - panY) / zoom
-    
-    return { x: vbX, y: vbY }
-  }, [zoom, panX, panY])
+    const vb = viewBox
+    return {
+      x: vb.x + ((clientX - rect.left) / rect.width) * vb.w,
+      y: vb.y + ((clientY - rect.top) / rect.height) * vb.h,
+    }
+  }, [viewBox])
 
   // Handle drag start on a dot
   const handleDragStart = useCallback((index: number, clientX: number, clientY: number) => {
@@ -177,78 +169,87 @@ export default function MapEditorPage() {
 
   // Pan the map (middle mouse or ctrl+drag)
   const handleMapMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only allow pan if not dragging a dot
     if (draggingIndex !== null) return
-    // Middle mouse button or ctrl+click for pan
     if (e.button === 1 || e.ctrlKey || e.metaKey) {
       e.preventDefault()
       isPanning.current = true
       panStart.current = { x: e.clientX, y: e.clientY }
-      panStartValues.current = { x: panX, y: panY }
+      panStartVB.current = { x: viewBox.x, y: viewBox.y }
     }
-  }, [draggingIndex, panX, panY])
+  }, [draggingIndex, viewBox])
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isPanning.current) return
-      const dx = (e.clientX - panStart.current.x) / 100 * zoom
-      const dy = (e.clientY - panStart.current.y) / 100 * zoom
-      setPanX(panStartValues.current.x + dx)
-      setPanY(panStartValues.current.y + dy)
+      const svg = svgRef.current
+      if (!svg) return
+      const rect = svg.getBoundingClientRect()
+      const vb = viewBox
+      const dx = ((e.clientX - panStart.current.x) / rect.width) * vb.w
+      const dy = ((e.clientY - panStart.current.y) / rect.height) * vb.h
+      setViewBox(prev => ({
+        ...prev,
+        x: panStartVB.current.x - dx,
+        y: panStartVB.current.y - dy,
+      }))
     }
-    const handleMouseUp = () => {
-      isPanning.current = false
-    }
+    const handleMouseUp = () => { isPanning.current = false }
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [zoom])
+  }, [viewBox])
 
-  // Wheel zoom
+  // Wheel zoom - zoom towards cursor
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
     const svg = svgRef.current
     if (!svg) return
-    
     const rect = svg.getBoundingClientRect()
-    const mouseX = ((e.clientX - rect.left) / rect.width) * 100
-    const mouseY = ((e.clientY - rect.top) / rect.height) * 75
-    
-    const delta = e.deltaY > 0 ? -0.1 : 0.1
-    const newZoom = Math.max(1, Math.min(10, zoom + delta))
-    
-    // Zoom towards mouse position
-    const scale = newZoom / zoom
-    const newPanX = mouseX - scale * (mouseX - panX)
-    const newPanY = mouseY - scale * (mouseY - panY)
-    
-    setZoom(newZoom)
-    setPanX(newPanX)
-    setPanY(newPanY)
-  }, [zoom, panX, panY])
+    const vb = viewBox
+
+    // Mouse position in viewBox coords
+    const mx = vb.x + ((e.clientX - rect.left) / rect.width) * vb.w
+    const my = vb.y + ((e.clientY - rect.top) / rect.height) * vb.h
+
+    const delta = e.deltaY > 0 ? 1.15 : 1 / 1.15
+    const newW = Math.max(10, Math.min(200, vb.w * delta))
+    const newH = newW * 0.75
+    const ratio = newW / vb.w
+
+    setViewBox({
+      x: mx - (mx - vb.x) * ratio,
+      y: my - (my - vb.y) * ratio,
+      w: newW,
+      h: newH,
+    })
+  }, [viewBox])
 
   // Zoom controls
   const zoomIn = useCallback(() => {
-    const newZoom = Math.min(10, zoom + 0.3)
-    setZoom(newZoom)
-    setPanX(50 - (50 - panX) * (newZoom / zoom))
-    setPanY(37.5 - (37.5 - panY) * (newZoom / zoom))
-  }, [zoom, panX, panY])
+    setViewBox(prev => {
+      const newW = Math.max(10, prev.w / 1.3)
+      const newH = newW * 0.75
+      const cx = prev.x + prev.w / 2
+      const cy = prev.y + prev.h / 2
+      return { x: cx - newW / 2, y: cy - newH / 2, w: newW, h: newH }
+    })
+  }, [])
 
   const zoomOut = useCallback(() => {
-    const newZoom = Math.max(1, zoom - 0.3)
-    setZoom(newZoom)
-    setPanX(50 - (50 - panX) * (newZoom / zoom))
-    setPanY(37.5 - (37.5 - panY) * (newZoom / zoom))
-  }, [zoom, panX, panY])
+    setViewBox(prev => {
+      const newW = Math.min(200, prev.w * 1.3)
+      const newH = newW * 0.75
+      const cx = prev.x + prev.w / 2
+      const cy = prev.y + prev.h / 2
+      return { x: cx - newW / 2, y: cy - newH / 2, w: newW, h: newH }
+    })
+  }, [])
 
   const resetView = useCallback(() => {
-    setZoom(1)
-    setPanX(0)
-    setPanY(0)
+    setViewBox({ x: 0, y: 0, w: 100, h: 75 })
   }, [])
 
   // Save to localStorage and copy to clipboard
@@ -349,7 +350,7 @@ export default function MapEditorPage() {
                     className="px-2 text-[11px] text-slate-400 hover:text-white transition font-mono"
                     title="Reset zoom"
                   >
-                    {Math.round(zoom * 100)}%
+                    {Math.round(zoomLevel * 100)}%
                   </button>
                   <button
                     onClick={zoomIn}
@@ -361,27 +362,30 @@ export default function MapEditorPage() {
                 </div>
               </div>
               <div className="relative w-full bg-slate-950 rounded-xl overflow-hidden" style={{ paddingBottom: "75%" }}>
-                {!mapImageError ? (
-                  <img
-                    src="/indonesia-map.png"
-                    alt="Indonesia Map"
-                    className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-                    draggable={false}
-                    onError={() => setMapImageError(true)}
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50" />
-                )}
-                
                 <svg
                   ref={svgRef}
-                  viewBox={`${-panX / zoom} ${-panY / zoom} ${100 / zoom} ${75 / zoom}`}
+                  viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
                   className="absolute inset-0 w-full h-full"
                   xmlns="http://www.w3.org/2000/svg"
                   onWheel={handleWheel}
                   onMouseDown={handleMapMouseDown}
                   style={{ cursor: isPanning.current ? 'grabbing' : draggingIndex !== null ? 'grabbing' : 'default' }}
                 >
+                  {/* Background map image - embedded in SVG so it zooms with everything */}
+                  {!mapImageError ? (
+                    <image
+                      href="/indonesia-map.png"
+                      x="0"
+                      y="0"
+                      width="100"
+                      height="75"
+                      preserveAspectRatio="xMidYMid meet"
+                      onError={() => setMapImageError(true)}
+                    />
+                  ) : (
+                    <rect x="0" y="0" width="100" height="75" fill="#0f172a" rx="2" />
+                  )}
+                  
                   {dots.map((dot, index) => {
                     const isDragging = draggingIndex === index
                     const isSelected = selectedIndex === index
@@ -394,13 +398,13 @@ export default function MapEditorPage() {
                           <circle
                             cx={dot.x}
                             cy={dot.y}
-                            r={5 / zoom * 3}
+                            r={5}
                             fill="none"
                             stroke="#22d3ee"
-                            strokeWidth={0.3 / zoom * 2}
+                            strokeWidth="0.3"
                             opacity="0.5"
                           >
-                            <animate attributeName="r" values={`${3/zoom};${6/zoom};${3/zoom}`} dur="2s" repeatCount="indefinite" />
+                            <animate attributeName="r" values="3;6;3" dur="2s" repeatCount="indefinite" />
                             <animate attributeName="opacity" values="0.5;0.1;0.5" dur="2s" repeatCount="indefinite" />
                           </circle>
                         )}
@@ -408,10 +412,10 @@ export default function MapEditorPage() {
                         <circle
                           cx={dot.x}
                           cy={dot.y}
-                          r={dotRadius / zoom * 2}
+                          r={dotRadius}
                           fill="#dc2626"
                           stroke={isDragging ? "#67e8f9" : isSelected ? "#fca5a5" : "#7f1d1d"}
-                          strokeWidth={0.4 / zoom * 2}
+                          strokeWidth="0.4"
                           style={{ cursor: "grab" }}
                           onMouseDown={(e) => handleMouseDown(e, index)}
                           onTouchStart={(e) => handleTouchStart(e, index)}
@@ -423,10 +427,10 @@ export default function MapEditorPage() {
                         {/* Label */}
                         <text
                           x={dot.x}
-                          y={dot.y - 3 / zoom * 2}
+                          y={dot.y - 3}
                           textAnchor="middle"
                           fill="#94a3b8"
-                          fontSize={1.3 / zoom * 2}
+                          fontSize="1.3"
                           className="pointer-events-none select-none"
                         >
                           {dot.name}
