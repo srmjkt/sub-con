@@ -634,6 +634,23 @@ export default function HomePage() {
                     </button>
                   ))}
                 </div>
+                {/* Location Filter Toggle */}
+                <button
+                  onClick={() => setShowLocationFilter(!showLocationFilter)}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                    showLocationFilter || locationFilter.province
+                      ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
+                      : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                  }`}
+                >
+                  <span className="flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {locationFilter.province ? locationFilter.city || locationFilter.province : "Filter by Location"}
+                  </span>
+                </button>
                 {/* Refresh */}
                 <button
                   onClick={handleRefresh}
@@ -664,6 +681,139 @@ export default function HomePage() {
                 )}
               </div>
             </div>
+
+            {/* Location Filter Panel */}
+            {showLocationFilter && (
+              <div className="mb-6 p-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-emerald-200">Filter by Location</h3>
+                  <button
+                    onClick={() => {
+                      setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" })
+                      setShowLocationFilter(false)
+                    }}
+                    className="text-xs text-slate-400 hover:text-white transition"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {/* Province */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Province</label>
+                    <select
+                      value={locationFilter.province}
+                      onChange={(e) => setLocationFilter({ province: e.target.value, city: "", district: "", village: "", rw: "", rt: "" })}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                    >
+                      <option value="">All Provinces</option>
+                      {getProvinces().map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* City/Regency */}
+                  {locationFilter.province && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">City/Regency</label>
+                      <select
+                        value={locationFilter.city}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, city: e.target.value, district: "", village: "", rw: "", rt: "" }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All Cities</option>
+                        {availableCities.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* District */}
+                  {locationFilter.city && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">District</label>
+                      <select
+                        value={locationFilter.district}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, district: e.target.value, village: "", rw: "", rt: "" }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All Districts</option>
+                        {availableDistricts.map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Village */}
+                  {locationFilter.district && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Village</label>
+                      <select
+                        value={locationFilter.village}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, village: e.target.value, rw: "", rt: "" }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All Villages</option>
+                        {availableVillages.map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* RW */}
+                  {locationFilter.village && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">RW</label>
+                      <select
+                        value={locationFilter.rw}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, rw: e.target.value, rt: "" }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All RW</option>
+                        {getRWOptions().map(rw => (
+                          <option key={rw} value={rw}>RW {rw}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* RT */}
+                  {locationFilter.rw && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">RT</label>
+                      <select
+                        value={locationFilter.rt}
+                        onChange={(e) => setLocationFilter(prev => ({ ...prev, rt: e.target.value }))}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All RT</option>
+                        {getRTOptions().map(rt => (
+                          <option key={rt} value={rt}>RT {rt}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                {/* Active Filter Summary */}
+                {locationFilter.province && (
+                  <div className="mt-3 text-xs text-slate-400">
+                    Showing news from:
+                    <span className="text-emerald-300 ml-1">
+                      {locationFilter.province}
+                      {locationFilter.city ? ` > ${locationFilter.city}` : ""}
+                      {locationFilter.district ? ` > ${locationFilter.district}` : ""}
+                      {locationFilter.village ? ` > ${locationFilter.village}` : ""}
+                      {locationFilter.rw ? ` > RW ${locationFilter.rw}` : ""}
+                      {locationFilter.rt ? ` > RT ${locationFilter.rt}` : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {newsLoading ? (
               <div className="text-center py-12">
