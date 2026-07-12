@@ -96,8 +96,31 @@ const PROVINCE_CAPITALS = [
   { name: "Sorong", province: "Papua Barat Daya", x: 76, y: 24 },
 ]
 
+// Helper to load province positions from localStorage (fallback to hardcoded defaults)
+function loadProvincePositions() {
+  if (typeof window === "undefined") return PROVINCE_CAPITALS
+  try {
+    const saved = localStorage.getItem("provinceDotPositions")
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length === PROVINCE_CAPITALS.length) {
+        return parsed
+      }
+    }
+  } catch {}
+  return PROVINCE_CAPITALS
+}
+
 export default function HomePage() {
   const { user, loading } = useAuth()
+  // Use saved dot positions from localStorage (edited via admin map editor)
+  const [savedProvinceCapitals, setSavedProvinceCapitals] = useState<typeof PROVINCE_CAPITALS>([])
+  
+  useEffect(() => {
+    setSavedProvinceCapitals(loadProvincePositions())
+  }, [])
+  
+  const PROVINCE_CAPITALS_ACTIVE = savedProvinceCapitals.length > 0 ? savedProvinceCapitals : PROVINCE_CAPITALS
   const [news, setNews] = useState<NewsItem[]>([])
   const [newsLoading, setNewsLoading] = useState(true)
   const [showAllNews, setShowAllNews] = useState(false)
@@ -359,7 +382,7 @@ export default function HomePage() {
   }
 
   const displayedNews = showAllNews ? news : news.slice(0, INITIAL_LIMIT)
-  const selectedProvinceName = PROVINCE_CAPITALS.find(p => p.province === selectedDot)?.name || selectedDot
+  const selectedProvinceName = PROVINCE_CAPITALS_ACTIVE.find(p => p.province === selectedDot)?.name || selectedDot
 
   return (
     <div
@@ -432,7 +455,7 @@ export default function HomePage() {
                 className="absolute inset-0 w-full h-full"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                {PROVINCE_CAPITALS.map((cap) => {
+                {PROVINCE_CAPITALS_ACTIVE.map((cap) => {
                   const isSelected = selectedDot === cap.province
                   const isHovered = hoveredDot === cap.province
                   const dotRadius = isSelected ? 2.2 : isHovered ? 1.8 : 1.2
@@ -487,7 +510,7 @@ export default function HomePage() {
 
             {/* Province list */}
             <div className="max-h-[300px] overflow-y-auto scrollbar-thin grid grid-cols-2 gap-1">
-              {PROVINCE_CAPITALS.map((cap) => (
+              {PROVINCE_CAPITALS_ACTIVE.map((cap) => (
                 <button
                   key={cap.province}
                   onClick={() => handleProvinceClick(cap.province)}
