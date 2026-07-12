@@ -32,7 +32,6 @@ interface PaginationInfo {
 
 const INITIAL_LIMIT = 6
 
-// Helper to format date in dd/mm/yyyy (Indonesian format)
 function formatDateID(timestamp: number): string {
   const d = new Date(timestamp)
   const day = String(d.getDate()).padStart(2, '0')
@@ -41,7 +40,6 @@ function formatDateID(timestamp: number): string {
   return `${day}/${month}/${year}`
 }
 
-// Available news sources
 const NEWS_SOURCES = [
   { key: "", label: "All Sources" },
   { key: "Kompas", label: "Kompas" },
@@ -54,7 +52,6 @@ const NEWS_SOURCES = [
   { key: "Okezone", label: "Okezone" },
 ]
 
-// Provincial capitals with SVG map positions (x%, y%) for interactive dots
 const PROVINCE_CAPITALS = [
   { name: "Banda Aceh", province: "Aceh", x: 8, y: 5 },
   { name: "Medan", province: "Sumatera Utara", x: 12, y: 14 },
@@ -96,7 +93,6 @@ const PROVINCE_CAPITALS = [
   { name: "Sorong", province: "Papua Barat Daya", x: 76, y: 24 },
 ]
 
-// Helper to load province positions from localStorage (fallback to hardcoded defaults)
 function loadProvincePositions() {
   if (typeof window === "undefined") return PROVINCE_CAPITALS
   try {
@@ -113,7 +109,6 @@ function loadProvincePositions() {
 
 export default function HomePage() {
   const { user, loading } = useAuth()
-  // Use saved dot positions from localStorage (edited via admin map editor)
   const [savedProvinceCapitals, setSavedProvinceCapitals] = useState<typeof PROVINCE_CAPITALS>([])
   
   useEffect(() => {
@@ -142,11 +137,12 @@ export default function HomePage() {
   const [showSourceFilter, setShowSourceFilter] = useState(false)
   const [sourceFilter, setSourceFilter] = useState<string[]>([])
   const [showMapPanel, setShowMapPanel] = useState(false)
-  const [selectedDot, setSelectedDot] = useState<string>("")
+  const [selectedDots, setSelectedDots] = useState<string[]>([])
   const [hoveredDot, setHoveredDot] = useState<string>("")
   const [mapImageError, setMapImageError] = useState(false)
+  const [mapViewBox, setMapViewBox] = useState({ x: 0, y: 0, w: 100, h: 75 })
+  const mapSvgRef = useRef<SVGSVGElement>(null)
 
-  // Touch gesture state
   const touchStartY = useRef(0)
   const touchCurrentY = useRef(0)
   const isTouching = useRef(false)
@@ -158,7 +154,6 @@ export default function HomePage() {
   const [atBottom, setAtBottom] = useState(false)
   const newsSectionRef = useRef<HTMLDivElement>(null)
 
-  // Handle source click from dropdown
   const handleSourceClick = useCallback((sourceKey: string) => {
     if (sourceFilter.includes(sourceKey)) {
       setSourceFilter(sourceFilter.filter(s => s !== sourceKey))
@@ -168,7 +163,6 @@ export default function HomePage() {
     setShowAllNews(false)
   }, [sourceFilter])
 
-  // Update available cities/districts/villages when location filter changes
   useEffect(() => {
     if (locationFilter.province) {
       setAvailableCities(getCities(locationFilter.province))
@@ -187,7 +181,6 @@ export default function HomePage() {
     }
   }, [locationFilter.province, locationFilter.city, locationFilter.district])
 
-  // Fetch news with location filter and source filter
   const fetchNewsWithFilter = useCallback(async (pageNum: number = 1, isRefresh: boolean = false) => {
     try {
       const params = new URLSearchParams()
@@ -208,17 +201,14 @@ export default function HomePage() {
     }
   }, [locationFilter, sourceFilter])
 
-  // Desktop wheel overscroll state
   const wheelAccumulator = useRef(0)
   const wheelActive = useRef(false)
 
-  // Check scroll position to know if at top or bottom
   const checkScrollPosition = useCallback(() => {
     if (newsSectionRef.current) {
       const scrollY = window.scrollY
       const viewportHeight = window.innerHeight
       const docHeight = document.documentElement.scrollHeight
-
       setAtTop(scrollY <= 10)
       setAtBottom(scrollY + viewportHeight >= docHeight - 50)
     }
@@ -230,26 +220,43 @@ export default function HomePage() {
     return () => window.removeEventListener('scroll', checkScrollPosition)
   }, [checkScrollPosition])
 
-  // Vibrate for haptic feedback (mobile)
   const vibrate = useCallback((ms: number = 15) => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       navigator.vibrate(ms)
     }
   }, [])
 
-  // Handle clicking a province dot on the map
   const handleProvinceClick = useCallback((province: string) => {
-    if (selectedDot === province) {
-      setSelectedDot("")
-      setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
-    } else {
-      setSelectedDot(province)
-      setLocationFilter(prev => ({ ...prev, province, city: "", district: "", village: "", rw: "", rt: "" }))
-    }
+    setSelectedDots(prev => {
+      if (prev.includes(province)) {
+        return prev.filter(p => p !== province)
+      } else {
+        return [...prev, province]
+      }
+    })
     setShowAllNews(false)
-  }, [selectedDot])
+  }, [])
 
-  // Fetch initial news
+  // Map zoom handler for the map panel
+  const handleMapWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault()
+    const svg = mapSvgRef.current
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const vb = mapViewBox
+    const mx = vb.x + ((e.clientX - rect.left) / rect.width) * vb.w
+    const my = vb.y + ((e.clientY - rect.top) / rect.height) * vb.h
+    const delta = e.deltaY > 0 ? 1.15 : 1 / 1.15
+    const newW = Math.max(10, Math.min(200, vb.w * delta))
+    const newH = newW * 0.75
+    const ratio = newW / vb.w
+    setMapViewBox({ x: mx - (mx - vb.x) * ratio, y: my - (my - vb.y) * ratio, w: newW, h: newH })
+  }, [mapViewBox])
+
+  const resetMapView = useCallback(() => {
+    setMapViewBox({ x: 0, y: 0, w: 100, h: 75 })
+  }, [])
+
   useEffect(() => {
     async function fetchNews() {
       try {
@@ -267,7 +274,6 @@ export default function HomePage() {
     fetchNews()
   }, [fetchNewsWithFilter])
 
-  // Pull-to-refresh: fetch newest news from top
   const handleRefresh = useCallback(async () => {
     if (refreshing) return
     setRefreshing(true)
@@ -285,7 +291,6 @@ export default function HomePage() {
     setRefreshing(false)
   }, [refreshing, vibrate, fetchNewsWithFilter])
 
-  // Load more: fetch next page of news (older items)
   const handleLoadMore = useCallback(async () => {
     if (loadingMore || !pagination?.hasMore) return
     setLoadingMore(true)
@@ -306,7 +311,6 @@ export default function HomePage() {
     setLoadingMore(false)
   }, [loadingMore, pagination, news, vibrate, fetchNewsWithFilter])
 
-  // Desktop wheel handler
   const handleWheel = useCallback((e: WheelEvent) => {
     if (isTouching.current) return
     const deltaY = e.deltaY
@@ -349,7 +353,6 @@ export default function HomePage() {
     return () => window.removeEventListener('wheel', handleWheel)
   }, [handleWheel])
 
-  // Touch handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     isTouching.current = true
     touchStartY.current = e.touches[0].clientY
@@ -393,7 +396,9 @@ export default function HomePage() {
   }
 
   const displayedNews = showAllNews ? news : news.slice(0, INITIAL_LIMIT)
-  const selectedProvinceName = PROVINCE_CAPITALS_ACTIVE.find(p => p.province === selectedDot)?.name || selectedDot
+  const selectedProvinceNames = selectedDots.length > 0 
+    ? selectedDots.map(p => PROVINCE_CAPITALS_ACTIVE.find(c => c.province === p)?.name || p).join(', ')
+    : ""
 
   return (
     <div
@@ -403,7 +408,6 @@ export default function HomePage() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Pull-to-refresh indicators */}
       {pullVisualOffset > 0 && (
         <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-transform" style={{ transform: `translateY(${pullVisualOffset}px)` }}>
           <div className="flex items-center gap-2 rounded-full bg-slate-800/90 border border-cyan-400/30 px-4 py-2 mt-2 backdrop-blur">
@@ -427,74 +431,77 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Map Panel Overlay (left side) */}
+      {/* Map Panel Overlay (left side) - with zoom */}
       {showMapPanel && (
         <div className="fixed left-0 top-0 h-screen w-[400px] lg:w-[450px] z-40 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 shadow-2xl transform transition-transform duration-300">
           <div className="p-4 lg:p-6 h-full overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Select Region</h2>
-              <button
-                onClick={() => {
-                  setShowMapPanel(false)
-                  setSelectedDot("")
-                  setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
-                }}
-                className="text-slate-400 hover:text-white transition p-2 rounded-lg border border-white/10 hover:border-white/20"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={resetMapView}
+                  className="text-[11px] text-slate-400 hover:text-white transition font-mono border border-white/10 rounded-lg px-2 py-1"
+                  title="Reset zoom"
+                >
+                  {Math.round(100 / mapViewBox.w * 100)}%
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMapPanel(false)
+                    setSelectedDots([])
+                    setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
+                  }}
+                  className="text-slate-400 hover:text-white transition p-2 rounded-lg border border-white/10 hover:border-white/20"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
             
-            {/* Map Image with Dots */}
+            {/* Map Image with Dots - zoomable */}
             <div className="relative w-full mb-4 bg-slate-950 rounded-xl overflow-hidden" style={{ paddingBottom: "75%" }}>
-              {!mapImageError ? (
-                <img
-                  src="/indonesia-map.png"
-                  alt="Indonesia Map"
-                  className="absolute inset-0 w-full h-full object-contain"
-                  draggable={false}
-                  onError={() => setMapImageError(true)}
-                />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50" />
-              )}
-              
               <svg
-                viewBox="0 0 100 75"
+                ref={mapSvgRef}
+                viewBox={`${mapViewBox.x} ${mapViewBox.y} ${mapViewBox.w} ${mapViewBox.h}`}
                 className="absolute inset-0 w-full h-full"
                 xmlns="http://www.w3.org/2000/svg"
+                onWheel={handleMapWheel}
+                style={{ cursor: 'default' }}
               >
+                {!mapImageError ? (
+                  <image
+                    href="/indonesia-map.png"
+                    x="0" y="0" width="100" height="75"
+                    preserveAspectRatio="none"
+                    onError={() => setMapImageError(true)}
+                  />
+                ) : (
+                  <rect x="0" y="0" width="100" height="75" fill="#0f172a" rx="2" />
+                )}
                 {PROVINCE_CAPITALS_ACTIVE.map((cap) => {
-                  const isSelected = selectedDot === cap.province
+                  const isSelected = selectedDots.includes(cap.province)
                   const isHovered = hoveredDot === cap.province
-                  const dotRadius = isSelected ? 2.2 : isHovered ? 1.8 : 1.2
+                  const dotRadius = isSelected ? 1.5 : isHovered ? 1.2 : 0.8
 
                   return (
                     <g key={cap.province}>
                       {isSelected && (
                         <circle
-                          cx={cap.x}
-                          cy={cap.y}
-                          r={4}
-                          fill="none"
-                          stroke="#ef4444"
-                          strokeWidth="0.3"
-                          opacity="0.4"
+                          cx={cap.x} cy={cap.y} r={3}
+                          fill="none" stroke="#ef4444" strokeWidth="0.3" opacity="0.4"
                         >
-                          <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite" />
+                          <animate attributeName="r" values="2;4;2" dur="2s" repeatCount="indefinite" />
                           <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite" />
                         </circle>
                       )}
                       <circle
-                        cx={cap.x}
-                        cy={cap.y}
-                        r={dotRadius}
+                        cx={cap.x} cy={cap.y} r={dotRadius}
                         fill={isSelected ? "#ef4444" : "#dc2626"}
                         stroke={isSelected ? "#fca5a5" : isHovered ? "#f87171" : "#7f1d1d"}
                         strokeWidth="0.3"
-                        className="cursor-pointer transition-all duration-200"
+                        className="cursor-pointer"
                         style={{ cursor: "pointer" }}
                         onClick={() => handleProvinceClick(cap.province)}
                         onMouseEnter={() => setHoveredDot(cap.province)}
@@ -502,11 +509,10 @@ export default function HomePage() {
                       />
                       {(isHovered || isSelected) && (
                         <text
-                          x={cap.x}
-                          y={cap.y - (isSelected ? 4 : 3.5)}
+                          x={cap.x} y={cap.y - (isSelected ? 3 : 2.5)}
                           textAnchor="middle"
                           fill={isSelected ? "#fca5a5" : "#94a3b8"}
-                          fontSize="1.5"
+                          fontSize="1.2"
                           fontWeight={isSelected ? "bold" : "normal"}
                           className="pointer-events-none"
                         >
@@ -519,19 +525,19 @@ export default function HomePage() {
               </svg>
             </div>
 
-            {/* Province list */}
+            {/* Province list - multi-select */}
             <div className="max-h-[300px] overflow-y-auto scrollbar-thin grid grid-cols-2 gap-1">
               {PROVINCE_CAPITALS_ACTIVE.map((cap) => (
                 <button
                   key={cap.province}
                   onClick={() => handleProvinceClick(cap.province)}
                   className={`text-left text-xs px-2 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                    selectedDot === cap.province
+                    selectedDots.includes(cap.province)
                       ? "bg-red-900/30 text-red-200 border border-red-700/30"
                       : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
                   }`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedDot === cap.province ? "bg-red-400" : "bg-red-700"}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedDots.includes(cap.province) ? "bg-red-400" : "bg-red-700"}`} />
                   {`${cap.province} (${cap.name})`}
                 </button>
               ))}
@@ -542,7 +548,6 @@ export default function HomePage() {
 
       {/* Main Content */}
       <div className="relative z-10 container mx-auto px-4 py-16">
-        {/* Top Bar */}
         <div className="flex justify-between items-center mb-8">
           <div className="text-sm text-slate-500">v.2026.1.0</div>
           <div className="flex items-center gap-4">
@@ -550,7 +555,7 @@ export default function HomePage() {
               <button
                 onClick={() => {
                   setShowMapPanel(false)
-                  setSelectedDot("")
+                  setSelectedDots([])
                   setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
                 }}
                 className="text-sm text-slate-400 hover:text-white transition px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20"
@@ -581,7 +586,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Welcome Section */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-white mb-4">
             {user ? "Welcome to Sub-Con" : "Security Risk Management System."}
@@ -589,41 +593,28 @@ export default function HomePage() {
           <p className="text-xl text-slate-300">Mitigate your risks. Secure your surroundings.</p>
         </div>
 
-        {/* Dashboard Cards (only for logged in users) */}
         {user && (
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">
             <Link
-              href={
-                user.role === "ADMIN"
-                  ? "/admin"
-                  : user.role === "INPUTTER"
-                  ? "/inputter"
-                  : "/viewer"
-              }
+              href={user.role === "ADMIN" ? "/admin" : user.role === "INPUTTER" ? "/inputter" : "/viewer"}
               className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"
             >
               <div className="text-center">
                 <div className="text-4xl mb-4">📊</div>
-                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">
-                  Dashboard
-                </h2>
+                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Dashboard</h2>
                 <p className="text-sm text-slate-400">View your personalized dashboard</p>
               </div>
             </Link>
-
             <Link
               href="/admin/branches"
               className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"
             >
               <div className="text-center">
                 <div className="text-4xl mb-4">🏢</div>
-                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">
-                  Branches
-                </h2>
+                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Branches</h2>
                 <p className="text-sm text-slate-400">Manage branch configurations</p>
               </div>
             </Link>
-
             {user.role === "ADMIN" && (
               <Link
                 href="/admin/users"
@@ -631,9 +622,7 @@ export default function HomePage() {
               >
                 <div className="text-center">
                   <div className="text-4xl mb-4">👥</div>
-                  <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">
-                    Users
-                  </h2>
+                  <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Users</h2>
                   <p className="text-sm text-slate-400">Manage user accounts</p>
                 </div>
               </Link>
@@ -648,11 +637,10 @@ export default function HomePage() {
               <div>
                 <h2 className="text-2xl font-semibold text-white">Security News</h2>
                 <p className="text-sm text-slate-400 mt-1">
-                  {selectedDot ? `News from ${selectedProvinceName}` : "Latest security & compliance news across Indonesia"}
+                  {selectedDots.length > 0 ? `News from ${selectedProvinceNames}` : "Latest security & compliance news across Indonesia"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 items-center">
-                {/* Source Filter Toggle */}
                 <button
                   onClick={() => setShowSourceFilter(!showSourceFilter)}
                   className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
@@ -668,7 +656,6 @@ export default function HomePage() {
                     {sourceFilter.length > 0 ? `${sourceFilter.length} Source${sourceFilter.length > 1 ? 's' : ''}` : "Filter by News Source"}
                   </span>
                 </button>
-                {/* Location Filter Toggle */}
                 <button
                   onClick={() => setShowLocationFilter(!showLocationFilter)}
                   className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
@@ -685,7 +672,6 @@ export default function HomePage() {
                     {locationFilter.province ? locationFilter.city || locationFilter.province : "Filter by Location"}
                   </span>
                 </button>
-                {/* Refresh */}
                 <button
                   onClick={handleRefresh}
                   disabled={refreshing}
@@ -716,16 +702,12 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Source Filter Panel */}
             {showSourceFilter && (
               <div className="mb-6 p-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/5">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-cyan-200">Filter by News Source</h3>
                   <button
-                    onClick={() => {
-                      setSourceFilter([])
-                      setShowSourceFilter(false)
-                    }}
+                    onClick={() => { setSourceFilter([]); setShowSourceFilter(false) }}
                     className="text-xs text-slate-400 hover:text-white transition"
                   >
                     Clear Filter
@@ -735,9 +717,7 @@ export default function HomePage() {
                   {NEWS_SOURCES.map((source) => (
                     <button
                       key={source.key}
-                      onClick={() => {
-                        handleSourceClick(source.key)
-                      }}
+                      onClick={() => handleSourceClick(source.key)}
                       className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
                         sourceFilter.includes(source.key)
                           ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
@@ -756,23 +736,18 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Location Filter Panel */}
             {showLocationFilter && (
               <div className="mb-6 p-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/5">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-emerald-200">Filter by Location</h3>
                   <button
-                    onClick={() => {
-                      setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" })
-                      setShowLocationFilter(false)
-                    }}
+                    onClick={() => { setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" }); setShowLocationFilter(false) }}
                     className="text-xs text-slate-400 hover:text-white transition"
                   >
                     Clear Filter
                   </button>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {/* Province */}
                   <div>
                     <label className="block text-xs font-medium text-slate-400 mb-1">Province</label>
                     <select
@@ -781,13 +756,9 @@ export default function HomePage() {
                       className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
                     >
                       <option value="">All Provinces</option>
-                      {getProvinces().map(p => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
+                      {getProvinces().map(p => (<option key={p} value={p}>{p}</option>))}
                     </select>
                   </div>
-
-                  {/* City/Regency */}
                   {locationFilter.province && (
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">City/Regency</label>
@@ -797,14 +768,10 @@ export default function HomePage() {
                         className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
                       >
                         <option value="">All Cities</option>
-                        {availableCities.map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
+                        {availableCities.map(c => (<option key={c} value={c}>{c}</option>))}
                       </select>
                     </div>
                   )}
-
-                  {/* District */}
                   {locationFilter.city && (
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">District</label>
@@ -814,14 +781,10 @@ export default function HomePage() {
                         className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
                       >
                         <option value="">All Districts</option>
-                        {availableDistricts.map(d => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
+                        {availableDistricts.map(d => (<option key={d} value={d}>{d}</option>))}
                       </select>
                     </div>
                   )}
-
-                  {/* Village */}
                   {locationFilter.district && (
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Village</label>
@@ -831,14 +794,10 @@ export default function HomePage() {
                         className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
                       >
                         <option value="">All Villages</option>
-                        {availableVillages.map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
+                        {availableVillages.map(v => (<option key={v} value={v}>{v}</option>))}
                       </select>
                     </div>
                   )}
-
-                  {/* RW */}
                   {locationFilter.village && (
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">RW</label>
@@ -848,14 +807,10 @@ export default function HomePage() {
                         className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
                       >
                         <option value="">All RW</option>
-                        {getRWOptions().map(rw => (
-                          <option key={rw} value={rw}>RW {rw}</option>
-                        ))}
+                        {getRWOptions().map(rw => (<option key={rw} value={rw}>RW {rw}</option>))}
                       </select>
                     </div>
                   )}
-
-                  {/* RT */}
                   {locationFilter.rw && (
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">RT</label>
@@ -865,24 +820,16 @@ export default function HomePage() {
                         className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"
                       >
                         <option value="">All RT</option>
-                        {getRTOptions().map(rt => (
-                          <option key={rt} value={rt}>RT {rt}</option>
-                        ))}
+                        {getRTOptions().map(rt => (<option key={rt} value={rt}>RT {rt}</option>))}
                       </select>
                     </div>
                   )}
                 </div>
-                {/* Active Filter Summary */}
                 {locationFilter.province && (
                   <div className="mt-3 text-xs text-slate-400">
                     Showing news from:
                     <span className="text-emerald-300 ml-1">
-                      {locationFilter.province}
-                      {locationFilter.city ? ` > ${locationFilter.city}` : ""}
-                      {locationFilter.district ? ` > ${locationFilter.district}` : ""}
-                      {locationFilter.village ? ` > ${locationFilter.village}` : ""}
-                      {locationFilter.rw ? ` > RW ${locationFilter.rw}` : ""}
-                      {locationFilter.rt ? ` > RT ${locationFilter.rt}` : ""}
+                      {locationFilter.province}{locationFilter.city ? ` > ${locationFilter.city}` : ""}{locationFilter.district ? ` > ${locationFilter.district}` : ""}{locationFilter.village ? ` > ${locationFilter.village}` : ""}{locationFilter.rw ? ` > RW ${locationFilter.rw}` : ""}{locationFilter.rt ? ` > RT ${locationFilter.rt}` : ""}
                     </span>
                   </div>
                 )}
@@ -897,12 +844,9 @@ export default function HomePage() {
             ) : news.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-400">No security news available at the moment.</p>
-                {selectedDot && (
+                {selectedDots.length > 0 && (
                   <button
-                    onClick={() => {
-                      setSelectedDot("")
-                      setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" }))
-                    }}
+                    onClick={() => { setSelectedDots([]); setLocationFilter(prev => ({ ...prev, province: "", city: "", district: "", village: "", rw: "", rt: "" })) }}
                     className="mt-3 text-sm text-cyan-400 hover:text-cyan-300 underline"
                   >
                     Clear province filter to see all news
@@ -921,36 +865,27 @@ export default function HomePage() {
                       className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 hover:bg-slate-950/80 transition group"
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className="inline-flex rounded-full border border-cyan-700/50 bg-cyan-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-cyan-300">
-                          {item.source}
-                        </span>
+                        <span className="inline-flex rounded-full border border-cyan-700/50 bg-cyan-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-cyan-300">{item.source}</span>
                         {item.security?.isRelevant && (
                           <div className="flex gap-1">
                             <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.bgColor || 'bg-slate-900/30 border-slate-700/50'} ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.color || 'text-slate-300'}`}>
                               {SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.label || item.security.severity}
                             </span>
-                            <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
-                              {item.security.category.replace(/_/g, ' ')}
-                            </span>
+                            <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">{item.security.category.replace(/_/g, ' ')}</span>
                           </div>
                         )}
                       </div>
-                      <h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-300 transition line-clamp-2">
-                        {item.headline}
-                      </h3>
+                      <h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-300 transition line-clamp-2">{item.headline}</h3>
                       <p className="text-sm text-slate-400 mb-3 line-clamp-3">{item.summary}</p>
                       <div className="flex items-center justify-between text-xs text-slate-500">
                         <span>{item.category}</span>
                         <span title={new Date(item.timestamp).toLocaleString()}>
-                          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          {' '}
-                          {formatDateID(item.timestamp)}
+                          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {formatDateID(item.timestamp)}
                         </span>
                       </div>
                     </a>
                   ))}
                 </div>
-
                 {pagination?.hasMore && (
                   <div className="mt-6 text-center">
                     <button
@@ -965,16 +900,13 @@ export default function HomePage() {
                         </span>
                       ) : (
                         <span className="flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                          </svg>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
                           Load Older News
                         </span>
                       )}
                     </button>
                   </div>
                 )}
-
                 {pagination && (
                   <div className="mt-4 text-center text-xs text-slate-600">
                     Showing page {pagination.page} of {pagination.totalPages} ({pagination.totalItems} total)
@@ -985,7 +917,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="mt-8 text-center">
           <p className="text-sm text-slate-500">© F4W. All rights reserved.</p>
         </div>
