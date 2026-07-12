@@ -63,6 +63,14 @@ export default function MapEditorPage() {
   const [saved, setSaved] = useState(false)
   const svgRef = useRef<SVGSVGElement>(null)
   const dragOffset = useRef({ x: 0, y: 0 })
+  
+  // Zoom and pan state
+  const [zoom, setZoom] = useState(1)
+  const [panX, setPanX] = useState(0)
+  const [panY, setPanY] = useState(0)
+  const isPanning = useRef(false)
+  const panStart = useRef({ x: 0, y: 0 })
+  const panStartValues = useRef({ x: 0, y: 0 })
 
   // Load saved positions from localStorage on mount
   useEffect(() => {
@@ -77,19 +85,24 @@ export default function MapEditorPage() {
     }
   }, [])
 
-  // Convert mouse/touch coordinates to SVG viewBox coordinates
+  // Convert mouse/touch coordinates to SVG viewBox coordinates (accounting for zoom/pan)
   const screenToViewBox = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
     const rect = svg.getBoundingClientRect()
-    const viewBox = svg.viewBox.baseVal
-    const scaleX = viewBox.width / rect.width
-    const scaleY = viewBox.height / rect.height
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
-    }
-  }, [])
+    const baseWidth = 100
+    const baseHeight = 75
+    
+    // Convert screen coords to viewBox coords accounting for zoom and pan
+    const x = ((clientX - rect.left) / rect.width) * baseWidth
+    const y = ((clientY - rect.top) / rect.height) * baseHeight
+    
+    // Undo pan and zoom to get original viewBox coordinates
+    const vbX = (x - panX) / zoom
+    const vbY = (y - panY) / zoom
+    
+    return { x: vbX, y: vbY }
+  }, [zoom, panX, panY])
 
   // Handle drag start on a dot
   const handleDragStart = useCallback((index: number, clientX: number, clientY: number) => {
@@ -120,9 +133,10 @@ export default function MapEditorPage() {
     setDraggingIndex(null)
   }, [])
 
-  // Mouse event handlers
+  // Mouse event handlers for dots
   const handleMouseDown = useCallback((e: React.MouseEvent, index: number) => {
     e.preventDefault()
+    e.stopPropagation()
     handleDragStart(index, e.clientX, e.clientY)
   }, [handleDragStart])
 
@@ -138,8 +152,9 @@ export default function MapEditorPage() {
     }
   }, [draggingIndex, handleDragMove, handleDragEnd])
 
-  // Touch event handlers
+  // Touch event handlers for dots
   const handleTouchStart = useCallback((e: React.TouchEvent, index: number) => {
+    e.stopPropagation()
     const touch = e.touches[0]
     handleDragStart(index, touch.clientX, touch.clientY)
   }, [handleDragStart])
@@ -159,6 +174,82 @@ export default function MapEditorPage() {
       window.removeEventListener('touchend', handleTouchEnd)
     }
   }, [draggingIndex, handleDragMove, handleDragEnd])
+
+  // Pan the map (middle mouse or ctrl+drag)
+  const handleMapMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only allow pan if not dragging a dot
+    if (draggingIndex !== null) return
+    // Middle mouse button or ctrl+click for pan
+    if (e.button === 1 || e.ctrlKey || e.metaKey) {
+      e.preventDefault()
+      isPanning.current = true
+      panStart.current = { x: e.clientX, y: e.clientY }
+      panStartValues.current = { x: panX, y: panY }
+    }
+  }, [draggingIndex, panX, panY])
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isPanning.current) return
+      const dx = (e.clientX - panStart.current.x) / 100 * zoom
+      const dy = (e.clientY - panStart.current.y) / 100 * zoom
+      setPanX(panStartValues.current.x + dx)
+      setPanY(panStartValues.current.y + dy)
+    }
+    const handleMouseUp = () => {
+      isPanning.current = false
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [zoom])
+
+  // Wheel zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault()
+    const svg = svgRef.current
+    if (!svg) return
+    
+    const rect = svg.getBoundingClientRect()
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 100
+    const mouseY = ((e.clientY - rect.top) / rect.height) * 75
+    
+    const delta = e.deltaY > 0 ? -0.1 : 0.1
+    const newZoom = Math.max(1, Math.min(10, zoom + delta))
+    
+    // Zoom towards mouse position
+    const scale = newZoom / zoom
+    const newPanX = mouseX - scale * (mouseX - panX)
+    const newPanY = mouseY - scale * (mouseY - panY)
+    
+    setZoom(newZoom)
+    setPanX(newPanX)
+    setPanY(newPanY)
+  }, [zoom, panX, panY])
+
+  // Zoom controls
+  const zoomIn = useCallback(() => {
+    const newZoom = Math.min(10, zoom + 0.3)
+    setZoom(newZoom)
+    setPanX(50 - (50 - panX) * (newZoom / zoom))
+    setPanY(37.5 - (37.5 - panY) * (newZoom / zoom))
+  }, [zoom, panX, panY])
+
+  const zoomOut = useCallback(() => {
+    const newZoom = Math.max(1, zoom - 0.3)
+    setZoom(newZoom)
+    setPanX(50 - (50 - panX) * (newZoom / zoom))
+    setPanY(37.5 - (37.5 - panY) * (newZoom / zoom))
+  }, [zoom, panX, panY])
+
+  const resetView = useCallback(() => {
+    setZoom(1)
+    setPanX(0)
+    setPanY(0)
+  }, [])
 
   // Save to localStorage and copy to clipboard
   const handleSave = useCallback(() => {
@@ -206,7 +297,7 @@ export default function MapEditorPage() {
             <div>
               <h1 className="text-2xl font-bold text-white">Map Editor</h1>
               <p className="text-sm text-slate-400 mt-1">
-                Drag and drop the red dots to match the Indonesia map. Changes are saved locally.
+                Drag dots to reposition them. Use scroll wheel or zoom buttons to zoom in for precise placement. Ctrl+drag or middle-mouse to pan.
               </p>
             </div>
             <div className="flex gap-2">
@@ -234,21 +325,47 @@ export default function MapEditorPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Map Editor Panel */}
             <div className="lg:col-span-2 rounded-[28px] border border-white/10 bg-slate-900/60 p-4 lg:p-6 backdrop-blur">
-              <div className="text-sm text-slate-400 mb-4">
-                {draggingIndex !== null ? (
-                  <span className="text-cyan-300">Dragging: <strong>{dots[draggingIndex].province} ({dots[draggingIndex].name})</strong> — x: {dots[draggingIndex].x}, y: {dots[draggingIndex].y}</span>
-                ) : selectedIndex !== null ? (
-                  <span>Selected: <strong>{dots[selectedIndex].province} ({dots[selectedIndex].name})</strong> — x: {dots[selectedIndex].x}, y: {dots[selectedIndex].y}</span>
-                ) : (
-                  <span>Click or drag a dot to reposition it</span>
-                )}
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm text-slate-400">
+                  {draggingIndex !== null ? (
+                    <span className="text-cyan-300">Dragging: <strong>{dots[draggingIndex].province} ({dots[draggingIndex].name})</strong> — x: {dots[draggingIndex].x}, y: {dots[draggingIndex].y}</span>
+                  ) : selectedIndex !== null ? (
+                    <span>Selected: <strong>{dots[selectedIndex].province} ({dots[selectedIndex].name})</strong> — x: {dots[selectedIndex].x}, y: {dots[selectedIndex].y}</span>
+                  ) : (
+                    <span>Click or drag a dot to reposition it</span>
+                  )}
+                </div>
+                {/* Zoom Controls */}
+                <div className="flex items-center gap-1 bg-slate-800 rounded-lg border border-white/10 p-0.5">
+                  <button
+                    onClick={zoomOut}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition text-sm font-bold"
+                    title="Zoom out"
+                  >
+                    −
+                  </button>
+                  <button
+                    onClick={resetView}
+                    className="px-2 text-[11px] text-slate-400 hover:text-white transition font-mono"
+                    title="Reset zoom"
+                  >
+                    {Math.round(zoom * 100)}%
+                  </button>
+                  <button
+                    onClick={zoomIn}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition text-sm font-bold"
+                    title="Zoom in"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
               <div className="relative w-full bg-slate-950 rounded-xl overflow-hidden" style={{ paddingBottom: "75%" }}>
                 {!mapImageError ? (
                   <img
                     src="/indonesia-map.png"
                     alt="Indonesia Map"
-                    className="absolute inset-0 w-full h-full object-contain"
+                    className="absolute inset-0 w-full h-full object-contain pointer-events-none"
                     draggable={false}
                     onError={() => setMapImageError(true)}
                   />
@@ -258,14 +375,17 @@ export default function MapEditorPage() {
                 
                 <svg
                   ref={svgRef}
-                  viewBox="0 0 100 75"
+                  viewBox={`${-panX / zoom} ${-panY / zoom} ${100 / zoom} ${75 / zoom}`}
                   className="absolute inset-0 w-full h-full"
                   xmlns="http://www.w3.org/2000/svg"
+                  onWheel={handleWheel}
+                  onMouseDown={handleMapMouseDown}
+                  style={{ cursor: isPanning.current ? 'grabbing' : draggingIndex !== null ? 'grabbing' : 'default' }}
                 >
                   {dots.map((dot, index) => {
                     const isDragging = draggingIndex === index
                     const isSelected = selectedIndex === index
-                    const dotRadius = isDragging ? 2.5 : isSelected ? 2.2 : 1.5
+                    const dotRadius = isDragging ? 3 : isSelected ? 2.5 : 1.8
 
                     return (
                       <g key={dot.province}>
@@ -274,13 +394,13 @@ export default function MapEditorPage() {
                           <circle
                             cx={dot.x}
                             cy={dot.y}
-                            r={5}
+                            r={5 / zoom * 3}
                             fill="none"
                             stroke="#22d3ee"
-                            strokeWidth="0.3"
+                            strokeWidth={0.3 / zoom * 2}
                             opacity="0.5"
                           >
-                            <animate attributeName="r" values="3;6;3" dur="2s" repeatCount="indefinite" />
+                            <animate attributeName="r" values={`${3/zoom};${6/zoom};${3/zoom}`} dur="2s" repeatCount="indefinite" />
                             <animate attributeName="opacity" values="0.5;0.1;0.5" dur="2s" repeatCount="indefinite" />
                           </circle>
                         )}
@@ -288,22 +408,25 @@ export default function MapEditorPage() {
                         <circle
                           cx={dot.x}
                           cy={dot.y}
-                          r={dotRadius}
+                          r={dotRadius / zoom * 2}
                           fill="#dc2626"
                           stroke={isDragging ? "#67e8f9" : isSelected ? "#fca5a5" : "#7f1d1d"}
-                          strokeWidth="0.4"
+                          strokeWidth={0.4 / zoom * 2}
                           style={{ cursor: "grab" }}
                           onMouseDown={(e) => handleMouseDown(e, index)}
                           onTouchStart={(e) => handleTouchStart(e, index)}
-                          onClick={() => setSelectedIndex(index === selectedIndex ? null : index)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedIndex(index === selectedIndex ? null : index)
+                          }}
                         />
                         {/* Label */}
                         <text
                           x={dot.x}
-                          y={dot.y - 3}
+                          y={dot.y - 3 / zoom * 2}
                           textAnchor="middle"
                           fill="#94a3b8"
-                          fontSize="1.3"
+                          fontSize={1.3 / zoom * 2}
                           className="pointer-events-none select-none"
                         >
                           {dot.name}
