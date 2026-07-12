@@ -140,7 +140,7 @@ export default function HomePage() {
   const [availableVillages, setAvailableVillages] = useState<string[]>([])
   const [showLocationFilter, setShowLocationFilter] = useState(false)
   const [showSourceFilter, setShowSourceFilter] = useState(false)
-  const [sourceFilter, setSourceFilter] = useState<string>("")
+  const [sourceFilter, setSourceFilter] = useState<string[]>([])
   const [showMapPanel, setShowMapPanel] = useState(false)
   const [selectedDot, setSelectedDot] = useState<string>("")
   const [hoveredDot, setHoveredDot] = useState<string>("")
@@ -187,8 +187,8 @@ export default function HomePage() {
       if (locationFilter.province) params.set('province', locationFilter.province)
       if (locationFilter.city) params.set('city', locationFilter.city)
       if (locationFilter.district) params.set('district', locationFilter.district)
-      if (sourceFilter) params.set('source', sourceFilter)
-      
+      if (sourceFilter.length > 0) params.set('sources', sourceFilter.join(','))
+
       const res = await fetch(`/api/news?${params.toString()}`)
       const data = await res.json()
       return data
@@ -387,10 +387,10 @@ export default function HomePage() {
 
   // Handle source click from dropdown
   const handleSourceClick = useCallback((sourceKey: string) => {
-    if (sourceFilter === sourceKey) {
-      setSourceFilter("")
+    if (sourceFilter.includes(sourceKey)) {
+      setSourceFilter(sourceFilter.filter(s => s !== sourceKey))
     } else {
-      setSourceFilter(sourceKey)
+      setSourceFilter([...sourceFilter, sourceKey])
     }
     setShowAllNews(false)
   }, [sourceFilter])
@@ -656,7 +656,7 @@ export default function HomePage() {
                 <button
                   onClick={() => setShowSourceFilter(!showSourceFilter)}
                   className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                    showSourceFilter || sourceFilter
+                    showSourceFilter || sourceFilter.length > 0
                       ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
                       : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
                   }`}
@@ -665,7 +665,7 @@ export default function HomePage() {
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 3v18" />
                     </svg>
-                    {sourceFilter ? `Source: ${sourceFilter}` : "Filter by Source"}
+                    {sourceFilter.length > 0 ? `${sourceFilter.length} Source${sourceFilter.length > 1 ? 's' : ''}` : "Filter by News Source"}
                   </span>
                 </button>
                 {/* Location Filter Toggle */}
@@ -723,7 +723,7 @@ export default function HomePage() {
                   <h3 className="text-sm font-semibold text-cyan-200">Filter by News Source</h3>
                   <button
                     onClick={() => {
-                      setSourceFilter("")
+                      setSourceFilter([])
                       setShowSourceFilter(false)
                     }}
                     className="text-xs text-slate-400 hover:text-white transition"
@@ -737,10 +737,9 @@ export default function HomePage() {
                       key={source.key}
                       onClick={() => {
                         handleSourceClick(source.key)
-                        setShowSourceFilter(false)
                       }}
                       className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                        sourceFilter === source.key
+                        sourceFilter.includes(source.key)
                           ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
                           : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
                       }`}
@@ -749,9 +748,9 @@ export default function HomePage() {
                     </button>
                   ))}
                 </div>
-                {sourceFilter && (
+                {sourceFilter.length > 0 && (
                   <div className="mt-3 text-xs text-slate-400">
-                    Showing news from: <span className="text-cyan-300 ml-1">{sourceFilter}</span>
+                    Showing news from: <span className="text-cyan-300 ml-1">{sourceFilter.map(s => NEWS_SOURCES.find(ns => ns.key === s)?.label || s).join(', ')}</span>
                   </div>
                 )}
               </div>

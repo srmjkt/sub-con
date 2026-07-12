@@ -200,7 +200,7 @@ async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]>
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const requestedSource = searchParams.get('source') as SourceKey | null
+  const requestedSources = searchParams.get('sources')
   const showAll = searchParams.get('showAll') === 'true'
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = parseInt(searchParams.get('limit') || '6', 10)
@@ -209,14 +209,14 @@ export async function GET(request: Request) {
   const filterCity = searchParams.get('city')
   const filterDistrict = searchParams.get('district')
 
-  const sourcesToFetch: SourceKey[] = requestedSource
-    ? [requestedSource]
+  const sourcesToFetch: SourceKey[] = requestedSources
+    ? (requestedSources.split(',').filter(s => s) as SourceKey[])
     : (Object.keys(RSS_URLS) as SourceKey[])
 
-  // If refresh is requested, force re-fetch from RSS
+  // If refresh is requested or specific sources are selected, force re-fetch from RSS
   let allNews: NewsItemRaw[]
-  if (requestedSource) {
-    // Single source -> always fetch fresh
+  if (requestedSources) {
+    // Specific sources -> always fetch fresh
     const results = await Promise.all(sourcesToFetch.map(fetchSource))
     allNews = results.flat().sort((a, b) => b.timestamp - a.timestamp)
   } else {
