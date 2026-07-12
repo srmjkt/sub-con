@@ -139,6 +139,7 @@ export default function HomePage() {
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
   const [availableVillages, setAvailableVillages] = useState<string[]>([])
   const [showLocationFilter, setShowLocationFilter] = useState(false)
+  const [showSourceFilter, setShowSourceFilter] = useState(false)
   const [sourceFilter, setSourceFilter] = useState<string>("")
   const [showMapPanel, setShowMapPanel] = useState(false)
   const [selectedDot, setSelectedDot] = useState<string>("")
@@ -641,22 +642,22 @@ export default function HomePage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 items-center">
-                {/* Source Filter */}
-                <div className="flex flex-wrap gap-1">
-                  {NEWS_SOURCES.map((s) => (
-                    <button
-                      key={s.key}
-                      onClick={() => { setSourceFilter(s.key); setShowAllNews(false) }}
-                      className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium transition ${
-                        sourceFilter === s.key
-                          ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
-                          : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
+                {/* Source Filter Toggle */}
+                <button
+                  onClick={() => setShowSourceFilter(!showSourceFilter)}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                    showSourceFilter || sourceFilter
+                      ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
+                      : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                  }`}
+                >
+                  <span className="flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 3v18" />
+                    </svg>
+                    {sourceFilter ? sourceFilter : "Filter by News Source"}
+                  </span>
+                </button>
                 {/* Location Filter Toggle */}
                 <button
                   onClick={() => setShowLocationFilter(!showLocationFilter)}
@@ -833,6 +834,47 @@ export default function HomePage() {
                       {locationFilter.rw ? ` > RW ${locationFilter.rw}` : ""}
                       {locationFilter.rt ? ` > RT ${locationFilter.rt}` : ""}
                     </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Source Filter Panel */}
+            {showSourceFilter && (
+              <div className="mb-6 p-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-cyan-200">Filter by News Source</h3>
+                  <button
+                    onClick={() => {
+                      setSourceFilter("")
+                      setShowSourceFilter(false)
+                    }}
+                    className="text-xs text-slate-400 hover:text-white transition"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                  {NEWS_SOURCES.map((source) => (
+                    <button
+                      key={source.key}
+                      onClick={() => {
+                        setSourceFilter(source.key)
+                        setShowSourceFilter(false)
+                      }}
+                      className={`text-left text-xs px-3 py-2 rounded-lg transition ${
+                        sourceFilter === source.key
+                          ? "bg-cyan-900/30 text-cyan-200 border border-cyan-700/30"
+                          : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent"
+                      }`}
+                    >
+                      {source.label}
+                    </button>
+                  ))}
+                </div>
+                {sourceFilter && (
+                  <div className="mt-3 text-xs text-slate-400">
+                    Showing news from: <span className="text-cyan-300 ml-1">{NEWS_SOURCES.find(s => s.key === sourceFilter)?.label}</span>
                   </div>
                 )}
               </div>
