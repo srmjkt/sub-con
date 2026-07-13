@@ -58,6 +58,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'Module name is required' }, { status: 400 })
   }
 
+  // Prevent deletion of map_editor module
+  if (module === 'map_editor') {
+    return NextResponse.json({ error: 'The map_editor module cannot be deleted' }, { status: 403 })
+  }
+
   try {
     // Find the module config
     const moduleConfig = await prisma.branchModuleConfig.findUnique({
