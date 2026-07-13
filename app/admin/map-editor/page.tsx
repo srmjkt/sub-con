@@ -71,8 +71,20 @@ export default function MapEditorPage() {
   const panStart = useRef({ x: 0, y: 0 })
   const panStartVB = useRef({ x: 0, y: 0 })
 
-  // Load saved positions from localStorage on mount
+  // Load saved positions from localStorage on mount (fallback to defaults)
   useEffect(() => {
+    // First check for user-saved defaults
+    const userDefault = localStorage.getItem("provinceDotDefaults")
+    if (userDefault) {
+      try {
+        const parsed = JSON.parse(userDefault)
+        if (Array.isArray(parsed) && parsed.length === DEFAULT_PROVINCE_CAPITALS.length) {
+          setDots(parsed)
+          return // use user defaults
+        }
+      } catch {}
+    }
+    // Fallback to session positions
     const saved = localStorage.getItem("provinceDotPositions")
     if (saved) {
       try {
@@ -267,9 +279,18 @@ export default function MapEditorPage() {
     setTimeout(() => setCopied(false), 2000)
   }, [dots])
 
-  // Reset dots to default
+  // Save as permanent default
+  const handleSaveAsDefault = useCallback(() => {
+    localStorage.setItem("provinceDotDefaults", JSON.stringify(dots))
+    localStorage.setItem("provinceDotPositions", JSON.stringify(dots))
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }, [dots])
+
+  // Reset dots to factory defaults (not user defaults)
   const handleReset = useCallback(() => {
     setDots(DEFAULT_PROVINCE_CAPITALS)
+    localStorage.removeItem("provinceDotDefaults")
     localStorage.removeItem("provinceDotPositions")
   }, [])
 
@@ -313,6 +334,12 @@ export default function MapEditorPage() {
                 className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-200 transition hover:bg-cyan-400/20"
               >
                 {copied ? "Copied!" : "Copy as Code"}
+              </button>
+              <button
+                onClick={handleSaveAsDefault}
+                className="rounded-xl border border-purple-400/30 bg-purple-400/10 px-4 py-2 text-sm font-medium text-purple-200 transition hover:bg-purple-400/20"
+              >
+                Save as Default
               </button>
               <button
                 onClick={handleSave}

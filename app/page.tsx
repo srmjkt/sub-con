@@ -96,6 +96,15 @@ const PROVINCE_CAPITALS = [
 function loadProvincePositions() {
   if (typeof window === "undefined") return PROVINCE_CAPITALS
   try {
+    // First check for user-saved defaults (persistent)
+    const defaults = localStorage.getItem("provinceDotDefaults")
+    if (defaults) {
+      const parsed = JSON.parse(defaults)
+      if (Array.isArray(parsed) && parsed.length === PROVINCE_CAPITALS.length) {
+        return parsed
+      }
+    }
+    // Fallback to session positions
     const saved = localStorage.getItem("provinceDotPositions")
     if (saved) {
       const parsed = JSON.parse(saved)
