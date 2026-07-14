@@ -315,7 +315,7 @@ export default function HomePage() {
 
       {/* Map Panel - uses SAME SVG <image> approach as admin map editor for pixel-perfect alignment */}
       {showMapPanel && (
-        <div className="fixed left-0 top-0 h-screen w-[400px] lg:w-[450px] z-40 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 shadow-2xl">
+        <div className="fixed inset-0 md:left-0 md:top-0 md:right-auto md:h-screen md:w-[400px] lg:w-[450px] z-40 bg-slate-900/95 backdrop-blur-xl md:border-r border-white/10 shadow-2xl">
           <div className="p-4 lg:p-6 h-full overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Select Region</h2>
