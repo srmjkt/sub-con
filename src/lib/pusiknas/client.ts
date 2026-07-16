@@ -1,7 +1,6 @@
 import fs from 'fs/promises';
 
 export type RawRecord = Record<string, any>;
-
 export type NormalizedRecord = {
   id: string | null;
   date: string | null;
@@ -122,12 +121,25 @@ export function normalizeRecord(raw: RawRecord): NormalizedRecord {
   };
 }
 
+// New: fetch via server-side proxy API we added. This is the function the React component should call.
 export async function fetchByYear(year: number) {
-  const data = await fetchCrimeJson({ tahun: year });
-  if (Array.isArray(data)) return data.map(normalizeRecord);
-  // If API returns object with data key
-  if (data && Array.isArray(data.data)) return data.data.map(normalizeRecord);
-  return [] as NormalizedRecord[];
+  // client-side: call Next.js API route
+  if (typeof window !== 'undefined') {
+    const res = await fetch(`/api/pusiknas?year=${year}`);
+    if (!res.ok) throw new Error(`Server proxy failed: ${res.status}`);
+    const json = await res.json();
+    return (json.rows || json);
+  }
+
+  // server-side fallback: try to use the placeholder fetchCrimeJson (may need adjustments)
+  try {
+    const rows = await fetchCrimeJson({ tahun: year });
+    if (Array.isArray(rows)) return rows.map(normalizeRecord);
+    if (rows && Array.isArray(rows.data)) return rows.data.map(normalizeRecord);
+    return [];
+  } catch (e) {
+    return [];
+  }
 }
 
 export async function fetchByProvince(provinceCode: string | number) {
