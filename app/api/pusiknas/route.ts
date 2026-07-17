@@ -1,7 +1,75 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs/promises';
+import path from 'path';
+import crypto from 'crypto';
 
 const POWERBI_URL = process.env.PUSIKNAS_POWERBI_URL || 'https://wabi-south-east-asia-b-primary-api.analysis.windows.net/public/reports/querydata?synchronous=true';
 const RESOURCE_KEY = process.env.PUSIKNAS_POWERBI_RESOURCE_KEY || '';
+const CACHE_DIR = process.env.PUSIKNAS_CACHE_DIR || '.cache/pusiknas';
+const CACHE_TTL = Number(process.env.PUSIKNAS_CACHE_TTL || 60); // seconds
+const RATE_LIMIT_WINDOW = Number(process.env.PUSIKNAS_RATE_LIMIT_WINDOW || 60); // seconds
+const RATE_LIMIT_MAX = Number(process.env.PUSIKNAS_RATE_LIMIT_MAX || 60); // max requests per window per IP
+const DEBUG = Boolean(process.env.PUSIKNAS_DEBUG === 'true');
+
+// Very small in-memory rate limiter and cache index. In serverless this may not persist across invocations,
+// so we also use a file cache for payload results.
+const rateMap = new Map<string, { count: number; windowStart: number }>();
+
+async function ensureCacheDir() {
+  try {
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+  } catch (e) {
+    // ignore
+  }
+}
+
+function hashPayload(payload: any) {
+  const s = JSON.stringify(payload);
+  return crypto.createHash('sha1').update(s).digest('hex');
+}
+
+function cacheFilePath(key: string) {
+  return path.join(CACHE_DIR, `${key}.json`);
+}
+
+async function readCache(key: string) {
+  try {
+    const p = cacheFilePath(key);
+    const stat = await fs.stat(p);
+    const age = (Date.now() - stat.mtimeMs) / 1000;
+    if (age > CACHE_TTL) return null;
+    const txt = await fs.readFile(p, 'utf8');
+    return JSON.parse(txt);
+  } catch (e) {
+    return null;
+  }
+}
+
+async function writeCache(key: string, data: any) {
+  try {
+    await ensureCacheDir();
+    await fs.writeFile(cacheFilePath(key), JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    // ignore
+  }
+}
+
+function isRateLimited(ip: string) {
+  const now = Math.floor(Date.now() / 1000);
+  const rec = rateMap.get(ip);
+  if (!rec) {
+    rateMap.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  if (now - rec.windowStart > RATE_LIMIT_WINDOW) {
+    rateMap.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  rec.count += 1;
+  if (rec.count > RATE_LIMIT_MAX) return true;
+  rateMap.set(ip, rec);
+  return false;
+}
 
 async function forwardPowerBIQuery(payload: any) {
   const headers: Record<string, string> = {
@@ -26,14 +94,13 @@ async function forwardPowerBIQuery(payload: any) {
 }
 
 function parsePowerBIResponse(json: any) {
-  // Power BI responses commonly return results[0].result.data.dsr.DS[0] with COLUMNS + Rows
   try {
     const results = json?.results ?? [json];
     const firstResult = results[0];
     const candidate = firstResult?.result?.data ?? firstResult?.result ?? firstResult;
 
     const dsr = candidate?.dsr ?? candidate;
-    const ds = dsr?.DS?.[0] ?? dsr?.DS?.[0] ?? dsr?.DS ?? null;
+    const ds = dsr?.DS?.[0] ?? dsr?.DS ?? dsr ?? null;
     const columns = ds?.COLUMNS ?? ds?.Columns ?? ds?.columns ?? [];
     const rows = ds?.Rows ?? ds?.rows ?? ds?.R ?? [];
 
@@ -42,25 +109,45 @@ function parsePowerBIResponse(json: any) {
     return rows.map((r: any[]) => {
       const obj: Record<string, any> = {};
       columns.forEach((c: any, i: number) => {
-        // column can be object with Name property or a string
-        const key = typeof c === 'string' ? c : c; // keep as-is; consumer will normalize
+        const key = typeof c === 'string' ? c : (c && c.Name) ? c.Name : JSON.stringify(c);
         obj[key] = r[i];
       });
       return obj;
     });
   } catch (e) {
+    if (DEBUG) console.error('parsePowerBIResponse error', e);
     return [];
   }
 }
 
+function makeInCondition(source: string, property: string, values: string[]) {
+  return {
+    Condition: {
+      In: {
+        Expressions: [{ Column: { Expression: { SourceRef: { Source: source } }, Property: property } }],
+        Values: [values.map(v => ({ Literal: { Value: String(v) } }))],
+      },
+    },
+  };
+}
+
 export async function GET(req: Request) {
   try {
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    if (isRateLimited(ip)) {
+      return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
+    }
+
     const url = new URL(req.url);
     const year = url.searchParams.get('year') ?? '2026';
     const province = url.searchParams.get('province');
+    const polda = url.searchParams.get('polda');
+    const satker = url.searchParams.get('satker');
+    const crime_type = url.searchParams.get('crime_type');
+    const whereExtra = url.searchParams.get('where'); // optional JSON string for advanced users
 
-    // Build a minimal payload based on the captured cURL: inject the year filter
-    const payload = {
+    // Build base payload
+    const payload: any = {
       version: '1.0.0',
       queries: [
         {
@@ -86,16 +173,7 @@ export async function GET(req: Request) {
                       },
                     ],
                     Where: [
-                      {
-                        Condition: {
-                          In: {
-                            Expressions: [
-                              { Column: { Expression: { SourceRef: { Source: 'l' } }, Property: 'Year' } },
-                            ],
-                            Values: [[{ Literal: { Value: `${year}L` } }]],
-                          },
-                        },
-                      },
+                      makeInCondition('l', 'Year', [`${year}L`]),
                     ],
                     Binding: {
                       Primary: { Groupings: [{ Projections: [0] }] },
@@ -119,33 +197,80 @@ export async function GET(req: Request) {
       modelId: 5179165,
     };
 
-    // If province parameter present, append another Where condition (example)
+    // Append optional filters
     if (province) {
-      const whereClause = {
-        Condition: {
-          In: {
-            Expressions: [
-              { Column: { Expression: { SourceRef: { Source: 'v1' } }, Property: 'kode_provinsi' } },
-            ],
-            Values: [[{ Literal: { Value: String(province) } }]],
-          },
-        },
-      };
-      // push to the Where array inside the command
-      // navigate to payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where
+      // province mapped to v1.kode_provinsi
+      // ensure string array
+      const values = province.split(',');
+      payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
+        makeInCondition('v1', 'kode_provinsi', values)
+      );
+    }
+    if (polda) {
+      const values = polda.split(',');
+      payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
+        makeInCondition('v1', 'Polda', values)
+      );
+    }
+    if (satker) {
+      const values = satker.split(',');
+      payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
+        makeInCondition('v1', 'satker', values)
+      );
+    }
+    if (crime_type) {
+      const values = crime_type.split(',');
+      // map crime_type to v property 'jenis' (fallback to 'kategori' if needed)
+      payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
+        makeInCondition('v', 'jenis', values)
+      );
+    }
+    if (whereExtra) {
       try {
-        // @ts-ignore
-        payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(whereClause);
+        const extra = JSON.parse(whereExtra);
+        // expect extra to be an array of Where conditions compatible with the SemanticQuery schema
+        if (Array.isArray(extra)) {
+          extra.forEach((w) => payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(w));
+        }
+      } catch (e) {
+        // ignore parse errors
+        if (DEBUG) console.error('whereExtra parse error', e);
+      }
+    }
+
+    // caching: compute key from payload
+    const key = hashPayload(payload);
+    const cached = await readCache(key);
+    if (cached) {
+      if (DEBUG) console.log('Returning cached result for', key);
+      return NextResponse.json({ rows: cached });
+    }
+
+    // forward
+    const resp = await forwardPowerBIQuery(payload);
+
+    // parse and cache
+    const rows = parsePowerBIResponse(resp);
+
+    // optional debug logging of response shape
+    if (DEBUG) {
+      try {
+        console.log('PowerBI response keys:', Object.keys(resp || {}));
+        console.log('Rows count:', Array.isArray(rows) ? rows.length : 0);
       } catch (e) {
         // ignore
       }
     }
 
-    const resp = await forwardPowerBIQuery(payload);
-    const rows = parsePowerBIResponse(resp);
+    try {
+      await writeCache(key, rows);
+    } catch (e) {
+      // ignore
+    }
 
     return NextResponse.json({ rows });
   } catch (err: any) {
+    if (DEBUG) console.error('api/pusiknas error', err);
     return NextResponse.json({ error: String(err.message || err) }, { status: 500 });
   }
 }
