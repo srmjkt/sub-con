@@ -205,6 +205,7 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = parseInt(searchParams.get('limit') || '6', 10)
   const refresh = searchParams.get('refresh') === 'true'
+  const searchQuery = searchParams.get('search')
   const filterProvince = searchParams.get('province')
   const filterCity = searchParams.get('city')
   const filterDistrict = searchParams.get('district')
@@ -227,6 +228,19 @@ export async function GET(request: Request) {
   let filteredNews = allNews
   if (!showAll) {
     filteredNews = allNews.filter((item) => item.security?.isRelevant === true)
+  }
+
+  // Apply search text filter if specified
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase().trim()
+    filteredNews = filteredNews.filter((item) => {
+      return (
+        item.headline.toLowerCase().includes(q) ||
+        item.summary.toLowerCase().includes(q) ||
+        item.source.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q)
+      )
+    })
   }
 
   // Apply location filter if specified
