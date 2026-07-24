@@ -5,21 +5,6 @@ import { fetchWithFilters } from '@/lib/pusiknas/client.fetchWithFilters';
 
 type Props = {};
 
-function getDemoData() {
-  return [
-    { kode_provinsi: '31', provinsi: 'DKI Jakarta', polda: 'Polda Metro Jaya', satker: 'Polres Jakarta Selatan', jenis: 'Pencurian', jumlah: 156 },
-    { kode_provinsi: '31', provinsi: 'DKI Jakarta', polda: 'Polda Metro Jaya', satker: 'Polres Jakarta Barat', jenis: 'Pencurian', jumlah: 142 },
-    { kode_provinsi: '31', provinsi: 'DKI Jakarta', polda: 'Polda Metro Jaya', satker: 'Polres Jakarta Timur', jenis: 'Pencurian', jumlah: 138 },
-    { kode_provinsi: '31', provinsi: 'DKI Jakarta', polda: 'Polda Metro Jaya', satker: 'Polres Jakarta Utara', jenis: 'Pencurian', jumlah: 121 },
-    { kode_provinsi: '31', provinsi: 'DKI Jakarta', polda: 'Polda Metro Jaya', satker: 'Polres Jakarta Pusat', jenis: 'Pencurian', jumlah: 115 },
-    { kode_provinsi: '32', provinsi: 'Jawa Barat', polda: 'Polda Jawa Barat', satker: 'Polres Bandung', jenis: 'Pencurian', jumlah: 98 },
-    { kode_provinsi: '33', provinsi: 'Jawa Tengah', polda: 'Polda Jawa Tengah', satker: 'Polres Semarang', jenis: 'Pencurian', jumlah: 87 },
-    { kode_provinsi: '34', provinsi: 'Daerah Istimewa Yogyakarta', polda: 'Polda DI Yogyakarta', satker: 'Polres Sleman', jenis: 'Pencurian', jumlah: 76 },
-    { kode_provinsi: '35', provinsi: 'Jawa Timur', polda: 'Polda Jawa Timur', satker: 'Polres Surabaya', jenis: 'Pencurian', jumlah: 112 },
-    { kode_provinsi: '21', provinsi: 'Sumatera Utara', polda: 'Polda Sumatera Utara', satker: 'Polres Medan', jenis: 'Pencurian', jumlah: 89 },
-  ];
-}
-
 export default function CrimeSummaryClient(_props: Props) {
   const [year, setYear] = useState<string>('2026');
   const [province, setProvince] = useState<string>('');
@@ -53,12 +38,7 @@ export default function CrimeSummaryClient(_props: Props) {
         if (!signal.aborted) setRows(data || []);
       } catch (e: any) {
         if (!signal.aborted) {
-          const msg = String(e.message || e);
-          setError(msg);
-          if (msg.includes('missing_resource_key') || msg.includes('Proxy failed')) {
-            console.warn('Pusiknas API not configured, showing demo data');
-            setRows(getDemoData());
-          }
+          setError(String(e.message || e));
         }
       } finally {
         if (!signal.aborted) setLoading(false);
