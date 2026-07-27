@@ -224,22 +224,33 @@ export async function GET(request: Request) {
   if (searchQuery) {
     const q = searchQuery.toLowerCase().trim()
 
-    // When searching, skip security filter - show all results, including from Google News
-    // Also fetch from Google News RSS to find older/more articles
+    // When searching, skip security filter - show all results
+    // Fetch from Google News RSS with broader queries to find articles from any time period
+    // Google News RSS indexes articles going back years
+    const queriesToTry = [
+      searchQuery + ' Indonesia',
+      searchQuery,
+    ]
     let googleMatches: NewsItemRaw[] = []
-    try {
-      const googleUrl = 'https://news.google.com/rss/search?q=' + encodeURIComponent(searchQuery + ' Indonesia') + '&hl=id&gl=ID&ceid=ID:id'
-      const feed = await parser.parseURL(googleUrl)
-      googleMatches = (feed.items ?? [])
-        .slice(0, 50)
-        .map((item) => {
-          const mapped = mapRssItem(item as unknown as Record<string, unknown>, searchQuery as SourceKey)
-          mapped.source = 'Google News' as any
-          return mapped
-        })
-        .filter((item) => item.headline && item.url)
-    } catch (e) {
-      console.error('[Google News] search fetch error:', e)
+    const seenUrls = new Set<string>()
+
+    for (const searchTerm of queriesToTry) {
+      try {
+        const googleUrl = 'https://news.google.com/rss/search?q=' + encodeURIComponent(searchTerm) + '&hl=id&gl=ID&ceid=ID:id'
+        const feed = await parser.parseURL(googleUrl)
+        const mapped = (feed.items ?? [])
+          .slice(0, 100)
+          .map((item) => {
+            const mappedItem = mapRssItem(item as unknown as Record<string, unknown>, searchQuery as SourceKey)
+            mappedItem.source = 'Google News' as any
+            return mappedItem
+          })
+          .filter((item) => item.headline && item.url && !seenUrls.has(item.url))
+        mapped.forEach(item => seenUrls.add(item.url))
+        googleMatches.push(...mapped)
+      } catch (e) {
+        console.error('[Google News] search fetch error for term:', searchTerm, e)
+      }
     }
 
     // Also search local news (without security filter)
