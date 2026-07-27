@@ -225,27 +225,12 @@ export async function GET(request: Request) {
     allNews = await getAllNews(refresh)
   }
 
-  // Filter: only return security-relevant items (unless showAll=true)
-  let filteredNews = allNews
-  if (!showAll) {
-    filteredNews = allNews.filter((item) => item.security?.isRelevant === true)
-  }
-
-  // Apply search text filter if specified
-  // When searching, also fetch from Google News RSS to find older articles beyond RSS feed limits
+  let filteredNews: NewsItemRaw[]
   if (searchQuery) {
     const q = searchQuery.toLowerCase().trim()
-    // First try to find matches in the already-fetched news
-    let localMatches = filteredNews.filter((item) => {
-      return (
-        item.headline.toLowerCase().includes(q) ||
-        item.summary.toLowerCase().includes(q) ||
-        item.source.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
-      )
-    })
 
-    // Also fetch from Google News RSS search to find older/more articles
+    // When searching, skip security filter - show all results, including from Google News
+    // Also fetch from Google News RSS to find older/more articles
     let googleMatches: NewsItemRaw[] = []
     try {
       const googleUrl = 'https://news.google.com/rss/search?q=' + encodeURIComponent(searchQuery + ' Indonesia') + '&hl=id&gl=ID&ceid=ID:id'
@@ -254,15 +239,23 @@ export async function GET(request: Request) {
         .slice(0, 50)
         .map((item) => {
           const mapped = mapRssItem(item as unknown as Record<string, unknown>, searchQuery as SourceKey)
-          // Override source to "Google News" so the type mismatch doesn't matter
           mapped.source = 'Google News' as any
           return mapped
         })
         .filter((item) => item.headline && item.url)
     } catch (e) {
-      // Google News RSS is optional; fall back to local matches only
       console.error('[Google News] search fetch error:', e)
     }
+
+    // Also search local news (without security filter)
+    let localMatches = allNews.filter((item) => {
+      return (
+        item.headline.toLowerCase().includes(q) ||
+        item.summary.toLowerCase().includes(q) ||
+        item.source.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q)
+      )
+    })
 
     // Merge and deduplicate: Google matches come first, then local matches
     const seen = new Set<string>()
@@ -272,6 +265,12 @@ export async function GET(request: Request) {
       seen.add(key)
       return true
     })
+  } else {
+    // No search query: apply security filter as usual (unless showAll=true)
+    filteredNews = allNews
+    if (!showAll) {
+      filteredNews = allNews.filter((item) => item.security?.isRelevant === true)
+    }
   }
 
   // Apply location filter if specified
