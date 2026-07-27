@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { redisGetResourceKey, isRedisAvailable } from '@/lib/pusiknas/redis';
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const test = req.nextUrl.searchParams.get('test') === '1';
 

@@ -140,6 +140,7 @@ export default function HomePage() {
   const [showLocationFilter, setShowLocationFilter] = useState(false)
   const [showSourceFilter, setShowSourceFilter] = useState(false)
   const [sourceFilter, setSourceFilter] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [showMapPanel, setShowMapPanel] = useState(false)
   const [selectedDots, setSelectedDots] = useState<string[]>([])
   const [hoveredDot, setHoveredDot] = useState<string>("")
@@ -183,7 +184,11 @@ export default function HomePage() {
       if (locationFilter.city) params.set('city', locationFilter.city)
       if (locationFilter.district) params.set('district', locationFilter.district)
       if (sourceFilter.length > 0) params.set('sources', sourceFilter.join(','))
+<<<<<<< Updated upstream
       if (searchQuery) params.set('search', searchQuery)
+=======
+      if (searchQuery.trim()) params.set('q', searchQuery.trim())
+>>>>>>> Stashed changes
       const res = await fetch(`/api/news?${params.toString()}`)
       return await res.json()
     } catch (e) { console.error("Failed to fetch news:", e); return null }
@@ -374,6 +379,7 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">
             <Link href={user.role === "ADMIN" ? "/admin" : user.role === "INPUTTER" ? "/inputter" : "/viewer"} className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"><div className="text-center"><div className="text-4xl mb-4">📊</div><h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Dashboard</h2><p className="text-sm text-slate-400">View your personalized dashboard</p></div></Link>
             <Link href="/admin/branches" className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"><div className="text-center"><div className="text-4xl mb-4">🏢</div><h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Branches</h2><p className="text-sm text-slate-400">Manage branch configurations</p></div></Link>
+            <Link href="/pusiknas" className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"><div className="text-center"><div className="text-4xl mb-4">🧭</div><h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Pusiknas</h2><p className="text-sm text-slate-400">Open Pusiknas crime data preview</p></div></Link>
             {user.role === "ADMIN" && <Link href="/admin/users" className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"><div className="text-center"><div className="text-4xl mb-4">👥</div><h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Users</h2><p className="text-sm text-slate-400">Manage user accounts</p></div></Link>}
           </div>
         )}
@@ -382,6 +388,7 @@ export default function HomePage() {
           <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <div><h2 className="text-2xl font-semibold text-white">Security News</h2><p className="text-sm text-slate-400 mt-1">{selectedDots.length > 0 ? `News from ${selectedProvinceNames}` : "Latest security & compliance news across Indonesia"}</p></div>
+<<<<<<< Updated upstream
               <div className="flex flex-wrap gap-2 items-center w-full">
                 {/* Search box */}
                 <div className="relative flex-1 min-w-[200px] max-w-[320px]">
@@ -402,6 +409,23 @@ export default function HomePage() {
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+=======
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative min-w-[220px] flex-1">
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setShowAllNews(false) }}
+                    placeholder="Search news..."
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
+                  />
+                  {searchQuery.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => { setSearchQuery(''); setShowAllNews(false) }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      ×
+>>>>>>> Stashed changes
                     </button>
                   )}
                 </div>

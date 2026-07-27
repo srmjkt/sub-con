@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
+import { extractLocation } from '@/lib/locationExtractor';
 
 const POWERBI_URL =
   process.env.PUSIKNAS_POWERBI_URL ||
@@ -150,14 +151,17 @@ export async function GET(req: Request) {
     }
 
     if (!RESOURCE_KEY) {
+      console.error('[Pusiknas] Missing PUSIKNAS_POWERBI_RESOURCE_KEY');
       return NextResponse.json({ error: 'missing_resource_key' }, { status: 400 });
     }
 
     const url = new URL(req.url);
     const year = url.searchParams.get('year') ?? '2026';
-    const province = url.searchParams.get('province');
-    const polda = url.searchParams.get('polda');
-    const satker = url.searchParams.get('satker');
+    const query = url.searchParams.get('q')?.trim();
+    const aliasLocation = query ? extractLocation(query.toLowerCase(), query.toLowerCase()) : null;
+    const province = url.searchParams.get('province') ?? aliasLocation?.province ?? undefined;
+    const polda = url.searchParams.get('polda') ?? aliasLocation?.polda ?? undefined;
+    const satker = url.searchParams.get('satker') ?? aliasLocation?.satker ?? undefined;
     const crime_type = url.searchParams.get('crime_type');
     const whereExtra = url.searchParams.get('where');
 
@@ -257,7 +261,9 @@ export async function GET(req: Request) {
     }
 
     const resp = await forwardPowerBIQuery(payload);
+    console.log('[Pusiknas] PowerBI response status:', resp.status);
     const rows = parsePowerBIResponse(resp);
+    console.log('[Pusiknas] Parsed rows count:', rows.length);
 
     try {
       await writeCache(key, rows);

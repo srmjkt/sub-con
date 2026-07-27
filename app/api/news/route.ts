@@ -209,6 +209,7 @@ export async function GET(request: Request) {
   const filterProvince = searchParams.get('province')
   const filterCity = searchParams.get('city')
   const filterDistrict = searchParams.get('district')
+  const query = searchParams.get('q')?.trim()
 
   const sourcesToFetch: SourceKey[] = requestedSources
     ? (requestedSources.split(',').filter(s => s) as SourceKey[])
@@ -282,6 +283,15 @@ export async function GET(request: Request) {
       if (filterCity && loc.city !== filterCity) return false
       if (filterDistrict && loc.district !== filterDistrict) return false
       return true
+    })
+  }
+
+  if (query) {
+    const queryLower = query.toLowerCase()
+    const terms = queryLower.split(/\s+/).filter(Boolean)
+    filteredNews = filteredNews.filter((item) => {
+      const haystack = `${item.headline} ${item.summary} ${item.category} ${item.source}`.toLowerCase()
+      return terms.every((term) => haystack.includes(term))
     })
   }
 

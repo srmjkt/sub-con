@@ -1,7 +1,7 @@
 import Redis from 'ioredis';
 
 const REDIS_URL = process.env.REDIS_URL || process.env.REDIS_TLS_URL || process.env.REDIS_URI || '';
-let redis: Redis.Redis | null = null;
+let redis: Redis | null = null;
 let redisAvailable = false;
 
 if (REDIS_URL) {

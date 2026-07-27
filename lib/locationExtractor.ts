@@ -10,22 +10,25 @@ export interface LocationInfo {
   village: string | null
   rw: string | null
   rt: string | null
+  polda?: string
+  satker?: string
 }
 
 // Common Indonesian location aliases / abbreviations that map to official names
 // This handles references like "Polda Metro Jaya" → DKI Jakarta, "Polres Bogor" → Bogor, etc.
-const LOCATION_ALIASES: Record<string, { province: string; city?: string }> = {
+const LOCATION_ALIASES: Record<string, { province: string; city?: string; polda?: string; satker?: string }> = {
   // Police jurisdiction aliases
-  'polda metro jaya': { province: 'DKI Jakarta' },
-  'polda metrojaya': { province: 'DKI Jakarta' },
-  'polda jaya': { province: 'DKI Jakarta' },
-  'polda jakarta': { province: 'DKI Jakarta' },
-  'polda jabar': { province: 'Jawa Barat' },
-  'polda jawa barat': { province: 'Jawa Barat' },
-  'polda jatim': { province: 'Jawa Timur' },
-  'polda jawa timur': { province: 'Jawa Timur' },
-  'polda jateng': { province: 'Jawa Tengah' },
-  'polda jawa tengah': { province: 'Jawa Tengah' },
+  'polda metro jaya': { province: 'DKI Jakarta', polda: 'Polda Metro Jaya' },
+  'metro jaya': { province: 'DKI Jakarta', polda: 'Polda Metro Jaya' },
+  'polda metrojaya': { province: 'DKI Jakarta', polda: 'Polda Metro Jaya' },
+  'polda jaya': { province: 'DKI Jakarta', polda: 'Polda Metro Jaya' },
+  'polda jakarta': { province: 'DKI Jakarta', polda: 'Polda Metro Jaya' },
+  'polda jabar': { province: 'Jawa Barat', polda: 'Polda Jawa Barat' },
+  'polda jawa barat': { province: 'Jawa Barat', polda: 'Polda Jawa Barat' },
+  'polda jatim': { province: 'Jawa Timur', polda: 'Polda Jawa Timur' },
+  'polda jawa timur': { province: 'Jawa Timur', polda: 'Polda Jawa Timur' },
+  'polda jateng': { province: 'Jawa Tengah', polda: 'Polda Jawa Tengah' },
+  'polda jawa tengah': { province: 'Jawa Tengah', polda: 'Polda Jawa Tengah' },
   'polda sumut': { province: 'Sumatera Utara' },
   'polda sumatera utara': { province: 'Sumatera Utara' },
   'polda sumbar': { province: 'Sumatera Barat' },
@@ -116,6 +119,8 @@ export function extractLocation(headline: string, summary: string): LocationInfo
         village: null,
         rw: null,
         rt: null,
+        polda: mapping.polda,
+        satker: mapping.satker,
       }
     }
   }
