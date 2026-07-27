@@ -214,26 +214,28 @@ async function searchGoogleNewsArchive(searchQuery: string): Promise<NewsItemRaw
   const now = new Date()
   const currentYear = now.getFullYear()
 
-  // Date ranges to try — forces Google to look at different time periods
-  // Format: 'after:YYYY-MM-DD before:YYYY-MM-DD'
-  const dateRanges: string[] = [
-    '', // no date filter (default: recent)
-    `after:${currentYear-10}-01-01 before:${currentYear-8}-12-31`, // 8-10 years ago
-    `after:${currentYear-8}-01-01 before:${currentYear-6}-12-31`, // 6-8 years ago
-    `after:${currentYear-6}-01-01 before:${currentYear-4}-12-31`, // 4-6 years ago
-    `after:${currentYear-4}-01-01 before:${currentYear-2}-12-31`, // 2-4 years ago
-    `after:${currentYear-2}-01-01 before:${currentYear-1}-12-31`, // 1-2 years ago
-    `after:${currentYear-1}-01-01 before:${currentYear-1}-06-30`, // 6-12 months ago
-    `after:${currentYear-1}-07-01 before:${currentYear}-01-01`,   // 6-18 months ago
-    `after:${currentYear}-01-01`,  // this year
+  // Date ranges to try — forces Google News to search its archive
+  // Google News RSS uses cd_min/cd_max for custom date ranges
+  // Also try 'tbs=qdr:' for relative time ranges (y = 1 year, etc.)
+  const dateRanges: { label: string; param: string }[] = [
+    { label: 'recent', param: '' },
+    { label: 'past_year', param: 'qdr:y' },
+    { label: 'past_5_years', param: 'qdr:y5' },
+    { label: 'custom_2020_2021', param: `cd_min:${currentYear-6}-01-01,cd_max:${currentYear-5}-12-31` },
+    { label: 'custom_2018_2019', param: `cd_min:${currentYear-8}-01-01,cd_max:${currentYear-7}-12-31` },
+    { label: 'custom_2016_2017', param: `cd_min:${currentYear-10}-01-01,cd_max:${currentYear-9}-12-31` },
+    { label: 'custom_2010_2015', param: `cd_min:2010-01-01,cd_max:2015-12-31` },
+    { label: 'custom_2000_2009', param: `cd_min:2000-01-01,cd_max:2009-12-31` },
+    { label: 'custom_1990_1999', param: `cd_min:1990-01-01,cd_max:1999-12-31` },
+    { label: 'custom_1980_1989', param: `cd_min:1980-01-01,cd_max:1989-12-31` },
   ]
 
   for (const query of queryVariations) {
-    for (const dateRange of dateRanges) {
+    for (const { param } of dateRanges) {
       try {
         let url = 'https://news.google.com/rss/search?q=' + encodeURIComponent(query) + '&hl=id&gl=ID&ceid=ID:id'
-        if (dateRange) {
-          url += '&tbs=cdr:1,' + dateRange
+        if (param) {
+          url += '&tbs=' + param + ',cdr:1'
         }
         const feed = await parser.parseURL(url)
         const items = (feed.items ?? [])
