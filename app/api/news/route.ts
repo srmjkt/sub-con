@@ -97,27 +97,22 @@ function extractCategory(
 
 const RSS_URLS: Record<SourceKey, string[]> = {
   Kompas: [
-    'https://rss.kompas.com/',
     'https://indeks.kompas.com/headline/rss.xml',
     'https://news.google.com/rss/search?q=site:kompas.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Detik: [
-    'https://rss.detik.com/',
-    'https://news.detik.com/index.rss',
+    'https://rss.detik.com/index.php',
     'https://news.google.com/rss/search?q=site:detik.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Liputan6: [
-    'https://rss.liputan6.com/',
-    'https://feed.liputan6.com/',
+    'https://rss.liputan6.com/rss',
     'https://news.google.com/rss/search?q=site:liputan6.com&hl=id&gl=ID&ceid=ID:id',
   ],
   CNNIndonesia: [
-    'https://www.cnnindonesia.com/nasional/rss',
     'https://www.cnnindonesia.com/rss',
     'https://news.google.com/rss/search?q=site:cnnindonesia.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Kumparan: [
-    'https://lapi.kumparan.com/v2.0/rss/',
     'https://kumparan.com/rss',
     'https://news.google.com/rss/search?q=site:kumparan.com&hl=id&gl=ID&ceid=ID:id',
   ],
@@ -126,11 +121,11 @@ const RSS_URLS: Record<SourceKey, string[]> = {
     'https://news.google.com/rss/search?q=site:tempo.co&hl=id&gl=ID&ceid=ID:id',
   ],
   Tribun: [
-    'https://rss.tribunnews.com/',
+    'https://www.tribunnews.com/rss',
     'https://news.google.com/rss/search?q=site:tribunnews.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Okezone: [
-    'https://rss.okezone.com/',
+    'https://rss.okezone.com/index.php?okemod=rss&okefile=index',
     'https://news.google.com/rss/search?q=site:okezone.com&hl=id&gl=ID&ceid=ID:id',
   ],
 }
