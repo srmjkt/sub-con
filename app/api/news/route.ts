@@ -223,13 +223,13 @@ export async function GET(request: Request) {
   let filteredNews: NewsItemRaw[]
   if (searchQuery) {
     const q = searchQuery.toLowerCase().trim()
+    const terms = q.split(/\s+/).filter(Boolean)
 
     // When searching, skip security filter - show all results
-    // Fetch from Google News RSS with broader queries to find articles from any time period
-    // Google News RSS indexes articles going back years
+    // Try multiple query variations to maximize coverage of Google News RSS
     const queriesToTry = [
-      searchQuery + ' Indonesia',
-      searchQuery,
+      searchQuery + ' Indonesia',    // with location context
+      searchQuery,                    // exact query
     ]
     let googleMatches: NewsItemRaw[] = []
     const seenUrls = new Set<string>()
@@ -241,7 +241,7 @@ export async function GET(request: Request) {
         const mapped = (feed.items ?? [])
           .slice(0, 100)
           .map((item) => {
-            const mappedItem = mapRssItem(item as unknown as Record<string, unknown>, searchQuery as SourceKey)
+            const mappedItem = mapRssItem(item as unknown as Record<string, unknown>, 'Kompas' as SourceKey)
             mappedItem.source = 'Google News' as any
             return mappedItem
           })
@@ -253,13 +253,32 @@ export async function GET(request: Request) {
       }
     }
 
+    // Also try per-source site searches via Google News RSS for better historical coverage
+    const sourceKeys = Object.keys(RSS_URLS) as SourceKey[]
+    for (const source of sourceKeys) {
+      try {
+        const siteUrl = 'https://news.google.com/rss/search?q=' + encodeURIComponent('site:' + source.toLowerCase() + ' ' + searchQuery) + '&hl=id&gl=ID&ceid=ID:id'
+        const feed = await parser.parseURL(siteUrl)
+        const mapped = (feed.items ?? [])
+          .slice(0, 30)
+          .map((item) => {
+            const mappedItem = mapRssItem(item as unknown as Record<string, unknown>, source)
+            return mappedItem
+          })
+          .filter((item) => item.headline && item.url && !seenUrls.has(item.url))
+        mapped.forEach(item => seenUrls.add(item.url))
+        googleMatches.push(...mapped)
+      } catch (e) {
+        // Silently skip failed source-specific searches
+      }
+    }
+
     // Also search local news (without security filter)
     let localMatches = allNews.filter((item) => {
-      return (
-        item.headline.toLowerCase().includes(q) ||
-        item.summary.toLowerCase().includes(q) ||
-        item.source.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
+      return terms.some((term) => 
+        item.headline.toLowerCase().includes(term) ||
+        item.summary.toLowerCase().includes(term) ||
+        item.category.toLowerCase().includes(term)
       )
     })
 
@@ -271,6 +290,9 @@ export async function GET(request: Request) {
       seen.add(key)
       return true
     })
+
+    // Sort by timestamp descending so newest comes first
+    filteredNews.sort((a, b) => b.timestamp - a.timestamp)
   } else {
     // No search query: apply security filter as usual (unless showAll=true)
     filteredNews = allNews
