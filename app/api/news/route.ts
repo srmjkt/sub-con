@@ -43,15 +43,11 @@ function mapRssItem(
       ? new Date(String(item.pubDate)).getTime()
       : Date.now()
 
-  // Ensure URL is a valid absolute URL; fall back to a Google search for the headline
   if (!rawUrl || !rawUrl.startsWith('http')) {
     rawUrl = `https://www.google.com/search?q=${encodeURIComponent(headline + ' ' + source)}`
   }
 
-  // Classify security relevance
   const classification = classifySecurityRelevance(headline, summary)
-
-  // Extract location from headline and summary
   const location = extractLocation(headline, summary)
 
   return {
@@ -161,10 +157,9 @@ async function fetchSource(
   })
 }
 
-// Cache for storing fetched news so we can do pagination without re-fetching RSS every time
 let cachedNews: NewsItemRaw[] | null = null
 let cacheTimestamp = 0
-const CACHE_TTL = 60_000 // 1 minute cache
+const CACHE_TTL = 60_000
 
 async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]> {
   const now = Date.now()
@@ -179,7 +174,6 @@ async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]>
     .flat()
     .sort((a, b) => b.timestamp - a.timestamp)
 
-  // Deduplicate
   const seen = new Set<string>()
   allNews = allNews.filter((item) => {
     const key = item.headline.toLowerCase()
@@ -191,6 +185,74 @@ async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]>
   cachedNews = allNews
   cacheTimestamp = now
   return allNews
+}
+
+/**
+ * Search Google News RSS with multiple query variations AND date range parameters
+ * to find articles from ANY time period (days, months, years ago).
+ * Google News RSS supports the `before:` parameter which forces archive search.
+ */
+async function searchGoogleNewsArchive(searchQuery: string): Promise<NewsItemRaw[]> {
+  const seenUrls = new Set<string>()
+  const matches: NewsItemRaw[] = []
+
+  // Build a comprehensive list of query variations
+  const terms = searchQuery.trim().split(/\s+/).filter(Boolean)
+  const queryVariations: string[] = [
+    searchQuery,
+    `"${searchQuery}"`,
+    searchQuery + ' Indonesia',
+    ...(terms.length > 1 ? [terms.join(' ')] : []),
+    ...(terms.length > 2 ? [terms.slice(0, 3).join(' ')] : []),
+  ]
+  const sources = ['kompas', 'detik', 'liputan6', 'cnnindonesia', 'tempo', 'tribunnews', 'okezone', 'kumparan']
+  for (const source of sources) {
+    queryVariations.push(`site:${source}.com ${searchQuery}`)
+  }
+
+  // Current time for date range calculations
+  const now = new Date()
+  const currentYear = now.getFullYear()
+
+  // Date ranges to try — forces Google to look at different time periods
+  // Format: 'after:YYYY-MM-DD before:YYYY-MM-DD'
+  const dateRanges: string[] = [
+    '', // no date filter (default: recent)
+    `after:${currentYear-10}-01-01 before:${currentYear-8}-12-31`, // 8-10 years ago
+    `after:${currentYear-8}-01-01 before:${currentYear-6}-12-31`, // 6-8 years ago
+    `after:${currentYear-6}-01-01 before:${currentYear-4}-12-31`, // 4-6 years ago
+    `after:${currentYear-4}-01-01 before:${currentYear-2}-12-31`, // 2-4 years ago
+    `after:${currentYear-2}-01-01 before:${currentYear-1}-12-31`, // 1-2 years ago
+    `after:${currentYear-1}-01-01 before:${currentYear-1}-06-30`, // 6-12 months ago
+    `after:${currentYear-1}-07-01 before:${currentYear}-01-01`,   // 6-18 months ago
+    `after:${currentYear}-01-01`,  // this year
+  ]
+
+  for (const query of queryVariations) {
+    for (const dateRange of dateRanges) {
+      try {
+        let url = 'https://news.google.com/rss/search?q=' + encodeURIComponent(query) + '&hl=id&gl=ID&ceid=ID:id'
+        if (dateRange) {
+          url += '&tbs=cdr:1,' + dateRange
+        }
+        const feed = await parser.parseURL(url)
+        const items = (feed.items ?? [])
+          .slice(0, 50)
+          .map((item: Record<string, unknown>) => {
+            const mapped = mapRssItem(item, 'Kompas' as SourceKey)
+            mapped.source = 'Google News' as any
+            return mapped
+          })
+          .filter((item: NewsItemRaw) => item.headline && item.url && !seenUrls.has(item.url))
+        items.forEach((item: NewsItemRaw) => seenUrls.add(item.url))
+        matches.push(...items)
+      } catch (e) {
+        // skip failed queries
+      }
+    }
+  }
+
+  return matches
 }
 
 export async function GET(request: Request) {
@@ -210,10 +272,8 @@ export async function GET(request: Request) {
     ? (requestedSources.split(',').filter(s => s) as SourceKey[])
     : (Object.keys(RSS_URLS) as SourceKey[])
 
-  // If refresh is requested or specific sources are selected, force re-fetch from RSS
   let allNews: NewsItemRaw[]
   if (requestedSources) {
-    // Specific sources -> always fetch fresh
     const results = await Promise.all(sourcesToFetch.map(fetchSource))
     allNews = results.flat().sort((a, b) => b.timestamp - a.timestamp)
   } else {
@@ -225,53 +285,8 @@ export async function GET(request: Request) {
     const q = searchQuery.toLowerCase().trim()
     const terms = q.split(/\s+/).filter(Boolean)
 
-    // When searching, skip security filter - show all results
-    // Try multiple query variations to maximize coverage of Google News RSS
-    const queriesToTry = [
-      searchQuery + ' Indonesia',    // with location context
-      searchQuery,                    // exact query
-    ]
-    let googleMatches: NewsItemRaw[] = []
-    const seenUrls = new Set<string>()
-
-    for (const searchTerm of queriesToTry) {
-      try {
-        const googleUrl = 'https://news.google.com/rss/search?q=' + encodeURIComponent(searchTerm) + '&hl=id&gl=ID&ceid=ID:id'
-        const feed = await parser.parseURL(googleUrl)
-        const mapped = (feed.items ?? [])
-          .slice(0, 100)
-          .map((item) => {
-            const mappedItem = mapRssItem(item as unknown as Record<string, unknown>, 'Kompas' as SourceKey)
-            mappedItem.source = 'Google News' as any
-            return mappedItem
-          })
-          .filter((item) => item.headline && item.url && !seenUrls.has(item.url))
-        mapped.forEach(item => seenUrls.add(item.url))
-        googleMatches.push(...mapped)
-      } catch (e) {
-        console.error('[Google News] search fetch error for term:', searchTerm, e)
-      }
-    }
-
-    // Also try per-source site searches via Google News RSS for better historical coverage
-    const sourceKeys = Object.keys(RSS_URLS) as SourceKey[]
-    for (const source of sourceKeys) {
-      try {
-        const siteUrl = 'https://news.google.com/rss/search?q=' + encodeURIComponent('site:' + source.toLowerCase() + ' ' + searchQuery) + '&hl=id&gl=ID&ceid=ID:id'
-        const feed = await parser.parseURL(siteUrl)
-        const mapped = (feed.items ?? [])
-          .slice(0, 30)
-          .map((item) => {
-            const mappedItem = mapRssItem(item as unknown as Record<string, unknown>, source)
-            return mappedItem
-          })
-          .filter((item) => item.headline && item.url && !seenUrls.has(item.url))
-        mapped.forEach(item => seenUrls.add(item.url))
-        googleMatches.push(...mapped)
-      } catch (e) {
-        // Silently skip failed source-specific searches
-      }
-    }
+    // Search Google News archive (returns articles from any time period)
+    const googleMatches = await searchGoogleNewsArchive(searchQuery)
 
     // Also search local news (without security filter)
     let localMatches = allNews.filter((item) => {
@@ -282,7 +297,7 @@ export async function GET(request: Request) {
       )
     })
 
-    // Merge and deduplicate: Google matches come first, then local matches
+    // Merge and deduplicate
     const seen = new Set<string>()
     filteredNews = [...googleMatches, ...localMatches].filter((item) => {
       const key = item.headline.toLowerCase()
@@ -291,17 +306,15 @@ export async function GET(request: Request) {
       return true
     })
 
-    // Sort by timestamp descending so newest comes first
+    // Sort by timestamp descending
     filteredNews.sort((a, b) => b.timestamp - a.timestamp)
   } else {
-    // No search query: apply security filter as usual (unless showAll=true)
     filteredNews = allNews
     if (!showAll) {
       filteredNews = allNews.filter((item) => item.security?.isRelevant === true)
     }
   }
 
-  // Apply location filter if specified
   if (filterProvince || filterCity || filterDistrict) {
     filteredNews = filteredNews.filter((item) => {
       const loc = item.location
@@ -322,7 +335,6 @@ export async function GET(request: Request) {
     })
   }
 
-  // Paginate
   const totalItems = filteredNews.length
   const totalPages = Math.ceil(totalItems / limit)
   const startIndex = (page - 1) * limit
@@ -330,7 +342,6 @@ export async function GET(request: Request) {
 
   const now = Date.now()
 
-  // Summary of how many items were filtered out
   const stats = {
     totalFetched: allNews.length,
     securityFiltered: allNews.filter((i) => i.security?.isRelevant === true).length,
