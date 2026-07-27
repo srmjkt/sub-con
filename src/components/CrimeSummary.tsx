@@ -51,7 +51,7 @@ export default function CrimeSummaryClient(_props: Props) {
           value={query}
           onChange={(e)=>setQuery(e.target.value)}
           placeholder="Contoh: Polda Metro Jaya, Bogor, Pencurian..."
-          className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white text-sm placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
+          className="w-full rounded-xl border border-white/10 bg-white px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
         />
       </div>
 
