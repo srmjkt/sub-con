@@ -1,34 +1,46 @@
-import CrimeHeatmapLoader from '@/components/CrimeHeatmapLoader';
+'use client';
 
-export const metadata = {
-  title: 'Pusiknas Crime Data',
-};
+import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import PusiknasPowerBIEmbed from '@/components/PusiknasPowerBIEmbed';
 
-const OFFICIAL_PBI_IFRAME =
-  'https://app.powerbi.com/view?r=eyJrIjoiMGMyZDM5MTYtNzFmMi00Njg5LWE0NzQtNjdkODk4OTgyYmE1IiwidCI6IjNjYjUwZGViLWUxNTctNGY0OS1hMWIwLWI4MWJmOWQyOTJiNCIsImMiOjEwfQ%3D%3D';
+const CrimeHeatmap = dynamic(() => import('@/components/CrimeHeatmap'), {
+  ssr: false,
+  loading: () => <p className="p-6">Loading map…</p>,
+});
+
+type Tab = 'heatmap' | 'pbi';
 
 export default function Page() {
+  const [tab, setTab] = useState<Tab>('heatmap');
+
   return (
     <main className="p-6">
       <h1 className="text-2xl font-bold mb-4">Pusiknas — Data Kejahatan</h1>
-      <p className="text-sm text-gray-600 mb-4">
-        Visualisasi peta panas menggunakan data dari proxy PowerBI. Jika ada provinsi yang belum tampil, lihat
-        laporan resmi Pusiknas di bawah.
-      </p>
-      <CrimeHeatmapLoader />
 
-      <div className="mt-8 rounded-lg overflow-hidden border border-gray-200">
-        <h2 className="text-xl font-bold mb-2">Laporan Resmi Pusiknas</h2>
-        <div className="w-full" style={{ height: '720px' }}>
-          <iframe
-            title="Pusiknas Data Kejahatan"
-            src={OFFICIAL_PBI_IFRAME}
-            className="w-full h-full border-0"
-            allow="autoplay; clipboard-read; clipboard-write"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-          />
-        </div>
+      <div className="mb-4 inline-flex rounded-lg border border-gray-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setTab('heatmap')}
+          className={`px-4 py-2 text-sm font-medium ${
+            tab === 'heatmap' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Peta Panas
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('pbi')}
+          className={`px-4 py-2 text-sm font-medium ${
+            tab === 'pbi' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Laporan Resmi
+        </button>
       </div>
+
+      {tab === 'heatmap' && <CrimeHeatmap />}
+      {tab === 'pbi' && <PusiknasPowerBIEmbed />}
     </main>
   );
 }
