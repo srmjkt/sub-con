@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchWithFilters } from '@/lib/pusiknas/client.fetchWithFilters';
-import { getProvinceCoords } from '@/lib/indonesiaLocations';
+import { getProvinceCoords, normalizeProvince, PROVINCE_COORDS } from '@/lib/indonesiaLocations';
 
 type LatLng = [number, number];
 
@@ -60,12 +60,21 @@ export default function CrimeHeatmap() {
     const counts: Record<string, number> = {};
     let maxCount = 0;
 
+    Object.keys(PROVINCE_COORDS).forEach((p) => {
+      counts[p] = 0;
+    });
+
     source.forEach((row) => {
       const rawProvince = String(row.provinsi || row.province || row.Provinsi || '').trim();
-      const count = Number(row.count || row.jumlah || row.Count || 0);
       if (!rawProvince) return;
-      counts[rawProvince] = (counts[rawProvince] || 0) + count;
-      if (counts[rawProvince] > maxCount) maxCount = counts[rawProvince];
+      const normalized = normalizeProvince(rawProvince);
+      const count = Number(row.count || row.jumlah || row.Count || 0);
+      counts[normalized] = (counts[normalized] || 0) + count;
+      if (counts[normalized] > maxCount) maxCount = counts[normalized];
+    });
+
+    Object.values(counts).forEach((c) => {
+      if (c > maxCount) maxCount = c;
     });
 
     const points: { coords: LatLng; count: number; intensity: number; province: string }[] = [];

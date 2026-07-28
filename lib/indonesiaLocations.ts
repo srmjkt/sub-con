@@ -617,3 +617,65 @@ export const PROVINCE_COORDS: Record<string, [number, number]> = {
 export function getProvinceCoords(province: string): [number, number] | undefined {
   return PROVINCE_COORDS[province];
 }
+
+const PROVINCE_ALIASES: Record<string, string> = {
+  "polda metro jaya": "DKI Jakarta",
+  "polda dki jakarta": "DKI Jakarta",
+  "metro jaya": "DKI Jakarta",
+  "polda jawa barat": "Jawa Barat",
+  "polda jawa tengah": "Jawa Tengah",
+  "polda jawa timur": "Jawa Timur",
+  "polda banten": "Banten",
+  "polda sumatera utara": "Sumatera Utara",
+  "polda sumatera barat": "Sumatera Barat",
+  "polda riau": "Riau",
+  "polda kepulauan riau": "Kepulauan Riau",
+  "polda jambi": "Jambi",
+  "polda sumatera selatan": "Sumatera Selatan",
+  "polda bengkulu": "Bengkulu",
+  "polda lampung": "Lampung",
+  "polda aceh": "Aceh",
+  "polda di yogyakarta": "Daerah Istimewa Yogyakarta",
+  "polda diy": "Daerah Istimewa Yogyakarta",
+  "polda bali": "Bali",
+  "poldakalimantan barat": "Kalimantan Barat",
+  "polda kalimantan tengah": "Kalimantan Tengah",
+  "polda kalimantan selatan": "Kalimantan Selatan",
+  "polda kalimantan timur": "Kalimantan Timur",
+  "polda kalimantan utara": "Kalimantan Utara",
+  "polda sulawesi utara": "Sulawesi Utara",
+  "polda sulawesi tengah": "Sulawesi Tengah",
+  "polda sulawesi selatan": "Sulawesi Selatan",
+  "polda sulawesi tenggara": "Sulawesi Tenggara",
+  "polda sulawesi barat": "Sulawesi Barat",
+  "polda gorontalo": "Gorontalo",
+  "polda maluku": "Maluku",
+  "polda maluku utara": "Maluku Utara",
+  "polda papua": "Papua",
+  "polda papua barat": "Papua Barat",
+  "polda papua selatan": "Papua Selatan",
+  "polda papua tengah": "Papua Tengah",
+  "polda papua pegunungan": "Papua Pegunungan",
+  "polda papua barat daya": "Papua Barat Daya",
+};
+
+export function normalizeProvince(raw: string): string {
+  if (!raw) return '';
+  const trimmed = raw.trim();
+  const lowered = trimmed.toLowerCase();
+
+  if (PROVINCE_ALIASES[lowered]) return PROVINCE_ALIASES[lowered];
+
+  const withoutPrefix = lowered.replace(/^polda\s+/, '');
+  if (PROVINCE_ALIASES[withoutPrefix]) return PROVINCE_ALIASES[withoutPrefix];
+
+  for (const key of Object.keys(PROVINCE_COORDS)) {
+    if (lowered === key.toLowerCase()) return key;
+  }
+
+  for (const key of Object.keys(PROVINCE_COORDS)) {
+    if (withoutPrefix === key.toLowerCase()) return key;
+  }
+
+  return trimmed;
+}
