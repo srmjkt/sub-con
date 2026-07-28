@@ -19,7 +19,7 @@ const FALLBACK_ROWS = [
 ];
 
 export default function CrimeHeatmap() {
-  const [year, setYear] = useState('2026');
+  const [year, setYear] = useState('2025');
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,10 +60,6 @@ export default function CrimeHeatmap() {
     const counts: Record<string, number> = {};
     let maxCount = 0;
 
-    Object.keys(PROVINCE_COORDS).forEach((p) => {
-      counts[p] = 0;
-    });
-
     source.forEach((row) => {
       const rawProvince = String(row.provinsi || row.province || row.Provinsi || '').trim();
       if (!rawProvince) return;
@@ -73,12 +69,9 @@ export default function CrimeHeatmap() {
       if (counts[normalized] > maxCount) maxCount = counts[normalized];
     });
 
-    Object.values(counts).forEach((c) => {
-      if (c > maxCount) maxCount = c;
-    });
-
     const points: { coords: LatLng; count: number; intensity: number; province: string }[] = [];
     Object.entries(counts).forEach(([province, count]) => {
+      if (count <= 0) return;
       const coords = getProvinceCoords(province);
       if (!coords) return;
       const intensity = maxCount > 0 ? count / maxCount : 0;
