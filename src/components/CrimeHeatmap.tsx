@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchWithFilters } from '@/lib/pusiknas/client.fetchWithFilters';
-import { getProvinceCoords, normalizeProvince } from '@/lib/indonesiaLocations';
+import { normalizeProvince } from '@/lib/indonesiaLocations';
 
 type LatLng = [number, number];
 
@@ -18,12 +18,25 @@ const FALLBACK_ROWS = [
   { provinsi: 'Bali', count: 320 },
 ];
 
+function getColor(intensity: number): string {
+  const clamped = Math.max(0, Math.min(1, intensity));
+  if (clamped < 0.2) return '#ffffcc';
+  if (clamped < 0.4) return '#ffeda0';
+  if (clamped < 0.6) return '#fed976';
+  if (clamped < 0.7) return '#feb24c';
+  if (clamped < 0.8) return '#fd8d3c';
+  if (clamped < 0.9) return '#fc4e2a';
+  return '#bd0026';
+}
+
 export default function CrimeHeatmap() {
   const [year, setYear] = useState('2025');
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<any[]>([]);
+  const [geoJson, setGeoJson] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +68,29 @@ export default function CrimeHeatmap() {
     };
   }, [year, query]);
 
-  const heatData = useMemo(() => {
+  useEffect(() => {
+    let cancelled = false;
+    fetch('https://raw.githubusercontent.com/superpikar/indonesia-geojson/master/indonesia-province.json')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load Indonesia GeoJSON');
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled) setGeoJson(data);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          console.error('GeoJSON load error', e);
+          setError('Failed to load Indonesia map data.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { heatData, maxCount } = useMemo(() => {
     const source = rows.length > 0 ? rows : FALLBACK_ROWS;
     const counts: Record<string, number> = {};
 
@@ -68,18 +103,58 @@ export default function CrimeHeatmap() {
     });
 
     const maxCount = Math.max(1, ...Object.values(counts));
+    const points: { province: string; count: number; intensity: number }[] = [];
 
-    const points: { coords: LatLng; count: number; intensity: number; province: string }[] = [];
     Object.entries(counts).forEach(([province, count]) => {
       if (count <= 0) return;
-      const coords = getProvinceCoords(province);
-      if (!coords) return;
-      const intensity = count / maxCount;
-      points.push({ coords, count, intensity, province });
+      points.push({ province, count, intensity: count / maxCount });
     });
 
-    return { points, maxCount };
+    return { heatData: points, maxCount };
   }, [rows]);
+
+  const provinceCountMap = useMemo(() => {
+    const map: Record<string, { count: number; intensity: number }> = {};
+    heatData.forEach((p) => {
+      map[p.province] = { count: p.count, intensity: p.intensity };
+    });
+    return map;
+  }, [heatData]);
+
+  function geoJsonStyle(feature: any) {
+    const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || '').trim();
+    const normalized = normalizeProvince(name);
+    const data = provinceCountMap[normalized];
+    const intensity = data ? data.intensity : 0;
+    const fillOpacity = data ? 0.7 : 0.05;
+    const weight = hoveredProvince === normalized ? 3 : 1;
+    const color = hoveredProvince === normalized ? '#ffffff' : '#666666';
+
+    return {
+      fillColor: getColor(intensity),
+      weight,
+      opacity: 0.8,
+      color,
+      fillOpacity,
+    };
+  }
+
+  function onEachFeature(feature: any, layer: any) {
+    const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || '').trim();
+    const normalized = normalizeProvince(name);
+    const data = provinceCountMap[normalized];
+
+    layer.on({
+      mouseover: () => setHoveredProvince(normalized),
+      mouseout: () => setHoveredProvince(null),
+    });
+
+    const popupContent = data
+      ? `<strong>${normalized}</strong><br/>${data.count.toLocaleString('id-ID')} crimes`
+      : `<strong>${normalized}</strong><br/>No data`;
+
+    layer.bindPopup(popupContent);
+  }
 
   return (
     <div className="p-6">
@@ -130,30 +205,32 @@ export default function CrimeHeatmap() {
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           />
-          {heatData.points.map((p) => (
-            <CircleMarker
-              key={p.province}
-              center={p.coords}
-              radius={12 + p.intensity * 50}
-              pathOptions={{
-                color: '#ff3333',
-                fillColor: '#ff0000',
-                fillOpacity: 0.15 + p.intensity * 0.55,
-                weight: 1,
-                opacity: 0.8,
-              }}
-            >
-              <Popup>
-                <strong>{p.province}</strong>
-                <br />
-                {p.count.toLocaleString('id-ID')} crimes
-              </Popup>
-            </CircleMarker>
-          ))}
+          {geoJson && (
+            <GeoJSON
+              key={year + query}
+              data={geoJson}
+              style={geoJsonStyle}
+              onEachFeature={onEachFeature}
+            />
+          )}
         </MapContainer>
       </div>
 
-      {heatData.points.length === 0 && !loading && (
+      <div className="mt-4 flex items-center gap-4 text-xs text-gray-600">
+        <span>Less</span>
+        <div className="flex items-center gap-1">
+          {[0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => (
+            <div
+              key={t}
+              className="w-6 h-3 rounded-sm"
+              style={{ backgroundColor: getColor(t) }}
+            />
+          ))}
+        </div>
+        <span>More</span>
+      </div>
+
+      {heatData.length === 0 && !loading && (
         <p className="mt-4 text-gray-600 text-sm">No data available for the selected filters.</p>
       )}
     </div>
