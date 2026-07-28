@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { redisSetResourceKey, isRedisAvailable } from '@/lib/pusiknas/redis';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const adminToken = process.env.PUSIKNAS_ADMIN_TOKEN || process.env.ADMIN_TOKEN || '';
     const auth = req.headers.get('authorization');

@@ -1,12 +1,12 @@
-import Redis from 'ioredis';
+import IORedis from 'ioredis';
 
 const REDIS_URL = process.env.REDIS_URL || process.env.REDIS_TLS_URL || process.env.REDIS_URI || '';
-let redis: Redis.Redis | null = null;
+let redis: IORedis | null = null;
 let redisAvailable = false;
 
 if (REDIS_URL) {
   try {
-    redis = new Redis(REDIS_URL);
+      redis = new IORedis(REDIS_URL);
     redisAvailable = true;
   } catch (e) {
     // will fallback to file cache
