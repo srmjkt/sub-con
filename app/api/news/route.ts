@@ -188,72 +188,63 @@ async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]>
 }
 
 /**
- * Search Google News RSS with multiple query variations AND date range parameters
- * to find articles from ANY time period (days, months, years ago).
- * Google News RSS supports the `before:` parameter which forces archive search.
+ * Search Google News RSS with multiple query variations
+ * optimized to find articles from ANY time period (days, months, years ago).
  */
 async function searchGoogleNewsArchive(searchQuery: string): Promise<NewsItemRaw[]> {
   const seenUrls = new Set<string>()
   const matches: NewsItemRaw[] = []
 
-  // Build a comprehensive list of query variations
-  const terms = searchQuery.trim().split(/\s+/).filter(Boolean)
+  // Simplify to 3 high-quality variations to avoid timeouts and rate limits
   const queryVariations: string[] = [
     searchQuery,
-    `"${searchQuery}"`,
-    searchQuery + ' Indonesia',
-    ...(terms.length > 1 ? [terms.join(' ')] : []),
-    ...(terms.length > 2 ? [terms.slice(0, 3).join(' ')] : []),
-  ]
-  const sources = ['kompas', 'detik', 'liputan6', 'cnnindonesia', 'tempo', 'tribunnews', 'okezone', 'kumparan']
-  for (const source of sources) {
-    queryVariations.push(`site:${source}.com ${searchQuery}`)
-  }
-
-  // Current time for date range calculations
-  const now = new Date()
-  const currentYear = now.getFullYear()
-
-  // Date ranges to try — forces Google News to search its archive
-  // Google News RSS uses cd_min/cd_max for custom date ranges
-  // Also try 'tbs=qdr:' for relative time ranges (y = 1 year, etc.)
-  const dateRanges: { label: string; param: string }[] = [
-    { label: 'recent', param: '' },
-    { label: 'past_year', param: 'qdr:y' },
-    { label: 'past_5_years', param: 'qdr:y5' },
-    { label: 'custom_2020_2021', param: `cd_min:${currentYear-6}-01-01,cd_max:${currentYear-5}-12-31` },
-    { label: 'custom_2018_2019', param: `cd_min:${currentYear-8}-01-01,cd_max:${currentYear-7}-12-31` },
-    { label: 'custom_2016_2017', param: `cd_min:${currentYear-10}-01-01,cd_max:${currentYear-9}-12-31` },
-    { label: 'custom_2010_2015', param: `cd_min:2010-01-01,cd_max:2015-12-31` },
-    { label: 'custom_2000_2009', param: `cd_min:2000-01-01,cd_max:2009-12-31` },
-    { label: 'custom_1990_1999', param: `cd_min:1990-01-01,cd_max:1999-12-31` },
-    { label: 'custom_1980_1989', param: `cd_min:1980-01-01,cd_max:1989-12-31` },
+    `${searchQuery} (site:kompas.com OR site:detik.com OR site:liputan6.com OR site:cnnindonesia.com OR site:tempo.co OR site:tribunnews.com OR site:okezone.com OR site:kumparan.com)`,
+    `${searchQuery} Indonesia`
   ]
 
-  for (const query of queryVariations) {
-    for (const { param } of dateRanges) {
-      try {
-        let url = 'https://news.google.com/rss/search?q=' + encodeURIComponent(query) + '&hl=id&gl=ID&ceid=ID:id'
-        if (param) {
-          url += '&tbs=' + param + ',cdr:1'
+  // Run searches in parallel for better performance
+  const results = await Promise.all(queryVariations.map(async (query) => {
+    try {
+      // By default, we don't restrict the date range via &tbs to allow "any news regardless of date"
+      // Google News relevance ranking will still favor meaningful matches from the past.
+      const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=id&gl=ID&ceid=ID:id`
+      const feed = await parser.parseURL(url)
+      
+      return (feed.items ?? []).map((item: any) => {
+        // Extract real source from Google News XML if possible
+        const realSource = item.source?.['_'] || item.source || 'Google News'
+        const mapped = mapRssItem(item, 'Kompas' as SourceKey) // Temporary cast
+        
+        // Correct the source name and ensure it's treated as one of our SourceKeys if it matches
+        const sourceMap: Record<string, SourceKey> = {
+          'Kompas.com': 'Kompas',
+          'detikNews': 'Detik',
+          'Liputan6.com': 'Liputan6',
+          'CNN Indonesia': 'CNNIndonesia',
+          'Tempo.co': 'Tempo',
+          'Tribunnews.com': 'Tribun',
+          'Okezone': 'Okezone',
+          'kumparan': 'Kumparan'
         }
-        const feed = await parser.parseURL(url)
-        const items = (feed.items ?? [])
-          .slice(0, 50)
-          .map((item: Record<string, unknown>) => {
-            const mapped = mapRssItem(item, 'Kompas' as SourceKey)
-            mapped.source = 'Google News' as any
-            return mapped
-          })
-          .filter((item: NewsItemRaw) => item.headline && item.url && !seenUrls.has(item.url))
-        items.forEach((item: NewsItemRaw) => seenUrls.add(item.url))
-        matches.push(...items)
-      } catch (e) {
-        // skip failed queries
+        
+        mapped.source = sourceMap[realSource] || (realSource as any)
+        return mapped
+      })
+    } catch (e) {
+      return []
+    }
+  }))
+
+  for (const items of results) {
+    for (const item of items) {
+      if (item.headline && item.url && !seenUrls.has(item.url)) {
+        seenUrls.add(item.url)
+        matches.push(item)
       }
     }
   }
 
+  // We keep the order from Google as it represents relevance
   return matches
 }
 
@@ -283,6 +274,7 @@ export async function GET(request: Request) {
   }
 
   let filteredNews: NewsItemRaw[]
+  let googleSearchUrl: string | null = null
   if (searchQuery) {
     const q = searchQuery.toLowerCase().trim()
     const terms = q.split(/\s+/).filter(Boolean)
@@ -299,17 +291,38 @@ export async function GET(request: Request) {
       )
     })
 
-    // Merge and deduplicate
+        // Merge and deduplicate
     const seen = new Set<string>()
     filteredNews = [...googleMatches, ...localMatches].filter((item) => {
       const key = item.headline.toLowerCase()
       if (seen.has(key)) return false
       seen.add(key)
+
+      // Apply source filter to Google News results if requestedSources is active
+      if (requestedSources) {
+        const sourceList = requestedSources.toLowerCase().split(',')
+        return sourceList.some(s => 
+          item.source.toLowerCase().includes(s) || 
+          item.url.toLowerCase().includes(s)
+        )
+      }
       return true
     })
 
-    // Sort by timestamp descending
-    filteredNews.sort((a, b) => b.timestamp - a.timestamp)
+    // When searching, we do NOT force a strict chronological sort by default.
+    // Instead, we allow the relevance order from Google News to prevail,
+    // which ensures that a highly relevant article from 2021 appears before 
+    // a less relevant one from 2025.
+    // We only sort local matches slightly to keep them clean.
+    if (googleMatches.length === 0) {
+      filteredNews.sort((a, b) => b.timestamp - a.timestamp)
+    }
+
+
+    // If no results found, provide a direct Google News search link for manual archive search
+    if (filteredNews.length === 0) {
+      googleSearchUrl = 'https://news.google.com/search?q=' + encodeURIComponent(searchQuery + ' Indonesia') + '&hl=id&gl=ID&ceid=ID:id'
+    }
   } else {
     filteredNews = allNews
     if (!showAll) {
@@ -362,6 +375,7 @@ export async function GET(request: Request) {
         totalPages,
         hasMore: page < totalPages,
       },
+      googleSearchUrl, // null if results found, or a URL to search Google News directly
     },
     {
       headers: {
