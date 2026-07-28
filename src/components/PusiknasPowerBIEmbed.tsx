@@ -19,7 +19,7 @@ export default function PusiknasPowerBIEmbed() {
   }, []);
 
   return (
-    <div className="relative w-full min-h-[calc(100vh-220px)]">
+    <div className="relative w-full" style={{ height: '85vh', minHeight: '600px' }}>
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 backdrop-blur-sm">
           <p className="text-sm font-medium">Loading official report…</p>
