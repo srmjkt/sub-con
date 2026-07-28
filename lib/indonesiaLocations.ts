@@ -575,3 +575,45 @@ export function getVillageSuggestions(district: string): string[] {
     `${district} Tengah`,
   ]
 }
+
+export const PROVINCE_COORDS: Record<string, [number, number]> = {
+  "DKI Jakarta": [-6.2088, 106.8456],
+  "Jawa Barat": [-6.9175, 107.6191],
+  "Jawa Tengah": [-7.1500, 110.1400],
+  "Jawa Timur": [-7.2500, 112.7500],
+  "Banten": [-6.4000, 106.1500],
+  "Bali": [-8.4095, 115.2922],
+  "Sumatera Utara": [3.5952, 98.6722],
+  "Sumatera Barat": [-0.9471, 100.4172],
+  "Riau": [0.5071, 101.4478],
+  "Kepulauan Riau": [-0.1795, 104.5087],
+  "Jambi": [-1.6108, 103.6131],
+  "Sumatera Selatan": [-3.3194, 103.9144],
+  "Bengkulu": [-3.7928, 102.2608],
+  "Lampung": [-4.5586, 105.4061],
+  "Daerah Istimewa Yogyakarta": [-7.8754, 110.4263],
+  "Aceh": [4.6951, 96.7494],
+  "Kalimantan Barat": [-0.1326, 109.1450],
+  "Kalimantan Tengah": [-2.2136, 113.9108],
+  "Kalimantan Selatan": [-3.3194, 114.5908],
+  "Kalimantan Timur": [-0.5022, 117.1536],
+  "Kalimantan Utara": [3.2916, 117.6328],
+  "Sulawesi Utara": [1.4748, 124.8431],
+  "Sulawesi Tengah": [-1.4300, 121.4450],
+  "Sulawesi Selatan": [-5.1477, 119.4327],
+  "Sulawesi Tenggara": [-4.0000, 122.5000],
+  "Sulawesi Barat": [-2.5000, 118.5000],
+  "Gorontalo": [0.5414, 123.0218],
+  "Maluku": [-3.6954, 128.1815],
+  "Maluku Utara": [0.7833, 127.3667],
+  "Papua": [-4.2699, 138.0804],
+  "Papua Barat": [-1.2726, 133.1745],
+  "Papua Selatan": [-8.0000, 140.5000],
+  "Papua Tengah": [-4.0000, 136.0000],
+  "Papua Pegunungan": [-4.0000, 138.5000],
+  "Papua Barat Daya": [-1.5000, 132.0000],
+};
+
+export function getProvinceCoords(province: string): [number, number] | undefined {
+  return PROVINCE_COORDS[province];
+}
