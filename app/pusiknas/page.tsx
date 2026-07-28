@@ -16,7 +16,7 @@ export default function Page() {
 
   return (
     <main className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Pusiknas — Data Kejahatan</h1>
+      <h1 className="text-2xl font-bold mb-4">Pusiknas — Crime Data</h1>
 
       <div className="mb-4 inline-flex rounded-lg border border-gray-200 overflow-hidden">
         <button
@@ -26,7 +26,7 @@ export default function Page() {
             tab === 'heatmap' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
           }`}
         >
-          Peta Panas
+          Heatmap
         </button>
         <button
           type="button"
@@ -35,7 +35,7 @@ export default function Page() {
             tab === 'pbi' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
           }`}
         >
-          Laporan Resmi
+          Official Report
         </button>
       </div>
 

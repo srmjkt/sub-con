@@ -43,7 +43,7 @@ export default function PusiknasPowerBIEmbed() {
           type: 'report',
           embedUrl: EMBED_URL,
           accessToken: '',
-          tokenType: 0, // EmbedTokenType.Embed
+          tokenType: 0,
           settings: {
             barCode: { type: 0 },
             filterPaneEnabled: true,
@@ -60,7 +60,7 @@ export default function PusiknasPowerBIEmbed() {
         embedRef.current.on('error', (err: any) => {
           if (!cancelled) {
             console.error('PowerBI embed error', err);
-            setError(err?.message || 'Gagal memuat laporan PowerBI');
+            setError(err?.message || 'Failed to load PowerBI report');
             setStatus('error');
           }
         });
@@ -91,14 +91,14 @@ export default function PusiknasPowerBIEmbed() {
   if (status === 'error') {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        <p className="font-medium mb-2">Gagal memuat laporan PowerBI.</p>
+        <p className="font-medium mb-2">Failed to load PowerBI report.</p>
         <a
           href={EMBED_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="underline"
         >
-          Buka laporan resmi Pusiknas di tab baru
+          Open official Pusiknas report in a new tab
         </a>
         {error && <p className="mt-2 text-xs">{error}</p>}
       </div>
@@ -109,7 +109,7 @@ export default function PusiknasPowerBIEmbed() {
     <div className="relative w-full" style={{ height: '720px' }}>
       {status === 'loading' && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 backdrop-blur-sm">
-          <p className="text-sm font-medium">Loading laporan resmi…</p>
+          <p className="text-sm font-medium">Loading official report…</p>
         </div>
       )}
       <div

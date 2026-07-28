@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchWithFilters } from '@/lib/pusiknas/client.fetchWithFilters';
-import { getProvinceCoords, normalizeProvince, PROVINCE_COORDS } from '@/lib/indonesiaLocations';
+import { getProvinceCoords, normalizeProvince } from '@/lib/indonesiaLocations';
 
 type LatLng = [number, number];
 
@@ -58,7 +58,6 @@ export default function CrimeHeatmap() {
   const heatData = useMemo(() => {
     const source = rows.length > 0 ? rows : FALLBACK_ROWS;
     const counts: Record<string, number> = {};
-    let maxCount = 0;
 
     source.forEach((row) => {
       const rawProvince = String(row.provinsi || row.province || row.Provinsi || '').trim();
@@ -66,15 +65,16 @@ export default function CrimeHeatmap() {
       const normalized = normalizeProvince(rawProvince);
       const count = Number(row.count || row.jumlah || row.Count || 0);
       counts[normalized] = (counts[normalized] || 0) + count;
-      if (counts[normalized] > maxCount) maxCount = counts[normalized];
     });
+
+    const maxCount = Math.max(1, ...Object.values(counts));
 
     const points: { coords: LatLng; count: number; intensity: number; province: string }[] = [];
     Object.entries(counts).forEach(([province, count]) => {
       if (count <= 0) return;
       const coords = getProvinceCoords(province);
       if (!coords) return;
-      const intensity = maxCount > 0 ? count / maxCount : 0;
+      const intensity = count / maxCount;
       points.push({ coords, count, intensity, province });
     });
 
@@ -84,9 +84,9 @@ export default function CrimeHeatmap() {
   return (
     <div className="p-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-        <h1 className="text-2xl font-bold">Pusiknas — Peta Panas Kejahatan</h1>
+        <h1 className="text-2xl font-bold">Pusiknas — Crime Heatmap</h1>
         <div className="flex items-center gap-2">
-          <label className="text-sm">Tahun:</label>
+          <label className="text-sm">Year:</label>
           <select
             value={year}
             onChange={(e) => setYear(e.target.value)}
@@ -103,7 +103,7 @@ export default function CrimeHeatmap() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cari lokasi / kejahatan..."
+          placeholder="Search location / crime..."
           className="w-full rounded-xl border border-white/10 bg-white px-4 py-2 text-slate-900 text-sm placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
         />
       </div>
@@ -146,7 +146,7 @@ export default function CrimeHeatmap() {
               <Popup>
                 <strong>{p.province}</strong>
                 <br />
-                {p.count.toLocaleString('id-ID')} kejahatan
+                {p.count.toLocaleString('id-ID')} crimes
               </Popup>
             </CircleMarker>
           ))}
@@ -154,7 +154,7 @@ export default function CrimeHeatmap() {
       </div>
 
       {heatData.points.length === 0 && !loading && (
-        <p className="mt-4 text-gray-600 text-sm">Tidak ada data untuk filter yang dipilih.</p>
+        <p className="mt-4 text-gray-600 text-sm">No data available for the selected filters.</p>
       )}
     </div>
   );
