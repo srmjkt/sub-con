@@ -219,7 +219,6 @@ export async function GET(req: Request) {
                     Where: [makeInCondition('l', 'Year', [`${year}L`])],
                     Binding: {
                       Primary: { Groupings: [{ Projections: [0] }] },
-                      DataReduction: { DataVolume: 3, Primary: { Top: {} } },
                       Version: 1,
                     },
                     ExecutionMetricsKind: 1,
