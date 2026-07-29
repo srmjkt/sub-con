@@ -29,8 +29,7 @@ function getColor(intensity: number): string {
   return '#bd0026';
 }
 
-export default function CrimeHeatmap() {
-  const [dataSource, setDataSource] = useState<'manual' | 'scrape' | 'api'>('manual');
+export default function CrimeHeatmap({ dataSource = 'manual' }: { dataSource?: 'manual' | 'scrape' | 'api' }) {
   const [year, setYear] = useState('2025');
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<any[]>([]);
@@ -170,22 +169,6 @@ export default function CrimeHeatmap() {
 
   return (
     <div className="p-6">
-      <div className="flex gap-4 mb-6 border-b border-gray-200 pb-4">
-        {(['manual', 'api', 'scrape'] as const).map((mode) => (
-          <button
-            key={mode}
-            onClick={() => setDataSource(mode)}
-            className={`px-4 py-2 text-sm font-medium rounded ${
-              dataSource === mode
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode
-          </button>
-        ))}
-      </div>
-
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <h1 className="text-2xl font-bold">Pusiknas — Crime Heatmap</h1>
         <div className="flex items-center gap-2">
