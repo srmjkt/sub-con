@@ -30,6 +30,7 @@ function getColor(intensity: number): string {
 }
 
 export default function CrimeHeatmap() {
+  const [dataSource, setDataSource] = useState<'manual' | 'scrape' | 'api'>('manual');
   const [year, setYear] = useState('2025');
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<any[]>([]);
@@ -43,30 +44,41 @@ export default function CrimeHeatmap() {
     setLoading(true);
     setError(null);
 
-    fetchWithFilters({
-      year: Number(year),
-      q: query.trim() || undefined,
-      groupBy: 'province',
-    })
-      .then((data) => {
+    const fetchData = async () => {
+      try {
+        let data: any[] = [];
+        if (dataSource === 'manual') {
+          data = FALLBACK_ROWS;
+        } else if (dataSource === 'api') {
+          data = await fetchWithFilters({
+            year: Number(year),
+            q: query.trim() || undefined,
+            groupBy: 'province',
+          });
+        } else if (dataSource === 'scrape') {
+          data = [];
+          setError('Scraper mode is not yet implemented.');
+        }
+
         if (!cancelled) {
           setRows((data && data.length > 0) ? data : []);
           setLoading(false);
         }
-      })
-      .catch((e) => {
+      } catch (e) {
         if (!cancelled) {
           console.error('Heatmap fetch error', e);
           setError(String(e.message || e));
           setRows(FALLBACK_ROWS);
           setLoading(false);
         }
-      });
+      }
+    };
 
+    fetchData();
     return () => {
       cancelled = true;
     };
-  }, [year, query]);
+  }, [year, query, dataSource]);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +170,22 @@ export default function CrimeHeatmap() {
 
   return (
     <div className="p-6">
+      <div className="flex gap-4 mb-6 border-b border-gray-200 pb-4">
+        {(['manual', 'api', 'scrape'] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setDataSource(mode)}
+            className={`px-4 py-2 text-sm font-medium rounded ${
+              dataSource === mode
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <h1 className="text-2xl font-bold">Pusiknas — Crime Heatmap</h1>
         <div className="flex items-center gap-2">
