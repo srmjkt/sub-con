@@ -8,16 +8,6 @@ import { normalizeProvince } from '@/lib/indonesiaLocations';
 
 type LatLng = [number, number];
 
-const FALLBACK_ROWS = [
-  { provinsi: 'DKI Jakarta', count: 1200 },
-  { provinsi: 'Jawa Barat', count: 980 },
-  { provinsi: 'Jawa Tengah', count: 850 },
-  { provinsi: 'Jawa Timur', count: 760 },
-  { provinsi: 'Banten', count: 540 },
-  { provinsi: 'Sumatera Utara', count: 480 },
-  { provinsi: 'Bali', count: 320 },
-];
-
 function getColor(intensity: number): string {
   const clamped = Math.max(0, Math.min(1, intensity));
   if (clamped < 0.2) return '#ffffcc';
@@ -35,6 +25,28 @@ interface CrimeHeatmapProps {
   dataSource?: DataSource;
 }
 
+const MANUAL_ROWS = [
+  { provinsi: 'DKI Jakarta', count: 1200 },
+  { provinsi: 'Jawa Barat', count: 980 },
+  { provinsi: 'Jawa Tengah', count: 850 },
+  { provinsi: 'Jawa Timur', count: 760 },
+  { provinsi: 'Banten', count: 540 },
+  { provinsi: 'Sumatera Utara', count: 480 },
+  { provinsi: 'Bali', count: 320 },
+];
+
+const SCRAPE_ROWS = [
+  { provinsi: 'DKI Jakarta', count: 1500 },
+  { provinsi: 'Jawa Barat', count: 1100 },
+  { provinsi: 'Jawa Tengah', count: 900 },
+  { provinsi: 'Jawa Timur', count: 830 },
+  { provinsi: 'Banten', count: 620 },
+  { provinsi: 'Sumatera Utara', count: 510 },
+  { provinsi: 'Bali', count: 380 },
+  { provinsi: 'Aceh', count: 210 },
+  { provinsi: 'Papua', count: 170 },
+];
+
 export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) {
   const [year, setYear] = useState('2025');
   const [query, setQuery] = useState('');
@@ -48,6 +60,18 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     let cancelled = false;
     setLoading(true);
     setError(null);
+
+    if (dataSource === 'manual') {
+      setRows(MANUAL_ROWS);
+      setLoading(false);
+      return;
+    }
+
+    if (dataSource === 'scrape') {
+      setRows(SCRAPE_ROWS);
+      setLoading(false);
+      return;
+    }
 
     fetchWithFilters({
       year: Number(year),
@@ -64,7 +88,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         if (!cancelled) {
           console.error('Heatmap fetch error', e);
           setError(String(e.message || e));
-          setRows(FALLBACK_ROWS);
+          setRows([]);
           setLoading(false);
         }
       });
@@ -72,7 +96,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     return () => {
       cancelled = true;
     };
-  }, [year, query]);
+  }, [dataSource, year, query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,10 +121,9 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   }, []);
 
   const { heatData, maxCount } = useMemo(() => {
-    const source = rows.length > 0 ? rows : FALLBACK_ROWS;
     const counts: Record<string, number> = {};
 
-    source.forEach((row) => {
+    rows.forEach((row) => {
       const rawProvince = String(row.provinsi || row.province || row.Provinsi || '').trim();
       if (!rawProvince) return;
       const normalized = normalizeProvince(rawProvince);
@@ -165,13 +188,17 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   return (
     <div className="p-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-        <h1 className="text-2xl font-bold">Pusiknas — Crime Heatmap</h1>
+        <h1 className="text-2xl font-bold">
+          Pusiknas — Crime Heatmap{' '}
+          <span className="text-sm font-normal text-gray-500 capitalize">({dataSource})</span>
+        </h1>
         <div className="flex items-center gap-2">
           <label className="text-sm">Year:</label>
           <select
             value={year}
             onChange={(e) => setYear(e.target.value)}
             className="border border-gray-300 rounded p-1 text-sm"
+            disabled={dataSource !== 'api'}
           >
             <option value="2026">2026</option>
             <option value="2025">2025</option>
@@ -186,6 +213,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search location / crime..."
           className="w-full rounded-xl border border-white/10 bg-white px-4 py-2 text-slate-900 text-sm placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+          disabled={dataSource !== 'api'}
         />
       </div>
 
