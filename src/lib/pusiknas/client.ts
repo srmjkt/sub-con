@@ -121,6 +121,8 @@ export function normalizeRecord(raw: RawRecord): NormalizedRecord {
   };
 }
 
+export { fetchWithFilters } from './client.fetchWithFilters';
+
 // New: fetch via server-side proxy API we added. This is the function the React component should call.
 export async function fetchByYear(year: number) {
   // client-side: call Next.js API route

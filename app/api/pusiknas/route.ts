@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
+import { extractLocation } from '@/lib/locationExtractor';
 
 const POWERBI_URL =
   process.env.PUSIKNAS_POWERBI_URL ||
@@ -150,16 +151,20 @@ export async function GET(req: Request) {
     }
 
     if (!RESOURCE_KEY) {
+      console.error('[Pusiknas] Missing PUSIKNAS_POWERBI_RESOURCE_KEY');
       return NextResponse.json({ error: 'missing_resource_key' }, { status: 400 });
     }
 
     const url = new URL(req.url);
     const year = url.searchParams.get('year') ?? '2026';
-    const province = url.searchParams.get('province');
-    const polda = url.searchParams.get('polda');
-    const satker = url.searchParams.get('satker');
+    const query = url.searchParams.get('q')?.trim();
+    const aliasLocation = query ? extractLocation(query.toLowerCase(), query.toLowerCase()) : null;
+    const province = url.searchParams.get('province') ?? aliasLocation?.province ?? undefined;
+    const polda = url.searchParams.get('polda') ?? aliasLocation?.polda ?? undefined;
+    const satker = url.searchParams.get('satker') ?? aliasLocation?.satker ?? undefined;
     const crime_type = url.searchParams.get('crime_type');
     const whereExtra = url.searchParams.get('where');
+    const isHeatmap = url.searchParams.get('groupBy') === 'province';
 
     const payload: any = {
       version: '1.0.0',
@@ -176,7 +181,32 @@ export async function GET(req: Request) {
                       { Name: 'l', Entity: 'LocalDateTable_12add86b-6ca9-411c-b150-5826b6bdf752', Type: 0 },
                       { Name: 'v1', Entity: 'VIEW_MASTER_SATKER_EMP', Type: 0 },
                     ],
-                    Select: [
+                    Select: isHeatmap ? [
+                      {
+                        Column: {
+                          Expression: { SourceRef: { Source: 'v1' } },
+                          Property: 'kode_provinsi',
+                        },
+                        Name: 'kode_provinsi',
+                        NativeReferenceName: 'kode_provinsi',
+                      },
+                      {
+                        Column: {
+                          Expression: { SourceRef: { Source: 'v1' } },
+                          Property: 'provinsi',
+                        },
+                        Name: 'provinsi',
+                        NativeReferenceName: 'provinsi',
+                      },
+                      {
+                        Measure: {
+                          Expression: { SourceRef: { Source: 'v' } },
+                          Property: 'Statistik Kriminal - Detail (2)',
+                        },
+                        Name: 'count',
+                        NativeReferenceName: 'Statistik Kriminal - Detail (2)',
+                      },
+                    ] : [
                       {
                         Measure: {
                           Expression: { SourceRef: { Source: 'v' } },
@@ -189,7 +219,6 @@ export async function GET(req: Request) {
                     Where: [makeInCondition('l', 'Year', [`${year}L`])],
                     Binding: {
                       Primary: { Groupings: [{ Projections: [0] }] },
-                      DataReduction: { DataVolume: 3, Primary: { Top: {} } },
                       Version: 1,
                     },
                     ExecutionMetricsKind: 1,
@@ -209,40 +238,42 @@ export async function GET(req: Request) {
       modelId: 5179165,
     };
 
-    if (province) {
-      const values = province.split(',');
-      payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
-        makeInCondition('v1', 'kode_provinsi', values)
-      );
-    }
-    if (polda) {
-      const values = polda.split(',');
-      payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
-        makeInCondition('v1', 'Polda', values)
-      );
-    }
-    if (satker) {
-      const values = satker.split(',');
-      payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
-        makeInCondition('v1', 'satker', values)
-      );
-    }
-    if (crime_type) {
-      const values = crime_type.split(',');
-      payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
-        makeInCondition('v', 'jenis', values)
-      );
-    }
-    if (whereExtra) {
-      try {
-        const extra = JSON.parse(whereExtra);
-        if (Array.isArray(extra)) {
-          extra.forEach((w) =>
-            payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(w)
-          );
+    if (!isHeatmap) {
+      if (province) {
+        const values = province.split(',');
+        payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
+          makeInCondition('v1', 'kode_provinsi', values)
+        );
+      }
+      if (polda) {
+        const values = polda.split(',');
+        payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
+          makeInCondition('v1', 'Polda', values)
+        );
+      }
+      if (satker) {
+        const values = satker.split(',');
+        payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
+          makeInCondition('v1', 'satker', values)
+        );
+      }
+      if (crime_type) {
+        const values = crime_type.split(',');
+        payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
+          makeInCondition('v', 'jenis', values)
+        );
+      }
+      if (whereExtra) {
+        try {
+          const extra = JSON.parse(whereExtra);
+          if (Array.isArray(extra)) {
+            extra.forEach((w) =>
+              payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(w)
+            );
+          }
+        } catch (e) {
+          if (DEBUG) console.error('whereExtra parse error', e);
         }
-      } catch (e) {
-        if (DEBUG) console.error('whereExtra parse error', e);
       }
     }
 
@@ -257,7 +288,9 @@ export async function GET(req: Request) {
     }
 
     const resp = await forwardPowerBIQuery(payload);
+    console.log('[Pusiknas] PowerBI response status:', resp.status);
     const rows = parsePowerBIResponse(resp);
+    console.log('[Pusiknas] Parsed rows count:', rows.length);
 
     try {
       await writeCache(key, rows);

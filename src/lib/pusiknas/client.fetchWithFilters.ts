@@ -5,6 +5,8 @@ export async function fetchWithFilters(params: Record<string, string | number | 
   if (params.polda !== undefined) qs.set('polda', String(params.polda));
   if (params.satker !== undefined) qs.set('satker', String(params.satker));
   if (params.crime_type !== undefined) qs.set('crime_type', String(params.crime_type));
+  if (params.q !== undefined) qs.set('q', String(params.q));
+  if (params.groupBy !== undefined) qs.set('groupBy', String(params.groupBy));
 
   const url = `/api/pusiknas?${qs.toString()}`;
   const res = await fetch(url, { signal: opts.signal });

@@ -29,12 +29,12 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": true,
-      "paths": {
-        "@/*": [
-          "./src/*",
-          "./*"
-        ]
-      },
+    "paths": {
+      "@/*": [
+        "./src/*",
+        "./*"
+      ]
+    },
     "allowJs": true,
     "noEmit": true,
     "incremental": true,

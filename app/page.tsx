@@ -135,6 +135,8 @@ export default function HomePage() {
   const [availableCities, setAvailableCities] = useState<string[]>([])
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
   const [availableVillages, setAvailableVillages] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchInputValue, setSearchInputValue] = useState("")
   const [showLocationFilter, setShowLocationFilter] = useState(false)
   const [showSourceFilter, setShowSourceFilter] = useState(false)
   const [sourceFilter, setSourceFilter] = useState<string[]>([])
@@ -181,10 +183,11 @@ export default function HomePage() {
       if (locationFilter.city) params.set('city', locationFilter.city)
       if (locationFilter.district) params.set('district', locationFilter.district)
       if (sourceFilter.length > 0) params.set('sources', sourceFilter.join(','))
+      if (searchQuery.trim()) params.set('search', searchQuery.trim())
       const res = await fetch(`/api/news?${params.toString()}`)
       return await res.json()
     } catch (e) { console.error("Failed to fetch news:", e); return null }
-  }, [locationFilter, sourceFilter])
+  }, [locationFilter, sourceFilter, searchQuery])
 
   const wheelAccumulator = useRef(0)
   const wheelActive = useRef(false)
@@ -371,6 +374,7 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">
             <Link href={user.role === "ADMIN" ? "/admin" : user.role === "INPUTTER" ? "/inputter" : "/viewer"} className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"><div className="text-center"><div className="text-4xl mb-4">📊</div><h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Dashboard</h2><p className="text-sm text-slate-400">View your personalized dashboard</p></div></Link>
             <Link href="/admin/branches" className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"><div className="text-center"><div className="text-4xl mb-4">🏢</div><h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Branches</h2><p className="text-sm text-slate-400">Manage branch configurations</p></div></Link>
+            <Link href="/pusiknas" className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"><div className="text-center"><div className="text-4xl mb-4">🧭</div><h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Pusiknas</h2><p className="text-sm text-slate-400">Open Pusiknas crime data preview</p></div></Link>
             {user.role === "ADMIN" && <Link href="/admin/users" className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group"><div className="text-center"><div className="text-4xl mb-4">👥</div><h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Users</h2><p className="text-sm text-slate-400">Manage user accounts</p></div></Link>}
           </div>
         )}
@@ -379,8 +383,31 @@ export default function HomePage() {
           <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <div><h2 className="text-2xl font-semibold text-white">Security News</h2><p className="text-sm text-slate-400 mt-1">{selectedDots.length > 0 ? `News from ${selectedProvinceNames}` : "Latest security & compliance news across Indonesia"}</p></div>
-              <div className="flex flex-wrap gap-2 items-center">
-                <button onClick={() => setShowSourceFilter(!showSourceFilter)} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${showSourceFilter || sourceFilter.length > 0 ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'}`}><span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 3v18" /></svg>{sourceFilter.length > 0 ? `${sourceFilter.length} Source${sourceFilter.length > 1 ? 's' : ''}` : "Filter by News Source"}</span></button>
+              <div className="flex flex-wrap gap-2 items-center w-full">
+                {/* Search box */}
+                <div className="relative flex-1 min-w-[200px] max-w-[320px]">
+                  <input
+                    type="text"
+                    value={searchInputValue}
+                    onChange={(e) => setSearchInputValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setSearchQuery(searchInputValue.trim())
+                    }}
+                    placeholder="Cari berita..."
+                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none transition"
+                  />
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => { setSearchQuery(""); setSearchInputValue("") }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  )}
+                </div>
+                <button onClick={() => setShowSourceFilter(!showSourceFilter)} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${showSourceFilter || sourceFilter.length > 0 ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'}`}><span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 3v18" /></svg>${sourceFilter.length > 0 ? `${sourceFilter.length} Source${sourceFilter.length > 1 ? 's' : ''}` : "Filter by News Source"}</span></button>
                 <button onClick={() => setShowLocationFilter(!showLocationFilter)} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${showLocationFilter || locationFilter.province ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'}`}><span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>{locationFilter.province ? locationFilter.city || locationFilter.province : "Filter by Location"}</span></button>
                 <button onClick={handleRefresh} disabled={refreshing} className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">{refreshing ? <span className="flex items-center gap-1"><div className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-cyan-400 border-t-transparent"></div>Refreshing...</span> : <span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>Refresh</span>}</button>
                 {news.length > INITIAL_LIMIT && <button onClick={() => setShowAllNews(!showAllNews)} className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20">{showAllNews ? "Show Less" : "Show All"}</button>}

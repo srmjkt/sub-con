@@ -43,15 +43,11 @@ function mapRssItem(
       ? new Date(String(item.pubDate)).getTime()
       : Date.now()
 
-  // Ensure URL is a valid absolute URL; fall back to a Google search for the headline
   if (!rawUrl || !rawUrl.startsWith('http')) {
     rawUrl = `https://www.google.com/search?q=${encodeURIComponent(headline + ' ' + source)}`
   }
 
-  // Classify security relevance
   const classification = classifySecurityRelevance(headline, summary)
-
-  // Extract location from headline and summary
   const location = extractLocation(headline, summary)
 
   return {
@@ -97,27 +93,22 @@ function extractCategory(
 
 const RSS_URLS: Record<SourceKey, string[]> = {
   Kompas: [
-    'https://rss.kompas.com/',
     'https://indeks.kompas.com/headline/rss.xml',
     'https://news.google.com/rss/search?q=site:kompas.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Detik: [
-    'https://rss.detik.com/',
-    'https://news.detik.com/index.rss',
+    'https://rss.detik.com/index.php',
     'https://news.google.com/rss/search?q=site:detik.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Liputan6: [
-    'https://rss.liputan6.com/',
-    'https://feed.liputan6.com/',
+    'https://rss.liputan6.com/rss',
     'https://news.google.com/rss/search?q=site:liputan6.com&hl=id&gl=ID&ceid=ID:id',
   ],
   CNNIndonesia: [
-    'https://www.cnnindonesia.com/nasional/rss',
     'https://www.cnnindonesia.com/rss',
     'https://news.google.com/rss/search?q=site:cnnindonesia.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Kumparan: [
-    'https://lapi.kumparan.com/v2.0/rss/',
     'https://kumparan.com/rss',
     'https://news.google.com/rss/search?q=site:kumparan.com&hl=id&gl=ID&ceid=ID:id',
   ],
@@ -126,11 +117,11 @@ const RSS_URLS: Record<SourceKey, string[]> = {
     'https://news.google.com/rss/search?q=site:tempo.co&hl=id&gl=ID&ceid=ID:id',
   ],
   Tribun: [
-    'https://rss.tribunnews.com/',
+    'https://www.tribunnews.com/rss',
     'https://news.google.com/rss/search?q=site:tribunnews.com&hl=id&gl=ID&ceid=ID:id',
   ],
   Okezone: [
-    'https://rss.okezone.com/',
+    'https://rss.okezone.com/index.php?okemod=rss&okefile=index',
     'https://news.google.com/rss/search?q=site:okezone.com&hl=id&gl=ID&ceid=ID:id',
   ],
 }
@@ -166,10 +157,9 @@ async function fetchSource(
   })
 }
 
-// Cache for storing fetched news so we can do pagination without re-fetching RSS every time
 let cachedNews: NewsItemRaw[] | null = null
 let cacheTimestamp = 0
-const CACHE_TTL = 60_000 // 1 minute cache
+const CACHE_TTL = 60_000
 
 async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]> {
   const now = Date.now()
@@ -184,7 +174,6 @@ async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]>
     .flat()
     .sort((a, b) => b.timestamp - a.timestamp)
 
-  // Deduplicate
   const seen = new Set<string>()
   allNews = allNews.filter((item) => {
     const key = item.headline.toLowerCase()
@@ -198,6 +187,67 @@ async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]>
   return allNews
 }
 
+/**
+ * Search Google News RSS with multiple query variations
+ * optimized to find articles from ANY time period (days, months, years ago).
+ */
+async function searchGoogleNewsArchive(searchQuery: string): Promise<NewsItemRaw[]> {
+  const seenUrls = new Set<string>()
+  const matches: NewsItemRaw[] = []
+
+  // Simplify to 3 high-quality variations to avoid timeouts and rate limits
+  const queryVariations: string[] = [
+    searchQuery,
+    `${searchQuery} (site:kompas.com OR site:detik.com OR site:liputan6.com OR site:cnnindonesia.com OR site:tempo.co OR site:tribunnews.com OR site:okezone.com OR site:kumparan.com)`,
+    `${searchQuery} Indonesia`
+  ]
+
+  // Run searches in parallel for better performance
+  const results = await Promise.all(queryVariations.map(async (query) => {
+    try {
+      // By default, we don't restrict the date range via &tbs to allow "any news regardless of date"
+      // Google News relevance ranking will still favor meaningful matches from the past.
+      const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=id&gl=ID&ceid=ID:id`
+      const feed = await parser.parseURL(url)
+      
+      return (feed.items ?? []).map((item: any) => {
+        // Extract real source from Google News XML if possible
+        const realSource = item.source?.['_'] || item.source || 'Google News'
+        const mapped = mapRssItem(item, 'Kompas' as SourceKey) // Temporary cast
+        
+        // Correct the source name and ensure it's treated as one of our SourceKeys if it matches
+        const sourceMap: Record<string, SourceKey> = {
+          'Kompas.com': 'Kompas',
+          'detikNews': 'Detik',
+          'Liputan6.com': 'Liputan6',
+          'CNN Indonesia': 'CNNIndonesia',
+          'Tempo.co': 'Tempo',
+          'Tribunnews.com': 'Tribun',
+          'Okezone': 'Okezone',
+          'kumparan': 'Kumparan'
+        }
+        
+        mapped.source = sourceMap[realSource] || (realSource as any)
+        return mapped
+      })
+    } catch (e) {
+      return []
+    }
+  }))
+
+  for (const items of results) {
+    for (const item of items) {
+      if (item.headline && item.url && !seenUrls.has(item.url)) {
+        seenUrls.add(item.url)
+        matches.push(item)
+      }
+    }
+  }
+
+  // We keep the order from Google as it represents relevance
+  return matches
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const requestedSources = searchParams.get('sources')
@@ -205,31 +255,81 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = parseInt(searchParams.get('limit') || '6', 10)
   const refresh = searchParams.get('refresh') === 'true'
+  const searchQuery = searchParams.get('search')
   const filterProvince = searchParams.get('province')
   const filterCity = searchParams.get('city')
   const filterDistrict = searchParams.get('district')
+  const query = searchParams.get('q')?.trim()
 
   const sourcesToFetch: SourceKey[] = requestedSources
     ? (requestedSources.split(',').filter(s => s) as SourceKey[])
     : (Object.keys(RSS_URLS) as SourceKey[])
 
-  // If refresh is requested or specific sources are selected, force re-fetch from RSS
   let allNews: NewsItemRaw[]
   if (requestedSources) {
-    // Specific sources -> always fetch fresh
     const results = await Promise.all(sourcesToFetch.map(fetchSource))
     allNews = results.flat().sort((a, b) => b.timestamp - a.timestamp)
   } else {
     allNews = await getAllNews(refresh)
   }
 
-  // Filter: only return security-relevant items (unless showAll=true)
-  let filteredNews = allNews
-  if (!showAll) {
-    filteredNews = allNews.filter((item) => item.security?.isRelevant === true)
+  let filteredNews: NewsItemRaw[]
+  let googleSearchUrl: string | null = null
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase().trim()
+    const terms = q.split(/\s+/).filter(Boolean)
+
+    // Search Google News archive (returns articles from any time period)
+    const googleMatches = await searchGoogleNewsArchive(searchQuery)
+
+    // Also search local news (without security filter)
+    let localMatches = allNews.filter((item) => {
+      return terms.some((term) => 
+        item.headline.toLowerCase().includes(term) ||
+        item.summary.toLowerCase().includes(term) ||
+        item.category.toLowerCase().includes(term)
+      )
+    })
+
+        // Merge and deduplicate
+    const seen = new Set<string>()
+    filteredNews = [...googleMatches, ...localMatches].filter((item) => {
+      const key = item.headline.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+
+      // Apply source filter to Google News results if requestedSources is active
+      if (requestedSources) {
+        const sourceList = requestedSources.toLowerCase().split(',')
+        return sourceList.some(s => 
+          item.source.toLowerCase().includes(s) || 
+          item.url.toLowerCase().includes(s)
+        )
+      }
+      return true
+    })
+
+    // When searching, we do NOT force a strict chronological sort by default.
+    // Instead, we allow the relevance order from Google News to prevail,
+    // which ensures that a highly relevant article from 2021 appears before 
+    // a less relevant one from 2025.
+    // We only sort local matches slightly to keep them clean.
+    if (googleMatches.length === 0) {
+      filteredNews.sort((a, b) => b.timestamp - a.timestamp)
+    }
+
+
+    // If no results found, provide a direct Google News search link for manual archive search
+    if (filteredNews.length === 0) {
+      googleSearchUrl = 'https://news.google.com/search?q=' + encodeURIComponent(searchQuery + ' Indonesia') + '&hl=id&gl=ID&ceid=ID:id'
+    }
+  } else {
+    filteredNews = allNews
+    if (!showAll) {
+      filteredNews = allNews.filter((item) => item.security?.isRelevant === true)
+    }
   }
 
-  // Apply location filter if specified
   if (filterProvince || filterCity || filterDistrict) {
     filteredNews = filteredNews.filter((item) => {
       const loc = item.location
@@ -241,7 +341,15 @@ export async function GET(request: Request) {
     })
   }
 
-  // Paginate
+  if (query) {
+    const queryLower = query.toLowerCase()
+    const terms = queryLower.split(/\s+/).filter(Boolean)
+    filteredNews = filteredNews.filter((item) => {
+      const haystack = `${item.headline} ${item.summary} ${item.category} ${item.source}`.toLowerCase()
+      return terms.every((term) => haystack.includes(term))
+    })
+  }
+
   const totalItems = filteredNews.length
   const totalPages = Math.ceil(totalItems / limit)
   const startIndex = (page - 1) * limit
@@ -249,7 +357,6 @@ export async function GET(request: Request) {
 
   const now = Date.now()
 
-  // Summary of how many items were filtered out
   const stats = {
     totalFetched: allNews.length,
     securityFiltered: allNews.filter((i) => i.security?.isRelevant === true).length,
@@ -268,6 +375,7 @@ export async function GET(request: Request) {
         totalPages,
         hasMore: page < totalPages,
       },
+      googleSearchUrl, // null if results found, or a URL to search Google News directly
     },
     {
       headers: {
