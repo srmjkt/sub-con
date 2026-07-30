@@ -29,7 +29,13 @@ function getColor(intensity: number): string {
   return '#bd0026';
 }
 
-export default function CrimeHeatmap() {
+type DataSource = 'manual' | 'api' | 'scrape';
+
+interface CrimeHeatmapProps {
+  dataSource?: DataSource;
+}
+
+export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) {
   const [year, setYear] = useState('2025');
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<any[]>([]);

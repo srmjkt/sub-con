@@ -9,10 +9,10 @@ const CrimeHeatmap = dynamic(() => import('@/components/CrimeHeatmap'), {
   loading: () => <p className="p-6">Loading map…</p>,
 });
 
-type Tab = 'heatmap' | 'pbi';
+type Tab = 'manual' | 'api' | 'scrape' | 'pbi';
 
 export default function Page() {
-  const [tab, setTab] = useState<Tab>('heatmap');
+  const [tab, setTab] = useState<Tab>('api');
 
   return (
     <main className="p-6">
@@ -21,12 +21,30 @@ export default function Page() {
       <div className="mb-4 inline-flex rounded-lg border border-gray-200 overflow-hidden">
         <button
           type="button"
-          onClick={() => setTab('heatmap')}
+          onClick={() => setTab('manual')}
           className={`px-4 py-2 text-sm font-medium ${
-            tab === 'heatmap' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+            tab === 'manual' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
           }`}
         >
-          Heatmap
+          Manual
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('api')}
+          className={`px-4 py-2 text-sm font-medium ${
+            tab === 'api' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          API
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('scrape')}
+          className={`px-4 py-2 text-sm font-medium ${
+            tab === 'scrape' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Scrape
         </button>
         <button
           type="button"
@@ -39,7 +57,7 @@ export default function Page() {
         </button>
       </div>
 
-      {tab === 'heatmap' && <CrimeHeatmap />}
+      {tab !== 'pbi' && <CrimeHeatmap dataSource={tab} />}
       {tab === 'pbi' && <PusiknasPowerBIEmbed />}
     </main>
   );
