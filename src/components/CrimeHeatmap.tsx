@@ -55,6 +55,11 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
+  const [mapKey, setMapKey] = useState(0);
+
+  useEffect(() => {
+    setMapKey((k) => k + 1);
+  }, [dataSource, year, query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -223,7 +228,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         </div>
       )}
 
-      <div className="rounded-lg overflow-hidden border border-gray-200 relative">
+      <div key={mapKey} className="rounded-lg overflow-hidden border border-gray-200 relative">
         {loading && (
           <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-white/60 backdrop-blur-sm">
             <p className="text-sm font-medium">Loading map…</p>
@@ -241,7 +246,6 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           />
           {geoJson && (
             <GeoJSON
-              key={year + query}
               data={geoJson}
               style={geoJsonStyle}
               onEachFeature={onEachFeature}
