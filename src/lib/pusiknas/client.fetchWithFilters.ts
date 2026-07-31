@@ -17,6 +17,10 @@ export async function fetchWithFilters(params: Record<string, string | number | 
     throw new Error(`Proxy failed ${res.status}: ${txt}`);
   }
   const json = await res.json();
-  console.log('[fetchWithFilters] Response data:', json);
+  console.log('[fetchWithFilters] Full response:', JSON.stringify(json, null, 2));
+  if (json.rows && json.rows.length > 0) {
+    console.log('[fetchWithFilters] First row keys:', Object.keys(json.rows[0]));
+    console.log('[fetchWithFilters] First row:', json.rows[0]);
+  }
   return json.rows || [];
 }
