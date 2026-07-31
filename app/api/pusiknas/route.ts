@@ -288,9 +288,13 @@ export async function GET(req: Request) {
     }
 
     const resp = await forwardPowerBIQuery(payload);
-    console.log('[Pusiknas] PowerBI response status:', resp.status);
+    console.log('[Pusiknas] PowerBI response keys:', Object.keys(resp));
+    console.log('[Pusiknas] PowerBI raw response:', JSON.stringify(resp).substring(0, 2000));
     const rows = parsePowerBIResponse(resp);
     console.log('[Pusiknas] Parsed rows count:', rows.length);
+    if (rows.length > 0) {
+      console.log('[Pusiknas] First row:', JSON.stringify(rows[0]));
+    }
 
     try {
       await writeCache(key, rows);
