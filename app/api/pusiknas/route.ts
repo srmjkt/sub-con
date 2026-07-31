@@ -216,7 +216,7 @@ export async function GET(req: Request) {
                         NativeReferenceName: 'Statistik Kriminal - Detail (2)',
                       },
                     ],
-                    Where: [makeInCondition('l', 'Year', [`${year}L`])],
+                    Where: [makeInCondition('l', 'Year', [`${year}`])],
                     Binding: {
                       Primary: { Groupings: [{ Projections: [0] }] },
                       Version: 1,
