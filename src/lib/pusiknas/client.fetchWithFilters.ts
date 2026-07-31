@@ -9,11 +9,14 @@ export async function fetchWithFilters(params: Record<string, string | number | 
   if (params.groupBy !== undefined) qs.set('groupBy', String(params.groupBy));
 
   const url = `/api/pusiknas?${qs.toString()}`;
+  console.log('[fetchWithFilters] Requesting:', url);
   const res = await fetch(url, { signal: opts.signal });
+  console.log('[fetchWithFilters] Response status:', res.status);
   if (!res.ok) {
     const txt = await res.text().catch(()=>'');
     throw new Error(`Proxy failed ${res.status}: ${txt}`);
   }
   const json = await res.json();
+  console.log('[fetchWithFilters] Response data:', json);
   return json.rows || [];
 }
