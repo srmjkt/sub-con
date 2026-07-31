@@ -1,6 +1,6 @@
 export async function fetchWithFilters(params: Record<string, string | number | undefined>, opts: { signal?: AbortSignal } = {}) {
   const qs = new URLSearchParams();
-  if (params.year !== undefined) qs.set('year', String(params.year));
+  if (params.year !== undefined) qs.set('year', `${String(params.year)}L`);
   if (params.province !== undefined) qs.set('province', String(params.province));
   if (params.polda !== undefined) qs.set('polda', String(params.polda));
   if (params.satker !== undefined) qs.set('satker', String(params.satker));
