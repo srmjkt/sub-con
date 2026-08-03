@@ -137,7 +137,7 @@ function makeInCondition(source: string, property: string, values: string[]) {
     Condition: {
       In: {
         Expressions: [{ Column: { Expression: { SourceRef: { Source: source } }, Property: property } }],
-        Values: [values.map(v => ({ Literal: { Value: String(v) } }))],
+        Values: values.map(v => ({ Literal: { Value: String(v) } })),
       },
     },
   };
