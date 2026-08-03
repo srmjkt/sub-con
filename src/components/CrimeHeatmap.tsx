@@ -202,7 +202,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           <select
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            className="border border-gray-300 rounded p-1 text-sm"
+            className="border border-gray-300 rounded p-1 text-sm text-black"
             disabled={dataSource !== 'api'}
           >
             <option value="2026">2026</option>
