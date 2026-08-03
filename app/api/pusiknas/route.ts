@@ -296,15 +296,14 @@ export async function GET(req: Request) {
       console.log('[Pusiknas] First row:', JSON.stringify(rows[0]));
     }
 
-    const debugInfo: Record<string, any> = {};
-    if (process.env.PUSIKNAS_DEBUG === 'true') {
-      debugInfo._debug = {
+    const debugInfo: Record<string, any> = {
+      _debug: {
         powerbi_response_keys: Object.keys(resp),
         powerbi_raw: JSON.stringify(resp).substring(0, 5000),
         parsed_rows_count: rows.length,
         first_row: rows.length > 0 ? rows[0] : null,
-      };
-    }
+      }
+    };
 
     try {
       await writeCache(key, rows);
@@ -313,7 +312,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json(
-      { rows },
+      { ...(rows.length > 0 ? { rows } : {}), ...debugInfo },
       { status: 200, headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' } }
     );
   } catch (err: any) {

@@ -7,6 +7,7 @@ export async function fetchWithFilters(params: Record<string, string | number | 
   if (params.crime_type !== undefined) qs.set('crime_type', String(params.crime_type));
   if (params.q !== undefined) qs.set('q', String(params.q));
   if (params.groupBy !== undefined) qs.set('groupBy', String(params.groupBy));
+  if (params.debug !== undefined) qs.set('debug', String(params.debug));
 
   const url = `/api/pusiknas?${qs.toString()}`;
   console.log('[fetchWithFilters] Requesting:', url);
