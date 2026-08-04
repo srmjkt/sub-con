@@ -107,27 +107,62 @@ async function forwardPowerBIQuery(payload: any) {
 
 function parsePowerBIResponse(json: any) {
   try {
+    // PowerBI response structure can vary; try multiple paths
     const results = json?.results ?? [json];
     const firstResult = results[0];
-    const candidate = firstResult?.result?.data ?? firstResult?.result ?? firstResult;
+    
+    // Try different paths to find the data
+    let candidate = firstResult?.result?.data ?? firstResult?.result ?? firstResult;
+    
+    // Sometimes data is nested deeper
+    let dsr = candidate?.dsr ?? candidate;
+    let ds = dsr?.DS?.[0] ?? dsr?.DS ?? dsr ?? null;
+    
+    // If not found, try alternative paths
+    if (!ds) {
+      // Try: result.data.dsr.DS[0].DM0[0].Rows
+      const altPath = firstResult?.result?.data?.dsr?.DS?.[0];
+      if (altPath) {
+        ds = altPath;
+      }
+    }
+    
+    // Try to find columns and rows in multiple possible locations
+    const columns = ds?.COLUMNS ?? ds?.Columns ?? ds?.columns ?? ds?.DM0?.[0]?.COLUMNS ?? [];
+    let rows = ds?.Rows ?? ds?.rows ?? ds?.R ?? ds?.DM0?.[0]?.Rows ?? [];
+    
+    // PowerBI rows can be in different formats:
+    // Format 1: [["DKI Jakarta", 1200], ["Jawa Barat", 980]]
+    // Format 2: [[{"Value": "DKI Jakarta"}, {"Value": 1200}]]
+    // Format 3: [{"c": [{"v": "DKI Jakarta"}, {"v": 1200}]}]
+    
+    if (!Array.isArray(columns) || !Array.isArray(rows)) {
+      console.log('[Pusiknas] No columns/rows found. DS keys:', ds ? Object.keys(ds) : 'null');
+      console.log('[Pusiknas] Full candidate:', JSON.stringify(candidate).substring(0, 1000));
+      return [];
+    }
 
-    const dsr = candidate?.dsr ?? candidate;
-    const ds = dsr?.DS?.[0] ?? dsr?.DS ?? dsr ?? null;
-    const columns = ds?.COLUMNS ?? ds?.Columns ?? ds?.columns ?? [];
-    const rows = ds?.Rows ?? ds?.rows ?? ds?.R ?? [];
-
-    if (!Array.isArray(columns) || !Array.isArray(rows)) return [];
-
-    return rows.map((r: any[]) => {
+    return rows.map((r: any) => {
       const obj: Record<string, any> = {};
+      
+      // Handle different row formats
+      const rowArray = Array.isArray(r) ? r : (r?.c ?? r?.row ?? [r]);
+      
       columns.forEach((c: any, i: number) => {
-        const key = typeof c === 'string' ? c : c && c.Name ? c.Name : JSON.stringify(c);
-        obj[key] = r[i];
+        const key = typeof c === 'string' ? c : c && c.Name ? c.Name : (c && c.name ? c.name : `col_${i}`);
+        let val = rowArray[i];
+        
+        // Extract value from nested objects
+        if (val && typeof val === 'object' && !Array.isArray(val)) {
+          val = val.Value ?? val.v ?? val.value ?? val;
+        }
+        
+        obj[key] = val;
       });
       return obj;
     });
   } catch (e) {
-    if (DEBUG) console.error('parsePowerBIResponse error', e);
+    console.error('parsePowerBIResponse error', e);
     return [];
   }
 }
@@ -219,6 +254,7 @@ export async function GET(req: Request) {
                     Where: [makeInCondition('l', 'Year', [`${year}L`])],
                     Binding: {
                       Primary: { Groupings: [{ Projections: isHeatmap ? [0, 1, 2] : [0] }] },
+                      DataReduction: { DataVolume: 3, Primary: { Top: {} } },
                       Version: 1,
                     },
                     ExecutionMetricsKind: 1,
