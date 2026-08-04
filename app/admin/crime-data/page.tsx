@@ -5,15 +5,23 @@ import { useAuth } from "@/hooks/useAuth";
 import { Sidebar } from "@/components/Sidebar";
 
 const ALL_PROVINCES = [
+  // Sumatera
   "Aceh", "Sumatera Utara", "Sumatera Barat", "Riau", "Kepulauan Riau",
-  "Jambi", "Sumatera Selatan", "Bengkulu", "Lampung",
+  "Jambi", "Sumatera Selatan", "Bengkulu", "Lampung", "Kepulauan Bangka Belitung",
+  // Jawa
   "DKI Jakarta", "Jawa Barat", "Jawa Tengah", "Jawa Timur", "Banten",
-  "Daerah Istimewa Yogyakarta", "Bali",
+  "Daerah Istimewa Yogyakarta",
+  // Bali & Nusa Tenggara
+  "Bali", "Nusa Tenggara Barat", "Nusa Tenggara Timur",
+  // Kalimantan
   "Kalimantan Barat", "Kalimantan Tengah", "Kalimantan Selatan",
   "Kalimantan Timur", "Kalimantan Utara",
+  // Sulawesi
   "Sulawesi Utara", "Sulawesi Tengah", "Sulawesi Selatan",
   "Sulawesi Tenggara", "Sulawesi Barat", "Gorontalo",
+  // Maluku
   "Maluku", "Maluku Utara",
+  // Papua
   "Papua", "Papua Barat", "Papua Selatan", "Papua Tengah",
   "Papua Pegunungan", "Papua Barat Daya",
 ];

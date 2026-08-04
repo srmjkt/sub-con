@@ -8,7 +8,12 @@ export async function GET() {
       orderBy: { province: 'asc' },
     });
     return NextResponse.json({ crimeData });
-  } catch (error) {
+  } catch (error: any) {
+    // If the table doesn't exist yet, return empty array instead of error
+    if (error?.code === 'P2021' || error?.message?.includes('does not exist') || error?.message?.includes('relation')) {
+      console.log('CrimeData table does not exist yet, returning empty array');
+      return NextResponse.json({ crimeData: [] });
+    }
     console.error('Error fetching crime data:', error);
     return NextResponse.json({ error: 'Failed to fetch crime data' }, { status: 500 });
   }
