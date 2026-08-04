@@ -67,8 +67,28 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     setError(null);
 
     if (dataSource === 'manual') {
-      setRows(MANUAL_ROWS);
-      setLoading(false);
+      // Fetch manual crime data from the database
+      fetch('/api/admin/crime-data')
+        .then((res) => res.json())
+        .then((data) => {
+          if (!cancelled) {
+            const crimeData = data.crimeData || [];
+            const mapped = crimeData.map((item: any) => ({
+              provinsi: item.province,
+              count: item.crimeCount,
+            }));
+            setRows(mapped);
+            setLoading(false);
+          }
+        })
+        .catch((e) => {
+          if (!cancelled) {
+            console.error('Manual crime data fetch error', e);
+            setError('Failed to load manual crime data. Please set data in Admin > Crime Data.');
+            setRows([]);
+            setLoading(false);
+          }
+        });
       return;
     }
 

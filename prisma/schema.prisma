@@ -292,3 +292,16 @@ model Attachment {
   uploadedBy       User     @relation(fields: [uploadedById], references: [id])
   createdAt        DateTime @default(now())
 }
+
+// ─── Manual Crime Data for Pusiknas Heatmap ─────────────────────────
+
+model CrimeData {
+  id           String   @id @default(uuid())
+  province     String   @unique
+  crimeCount   Int      @default(0)
+  year         Int      @default(2025)
+  notes        String?
+  updatedById  String?
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+}
