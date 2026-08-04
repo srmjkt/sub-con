@@ -137,7 +137,7 @@ function makeInCondition(source: string, property: string, values: string[]) {
     Condition: {
       In: {
         Expressions: [{ Column: { Expression: { SourceRef: { Source: source } }, Property: property } }],
-        Values: values.map(v => ({ Literal: { Value: String(v) } })),
+        Values: [values.map(v => ({ Literal: { Value: String(v) } }))],
       },
     },
   };
@@ -216,9 +216,9 @@ export async function GET(req: Request) {
                         NativeReferenceName: 'Statistik Kriminal - Detail (2)',
                       },
                     ],
-                    Where: [makeInCondition('l', 'Year', [`${year}`])],
+                    Where: [makeInCondition('l', 'Year', [`${year}L`])],
                     Binding: {
-                      Primary: { Groupings: [{ Projections: [0] }] },
+                      Primary: { Groupings: [{ Projections: isHeatmap ? [0, 1, 2] : [0] }] },
                       Version: 1,
                     },
                     ExecutionMetricsKind: 1,
