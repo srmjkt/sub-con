@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -29,26 +28,19 @@ interface CrimeDataItem {
 }
 
 export default function CrimeDataPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [crimeData, setCrimeData] = useState<CrimeDataItem[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  // Form state: province -> { crimeCount, notes }
   const [formData, setFormData] = useState<Record<string, { crimeCount: string; notes: string }>>({});
 
   useEffect(() => {
-    if (!loading) {
-      if (!user || user.role !== "ADMIN") {
-        router.push("/login");
-        return;
-      }
+    if (!authLoading && user && user.role === "ADMIN") {
       fetchCrimeData();
     }
-  }, [user, loading, router]);
+  }, [user, authLoading]);
 
   async function fetchCrimeData() {
     try {
@@ -59,7 +51,6 @@ export default function CrimeDataPage() {
       const items: CrimeDataItem[] = data.crimeData || [];
       setCrimeData(items);
 
-      // Initialize form data with existing values
       const formMap: Record<string, { crimeCount: string; notes: string }> = {};
       items.forEach((item) => {
         formMap[item.province] = {
@@ -135,112 +126,139 @@ export default function CrimeDataPage() {
     }));
   }
 
-  if (loading || loadingData) {
+  if (authLoading || loadingData) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Crime Data Management</h1>
-        <p>Loading...</p>
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
       </div>
     );
   }
 
   if (!user || user.role !== "ADMIN") {
-    return null;
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-white text-lg mb-4">Not authenticated</p>
+          <a href="/login" className="text-cyan-400 hover:underline">Go to login</a>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Crime Data Management</h1>
-      <p className="text-gray-600 mb-4">
-        Manually add crime data values for each province. This data will be displayed in the Pusiknas heatmap when you select the "Manual" tab.
-      </p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+      <Sidebar role={user.role} branchId={user.branchId || undefined} />
 
-      {error && (
-        <div className="mb-4 p-3 border border-red-200 rounded bg-red-50 text-red-700 text-sm">
-          {error}
+      <main className="ml-64 p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Header */}
+          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-sky-950/30 backdrop-blur">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200 mb-3">
+                  Admin Panel
+                </div>
+                <h1 className="text-3xl font-semibold tracking-tight text-white">
+                  Crime Data Management
+                </h1>
+                <p className="mt-2 text-sm text-slate-300">
+                  Manually add crime data values for each province. This data will be displayed in the Pusiknas heatmap when you select the "Manual" tab.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {error && (
+            <div className="p-3 border border-red-200 rounded bg-red-50 text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="p-3 border border-green-200 rounded bg-green-50 text-green-700 text-sm">
+              {success}
+            </div>
+          )}
+
+          {/* Crime Data Table */}
+          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-sky-950/30 backdrop-blur">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-white/5">
+                    <th className="text-left p-2 border border-white/10 text-white">Province</th>
+                    <th className="text-left p-2 border border-white/10 text-white">Crime Count</th>
+                    <th className="text-left p-2 border border-white/10 text-white">Notes</th>
+                    <th className="text-left p-2 border border-white/10 text-white">Last Updated</th>
+                    <th className="text-left p-2 border border-white/10 text-white">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ALL_PROVINCES.map((province) => {
+                    const existing = crimeData.find((d) => d.province === province);
+                    const form = formData[province] || { crimeCount: "", notes: "" };
+                    return (
+                      <tr key={province} className="hover:bg-white/5">
+                        <td className="p-2 border border-white/10 font-medium text-white">{province}</td>
+                        <td className="p-2 border border-white/10">
+                          <input
+                            type="number"
+                            value={form.crimeCount}
+                            onChange={(e) => handleInputChange(province, "crimeCount", e.target.value)}
+                            placeholder="0"
+                            className="w-24 px-2 py-1 border border-white/10 bg-white/5 rounded text-sm text-white"
+                          />
+                        </td>
+                        <td className="p-2 border border-white/10">
+                          <input
+                            type="text"
+                            value={form.notes}
+                            onChange={(e) => handleInputChange(province, "notes", e.target.value)}
+                            placeholder="Optional notes"
+                            className="w-full px-2 py-1 border border-white/10 bg-white/5 rounded text-sm text-white"
+                          />
+                        </td>
+                        <td className="p-2 border border-white/10 text-slate-400 text-xs">
+                          {existing ? new Date(existing.updatedAt).toLocaleDateString("id-ID") : "-"}
+                        </td>
+                        <td className="p-2 border border-white/10">
+                          <button
+                            onClick={() => handleSave(province)}
+                            disabled={saving}
+                            className="px-3 py-1 bg-cyan-600 text-white rounded text-xs hover:bg-cyan-700 disabled:opacity-50 mr-2"
+                          >
+                            Save
+                          </button>
+                          {existing && (
+                            <button
+                              onClick={() => handleDelete(province)}
+                              disabled={saving}
+                              className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4">
+              <button
+                onClick={() => {
+                  ALL_PROVINCES.forEach((province) => handleSave(province));
+                }}
+                disabled={saving}
+                className="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
+              >
+                Save All
+              </button>
+            </div>
+          </section>
         </div>
-      )}
-      {success && (
-        <div className="mb-4 p-3 border border-green-200 rounded bg-green-50 text-green-700 text-sm">
-          {success}
-        </div>
-      )}
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="text-left p-2 border">Province</th>
-              <th className="text-left p-2 border">Crime Count</th>
-              <th className="text-left p-2 border">Notes</th>
-              <th className="text-left p-2 border">Last Updated</th>
-              <th className="text-left p-2 border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ALL_PROVINCES.map((province) => {
-              const existing = crimeData.find((d) => d.province === province);
-              const form = formData[province] || { crimeCount: "", notes: "" };
-              return (
-                <tr key={province} className="hover:bg-gray-50">
-                  <td className="p-2 border font-medium">{province}</td>
-                  <td className="p-2 border">
-                    <input
-                      type="number"
-                      value={form.crimeCount}
-                      onChange={(e) => handleInputChange(province, "crimeCount", e.target.value)}
-                      placeholder="0"
-                      className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                    />
-                  </td>
-                  <td className="p-2 border">
-                    <input
-                      type="text"
-                      value={form.notes}
-                      onChange={(e) => handleInputChange(province, "notes", e.target.value)}
-                      placeholder="Optional notes"
-                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                    />
-                  </td>
-                  <td className="p-2 border text-gray-500 text-xs">
-                    {existing ? new Date(existing.updatedAt).toLocaleDateString("id-ID") : "-"}
-                  </td>
-                  <td className="p-2 border">
-                    <button
-                      onClick={() => handleSave(province)}
-                      disabled={saving}
-                      className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 mr-2"
-                    >
-                      Save
-                    </button>
-                    {existing && (
-                      <button
-                        onClick={() => handleDelete(province)}
-                        disabled={saving}
-                        className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-4">
-        <button
-          onClick={() => {
-            ALL_PROVINCES.forEach((province) => handleSave(province));
-          }}
-          disabled={saving}
-          className="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
-        >
-          Save All
-        </button>
-      </div>
+      </main>
     </div>
   );
 }
