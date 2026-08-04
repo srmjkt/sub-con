@@ -9,7 +9,8 @@ export interface FetchOptions {
 }
 
 export async function fetchWithFilters(
-  options: FetchOptions = {}
+  options: FetchOptions = {},
+  init?: { signal?: AbortSignal }
 ): Promise<any[]> {
   const params = new URLSearchParams();
   
@@ -21,7 +22,9 @@ export async function fetchWithFilters(
   if (options.q) params.set('q', options.q);
   if (options.groupBy) params.set('groupBy', options.groupBy);
 
-  const response = await fetch(`/api/pusiknas?${params.toString()}`);
+  const response = await fetch(`/api/pusiknas?${params.toString()}`, {
+    signal: init?.signal,
+  });
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Failed to fetch' }));
