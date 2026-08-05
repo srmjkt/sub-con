@@ -125,7 +125,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
   useEffect(() => {
     let cancelled = false;
-    fetch('https://raw.githubusercontent.com/superpikar/indonesia-geojson/master/indonesia-province.json')
+    fetch('https://raw.githubusercontent.com/denyherianto/indonesia-geojson-topojson-maps-with-38-provinces/main/GeoJSON/indonesia-38-provinces.geojson')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to load Indonesia GeoJSON');
         return res.json();
