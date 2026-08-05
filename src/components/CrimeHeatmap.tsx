@@ -195,20 +195,25 @@ function geoJsonStyle(feature: any) {
 
 function onEachFeature(feature: any, layer: any) {
      const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
-    const normalized = normalizeProvince(name);
-    const data = provinceCountMap[normalized];
+     const normalized = normalizeProvince(name);
 
-    layer.on({
-      mouseover: () => setHoveredProvince(normalized),
-      mouseout: () => setHoveredProvince(null),
-    });
-
-    const popupContent = data
-      ? `<strong>${normalized}</strong><br/>${data.count.toLocaleString('id-ID')} crimes`
-      : `<strong>${normalized}</strong><br/>No data`;
-
-    layer.bindPopup(popupContent);
-  }
+     layer.on({
+       mouseover: () => {
+         setHoveredProvince(normalized);
+         const data = provinceCountMap[normalized];
+         if (data) {
+           layer.setPopupContent(`<strong>${normalized}</strong><br/>${data.count.toLocaleString('id-ID')} crimes`);
+         } else {
+           layer.setPopupContent(`<strong>${normalized}</strong><br/>No data`);
+         }
+         layer.openPopup();
+       },
+       mouseout: () => {
+         setHoveredProvince(null);
+         layer.closePopup();
+       },
+     });
+   }
 
   return (
     <div className="p-6">
