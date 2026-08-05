@@ -324,22 +324,7 @@ export async function GET(req: Request) {
     }
 
     const resp = await forwardPowerBIQuery(payload);
-    console.log('[Pusiknas] PowerBI response keys:', Object.keys(resp));
-    console.log('[Pusiknas] PowerBI raw response:', JSON.stringify(resp).substring(0, 2000));
     const rows = parsePowerBIResponse(resp);
-    console.log('[Pusiknas] Parsed rows count:', rows.length);
-    if (rows.length > 0) {
-      console.log('[Pusiknas] First row:', JSON.stringify(rows[0]));
-    }
-
-    const debugInfo: Record<string, any> = {
-      _debug: {
-        powerbi_response_keys: Object.keys(resp),
-        powerbi_raw: JSON.stringify(resp).substring(0, 5000),
-        parsed_rows_count: rows.length,
-        first_row: rows.length > 0 ? rows[0] : null,
-      }
-    };
 
     try {
       await writeCache(key, rows);
@@ -348,7 +333,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json(
-      { ...(rows.length > 0 ? { rows } : {}), ...debugInfo },
+      { rows },
       { status: 200, headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' } }
     );
   } catch (err: any) {
