@@ -175,8 +175,8 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     return map;
   }, [heatData]);
 
-  function geoJsonStyle(feature: any) {
-    const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || '').trim();
+function geoJsonStyle(feature: any) {
+     const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
     const normalized = normalizeProvince(name);
     const data = provinceCountMap[normalized];
     const intensity = data ? data.intensity : 0;
@@ -193,8 +193,8 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     };
   }
 
-  function onEachFeature(feature: any, layer: any) {
-    const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || '').trim();
+function onEachFeature(feature: any, layer: any) {
+     const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
     const normalized = normalizeProvince(name);
     const data = provinceCountMap[normalized];
 
