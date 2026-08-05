@@ -67,21 +67,15 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     setError(null);
 
 if (dataSource === 'manual') {
-       // Fetch manual crime data from the database
        fetch('/api/admin/crime-data')
          .then((res) => res.json())
          .then((data) => {
            if (!cancelled) {
              const crimeData = data.crimeData || [];
-             console.log('[CrimeHeatmap] Manual data fetched:', crimeData.length, 'items');
-             if (crimeData.length > 0) {
-               console.log('[CrimeHeatmap] First item:', JSON.stringify(crimeData[0]));
-             }
              const mapped = crimeData.map((item: any) => ({
                provinsi: item.province,
                count: item.crimeCount,
              }));
-             console.log('[CrimeHeatmap] Mapped rows:', mapped.length, 'first:', JSON.stringify(mapped[0]));
              setRows(mapped);
              setLoading(false);
            }
@@ -153,18 +147,12 @@ if (dataSource === 'manual') {
 const { heatData, maxCount } = useMemo(() => {
      const counts: Record<string, number> = {};
 
-     console.log('[CrimeHeatmap] heatData useMemo - rows:', rows.length, 'first:', JSON.stringify(rows[0]));
-
      rows.forEach((row) => {
        const rawProvince = String(row.provinsi || row.province || row.Provinsi || '').trim();
        if (!rawProvince) return;
-       const normalized = normalizeProvince(rawProvince);
        const count = Number(row.count || row.jumlah || row.Count || row.crimeCount || 0);
-       console.log('[CrimeHeatmap] Row province:', rawProvince, '-> normalized:', normalized, 'count:', count);
-       counts[normalized] = (counts[normalized] || 0) + count;
+       counts[rawProvince] = (counts[rawProvince] || 0) + count;
      });
-
-     console.log('[CrimeHeatmap] counts:', JSON.stringify(counts));
 
      const maxCount = Math.max(1, ...Object.values(counts));
      const points: { province: string; count: number; intensity: number }[] = [];
@@ -174,52 +162,47 @@ const { heatData, maxCount } = useMemo(() => {
        points.push({ province, count, intensity: count / maxCount });
      });
 
-     console.log('[CrimeHeatmap] heatData points:', points.length);
-
      return { heatData: points, maxCount };
    }, [rows]);
 
-  const provinceCountMap = useMemo(() => {
-    const map: Record<string, { count: number; intensity: number }> = {};
-    heatData.forEach((p) => {
-      map[p.province] = { count: p.count, intensity: p.intensity };
-    });
-    return map;
-  }, [heatData]);
+   const provinceCountMap = useMemo(() => {
+     const map: Record<string, { count: number; intensity: number }> = {};
+     heatData.forEach((p) => {
+       map[p.province] = { count: p.count, intensity: p.intensity };
+     });
+     return map;
+   }, [heatData]);
 
 function geoJsonStyle(feature: any) {
      const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
-    const normalized = normalizeProvince(name);
-    const data = provinceCountMap[normalized];
-    const intensity = data ? data.intensity : 0;
-    const fillOpacity = data ? 0.7 : 0.05;
-    const weight = hoveredProvince === normalized ? 3 : 1;
-    const borderColor = hoveredProvince === normalized ? '#ffffff' : '#666666';
+     const data = provinceCountMap[name];
+     const intensity = data ? data.intensity : 0;
+     const fillOpacity = data ? 0.7 : 0.05;
+     const weight = hoveredProvince === name ? 3 : 1;
+     const borderColor = hoveredProvince === name ? '#ffffff' : '#666666';
 
-    return {
-      fillColor: getColor(intensity),
-      weight,
-      opacity: 0.8,
-      color: borderColor,
-      fillOpacity,
-    };
-  }
+     return {
+       fillColor: getColor(intensity),
+       weight,
+       opacity: 0.8,
+       color: borderColor,
+       fillOpacity,
+     };
+   }
 
 function onEachFeature(feature: any, layer: any) {
      const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
-     const normalized = normalizeProvince(name);
 
      layer.bindPopup('');
 
      layer.on({
        mouseover: () => {
-         setHoveredProvince(normalized);
-         const data = provinceCountMap[normalized];
+         setHoveredProvince(name);
+         const data = provinceCountMap[name];
          if (data) {
-           layer.setPopupContent(`<strong>${normalized}</strong><br/>${data.count.toLocaleString('id-ID')} crimes`);
+           layer.setPopupContent(`<strong>${name}</strong><br/>${data.count.toLocaleString('id-ID')} crimes`);
          } else {
-           const keys = Object.keys(provinceCountMap);
-           layer.setPopupContent(`<strong>${normalized}</strong><br/>No data (keys: ${keys.join(', ')})`);
+           layer.setPopupContent(`<strong>${name}</strong><br/>No data`);
          }
          layer.openPopup();
        },
