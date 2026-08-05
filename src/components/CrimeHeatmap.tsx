@@ -66,31 +66,36 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     setLoading(true);
     setError(null);
 
-    if (dataSource === 'manual') {
-      // Fetch manual crime data from the database
-      fetch('/api/admin/crime-data')
-        .then((res) => res.json())
-        .then((data) => {
-          if (!cancelled) {
-            const crimeData = data.crimeData || [];
-            const mapped = crimeData.map((item: any) => ({
-              provinsi: item.province,
-              count: item.crimeCount,
-            }));
-            setRows(mapped);
-            setLoading(false);
-          }
-        })
-        .catch((e) => {
-          if (!cancelled) {
-            console.error('Manual crime data fetch error', e);
-            setError('Failed to load manual crime data. Please set data in Admin > Crime Data.');
-            setRows([]);
-            setLoading(false);
-          }
-        });
-      return;
-    }
+if (dataSource === 'manual') {
+       // Fetch manual crime data from the database
+       fetch('/api/admin/crime-data')
+         .then((res) => res.json())
+         .then((data) => {
+           if (!cancelled) {
+             const crimeData = data.crimeData || [];
+             console.log('[CrimeHeatmap] Manual data fetched:', crimeData.length, 'items');
+             if (crimeData.length > 0) {
+               console.log('[CrimeHeatmap] First item:', JSON.stringify(crimeData[0]));
+             }
+             const mapped = crimeData.map((item: any) => ({
+               provinsi: item.province,
+               count: item.crimeCount,
+             }));
+             console.log('[CrimeHeatmap] Mapped rows:', mapped.length, 'first:', JSON.stringify(mapped[0]));
+             setRows(mapped);
+             setLoading(false);
+           }
+         })
+         .catch((e) => {
+           if (!cancelled) {
+             console.error('Manual crime data fetch error', e);
+             setError('Failed to load manual crime data. Please set data in Admin > Crime Data.');
+             setRows([]);
+             setLoading(false);
+           }
+         });
+       return;
+     }
 
     if (dataSource === 'scrape') {
       setRows(SCRAPE_ROWS);
