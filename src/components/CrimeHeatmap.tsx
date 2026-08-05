@@ -197,6 +197,8 @@ function onEachFeature(feature: any, layer: any) {
      const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
      const normalized = normalizeProvince(name);
 
+     layer.bindPopup('');
+
      layer.on({
        mouseover: () => {
          setHoveredProvince(normalized);
