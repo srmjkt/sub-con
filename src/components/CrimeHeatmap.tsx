@@ -150,27 +150,34 @@ if (dataSource === 'manual') {
     };
   }, []);
 
-  const { heatData, maxCount } = useMemo(() => {
-    const counts: Record<string, number> = {};
+const { heatData, maxCount } = useMemo(() => {
+     const counts: Record<string, number> = {};
 
-    rows.forEach((row) => {
-      const rawProvince = String(row.provinsi || row.province || row.Provinsi || '').trim();
-      if (!rawProvince) return;
-      const normalized = normalizeProvince(rawProvince);
-      const count = Number(row.count || row.jumlah || row.Count || row.crimeCount || 0);
-      counts[normalized] = (counts[normalized] || 0) + count;
-    });
+     console.log('[CrimeHeatmap] heatData useMemo - rows:', rows.length, 'first:', JSON.stringify(rows[0]));
 
-    const maxCount = Math.max(1, ...Object.values(counts));
-    const points: { province: string; count: number; intensity: number }[] = [];
+     rows.forEach((row) => {
+       const rawProvince = String(row.provinsi || row.province || row.Provinsi || '').trim();
+       if (!rawProvince) return;
+       const normalized = normalizeProvince(rawProvince);
+       const count = Number(row.count || row.jumlah || row.Count || row.crimeCount || 0);
+       console.log('[CrimeHeatmap] Row province:', rawProvince, '-> normalized:', normalized, 'count:', count);
+       counts[normalized] = (counts[normalized] || 0) + count;
+     });
 
-    Object.entries(counts).forEach(([province, count]) => {
-      if (count <= 0) return;
-      points.push({ province, count, intensity: count / maxCount });
-    });
+     console.log('[CrimeHeatmap] counts:', JSON.stringify(counts));
 
-    return { heatData: points, maxCount };
-  }, [rows]);
+     const maxCount = Math.max(1, ...Object.values(counts));
+     const points: { province: string; count: number; intensity: number }[] = [];
+
+     Object.entries(counts).forEach(([province, count]) => {
+       if (count <= 0) return;
+       points.push({ province, count, intensity: count / maxCount });
+     });
+
+     console.log('[CrimeHeatmap] heatData points:', points.length);
+
+     return { heatData: points, maxCount };
+   }, [rows]);
 
   const provinceCountMap = useMemo(() => {
     const map: Record<string, { count: number; intensity: number }> = {};
