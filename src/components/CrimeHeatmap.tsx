@@ -206,7 +206,8 @@ function onEachFeature(feature: any, layer: any) {
          if (data) {
            layer.setPopupContent(`<strong>${normalized}</strong><br/>${data.count.toLocaleString('id-ID')} crimes`);
          } else {
-           layer.setPopupContent(`<strong>${normalized}</strong><br/>No data`);
+           const keys = Object.keys(provinceCountMap);
+           layer.setPopupContent(`<strong>${normalized}</strong><br/>No data (keys: ${keys.join(', ')})`);
          }
          layer.openPopup();
        },
