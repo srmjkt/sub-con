@@ -152,7 +152,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       const rawProvince = String(row.provinsi || row.province || row.Provinsi || '').trim();
       if (!rawProvince) return;
       const normalized = normalizeProvince(rawProvince);
-      const count = Number(row.count || row.jumlah || row.Count || 0);
+      const count = Number(row.count || row.jumlah || row.Count || row.crimeCount || 0);
       counts[normalized] = (counts[normalized] || 0) + count;
     });
 
