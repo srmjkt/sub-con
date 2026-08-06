@@ -46,6 +46,18 @@ export default function CrimeDataPage() {
   const [selectedYear, setSelectedYear] = useState('2026');
 
   useEffect(() => {
+    setFormData((prev) => {
+      const next = { ...prev };
+      ALL_PROVINCES.forEach((province) => {
+        if (next[province]) {
+          next[province] = { ...next[province], year: selectedYear };
+        }
+      });
+      return next;
+    });
+  }, [selectedYear]);
+
+  useEffect(() => {
     if (!authLoading && user && user.role === "ADMIN") {
       fetchCrimeData();
     }
