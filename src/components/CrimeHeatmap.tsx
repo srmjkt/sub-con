@@ -48,7 +48,7 @@ const SCRAPE_ROWS = [
 ];
 
 export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) {
-  const [year, setYear] = useState('2025');
+  const [year, setYear] = useState('2026');
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [geoJson, setGeoJson] = useState<any | null>(null);
