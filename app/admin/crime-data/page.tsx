@@ -42,7 +42,8 @@ export default function CrimeDataPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Record<string, { crimeCount: string; notes: string }>>({});
+  const [formData, setFormData] = useState<Record<string, { crimeCount: string; notes: string; year: string }>>({});
+  const [selectedYear, setSelectedYear] = useState('2026');
 
   useEffect(() => {
     if (!authLoading && user && user.role === "ADMIN") {
@@ -59,11 +60,12 @@ export default function CrimeDataPage() {
       const items: CrimeDataItem[] = data.crimeData || [];
       setCrimeData(items);
 
-      const formMap: Record<string, { crimeCount: string; notes: string }> = {};
+      const formMap: Record<string, { crimeCount: string; notes: string; year: string }> = {};
       items.forEach((item) => {
         formMap[item.province] = {
           crimeCount: String(item.crimeCount),
           notes: item.notes || "",
+          year: String(item.year),
         };
       });
       setFormData(formMap);
@@ -88,7 +90,7 @@ export default function CrimeDataPage() {
         body: JSON.stringify({
           province,
           crimeCount: Number(data.crimeCount) || 0,
-          year: new Date().getFullYear(),
+          year: Number(selectedYear),
           notes: data.notes || null,
           updatedById: user?.id,
         }),
@@ -123,12 +125,13 @@ export default function CrimeDataPage() {
     }
   }
 
-  function handleInputChange(province: string, field: "crimeCount" | "notes", value: string) {
+  function handleInputChange(province: string, field: "crimeCount" | "notes" | "year", value: string) {
     setFormData((prev) => ({
       ...prev,
       [province]: {
         crimeCount: prev[province]?.crimeCount || "0",
         notes: prev[province]?.notes || "",
+        year: prev[province]?.year || selectedYear,
         [field]: value,
       },
     }));
@@ -194,6 +197,7 @@ export default function CrimeDataPage() {
                 <thead>
                   <tr className="bg-white/5">
                     <th className="text-left p-2 border border-white/10 text-white">Province</th>
+                    <th className="text-left p-2 border border-white/10 text-white">Year</th>
                     <th className="text-left p-2 border border-white/10 text-white">Crime Count</th>
                     <th className="text-left p-2 border border-white/10 text-white">Notes</th>
                     <th className="text-left p-2 border border-white/10 text-white">Last Updated</th>
@@ -203,10 +207,21 @@ export default function CrimeDataPage() {
                 <tbody>
                   {ALL_PROVINCES.map((province) => {
                     const existing = crimeData.find((d) => d.province === province);
-                    const form = formData[province] || { crimeCount: "", notes: "" };
+                    const form = formData[province] || { crimeCount: "", notes: "", year: selectedYear };
                     return (
                       <tr key={province} className="hover:bg-white/5">
                         <td className="p-2 border border-white/10 font-medium text-white">{province}</td>
+                        <td className="p-2 border border-white/10">
+                          <select
+                            value={form.year}
+                            onChange={(e) => handleInputChange(province, "year", e.target.value)}
+                            className="w-full px-2 py-1 border border-white/10 bg-white/5 rounded text-sm text-white"
+                          >
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                          </select>
+                        </td>
                         <td className="p-2 border border-white/10">
                           <input
                             type="number"
@@ -253,7 +268,17 @@ export default function CrimeDataPage() {
               </table>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 flex items-center gap-4">
+              <label className="text-sm text-white">Year:</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="border border-gray-300 rounded p-1 text-sm text-black"
+              >
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
               <button
                 onClick={() => {
                   ALL_PROVINCES.forEach((province) => handleSave(province));

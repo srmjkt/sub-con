@@ -67,7 +67,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     setError(null);
 
 if (dataSource === 'manual') {
-       fetch('/api/admin/crime-data')
+       fetch(`/api/admin/crime-data?year=${year}`)
          .then((res) => res.json())
          .then((data) => {
            if (!cancelled) {

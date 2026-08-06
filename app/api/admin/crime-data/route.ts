@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: Fetch all crime data
-export async function GET() {
+// GET: Fetch all crime data, optionally filtered by year
+export async function GET(req: Request) {
   try {
+    const url = new URL(req.url);
+    const year = url.searchParams.get('year');
+
+    const where: any = {};
+    if (year) {
+      where.year = Number(year);
+    }
+
     const crimeData = await prisma.crimeData.findMany({
+      where,
       orderBy: { province: 'asc' },
     });
     return NextResponse.json({ crimeData });
