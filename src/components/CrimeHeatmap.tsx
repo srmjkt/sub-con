@@ -57,11 +57,6 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
   const [mapKey, setMapKey] = useState(0);
 
-  const provinceCountMapRef = useRef(provinceCountMap);
-  useEffect(() => {
-    provinceCountMapRef.current = provinceCountMap;
-  }, [provinceCountMap]);
-
   useEffect(() => {
     setMapKey((k) => k + 1);
   }, [dataSource, year, query]);
@@ -170,15 +165,20 @@ const { heatData, maxCount } = useMemo(() => {
      return { heatData: points, maxCount };
    }, [rows]);
 
-   const provinceCountMap = useMemo(() => {
-     const map: Record<string, { count: number; intensity: number }> = {};
-     heatData.forEach((p) => {
-       map[p.province] = { count: p.count, intensity: p.intensity };
-     });
-     return map;
-   }, [heatData]);
+const provinceCountMap = useMemo(() => {
+      const map: Record<string, { count: number; intensity: number }> = {};
+      heatData.forEach((p) => {
+        map[p.province] = { count: p.count, intensity: p.intensity };
+      });
+      return map;
+    }, [heatData]);
 
-function geoJsonStyle(feature: any) {
+    const provinceCountMapRef = useRef(provinceCountMap);
+    useEffect(() => {
+      provinceCountMapRef.current = provinceCountMap;
+    }, [provinceCountMap]);
+
+    function geoJsonStyle(feature: any) {
      const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
      const data = provinceCountMapRef.current[name];
      const intensity = data ? data.intensity : 0;
