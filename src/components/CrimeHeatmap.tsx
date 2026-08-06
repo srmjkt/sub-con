@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchWithFilters } from '@/lib/pusiknas/client.fetchWithFilters';
@@ -56,6 +56,11 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   const [error, setError] = useState<string | null>(null);
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
   const [mapKey, setMapKey] = useState(0);
+
+  const provinceCountMapRef = useRef(provinceCountMap);
+  useEffect(() => {
+    provinceCountMapRef.current = provinceCountMap;
+  }, [provinceCountMap]);
 
   useEffect(() => {
     setMapKey((k) => k + 1);
@@ -175,7 +180,7 @@ const { heatData, maxCount } = useMemo(() => {
 
 function geoJsonStyle(feature: any) {
      const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
-     const data = provinceCountMap[name];
+     const data = provinceCountMapRef.current[name];
      const intensity = data ? data.intensity : 0;
      const fillOpacity = data ? 0.7 : 0.05;
      const weight = hoveredProvince === name ? 3 : 1;
@@ -198,7 +203,7 @@ function onEachFeature(feature: any, layer: any) {
      layer.on({
        mouseover: () => {
          setHoveredProvince(name);
-         const data = provinceCountMap[name];
+         const data = provinceCountMapRef.current[name];
          if (data) {
            layer.setPopupContent(`<strong>${name}</strong><br/>${data.count.toLocaleString('id-ID')} crimes`);
          } else {
