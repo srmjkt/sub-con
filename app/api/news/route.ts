@@ -161,6 +161,39 @@ let cachedNews: NewsItemRaw[] | null = null
 let cacheTimestamp = 0
 const CACHE_TTL = 60_000
 
+/**
+ * Interleave news items round-robin by source so that no single publisher
+ * dominates the feed. Each source's items are kept sorted by recency, then we
+ * take one item from each source in turn to guarantee balanced representation.
+ */
+function interleaveBySource(items: NewsItemRaw[]): NewsItemRaw[] {
+  const bySource = new Map<SourceKey, NewsItemRaw[]>()
+  for (const item of items) {
+    const key = (item.source && (item.source in RSS_URLS) ? (item.source as SourceKey) : 'Kompas')
+    if (!bySource.has(key)) bySource.set(key, [])
+    bySource.get(key)!.push(item)
+  }
+
+  const groups = Array.from(bySource.values()).map((group) =>
+    group.sort((a, b) => b.timestamp - a.timestamp),
+  )
+
+  const balanced: NewsItemRaw[] = []
+  let added = true
+  let idx = 0
+  while (added) {
+    added = false
+    for (const group of groups) {
+      if (idx < group.length) {
+        balanced.push(group[idx])
+        added = true
+      }
+    }
+    idx++
+  }
+  return balanced
+}
+
 async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]> {
   const now = Date.now()
   if (!forceRefresh && cachedNews && (now - cacheTimestamp) < CACHE_TTL) {
@@ -170,9 +203,7 @@ async function getAllNews(forceRefresh: boolean = false): Promise<NewsItemRaw[]>
   const sourcesToFetch = Object.keys(RSS_URLS) as SourceKey[]
   const results = await Promise.all(sourcesToFetch.map(fetchSource))
 
-  let allNews = results
-    .flat()
-    .sort((a, b) => b.timestamp - a.timestamp)
+  let allNews = interleaveBySource(results.flat())
 
   const seen = new Set<string>()
   allNews = allNews.filter((item) => {
@@ -268,7 +299,13 @@ export async function GET(request: Request) {
   let allNews: NewsItemRaw[]
   if (requestedSources) {
     const results = await Promise.all(sourcesToFetch.map(fetchSource))
-    allNews = results.flat().sort((a, b) => b.timestamp - a.timestamp)
+    const seen = new Set<string>()
+    allNews = interleaveBySource(results.flat()).filter((item) => {
+      const key = item.headline.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   } else {
     allNews = await getAllNews(refresh)
   }
