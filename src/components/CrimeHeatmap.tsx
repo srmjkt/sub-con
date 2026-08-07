@@ -198,23 +198,22 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   function onEachFeature(feature: any, layer: any) {
     const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
 
-    layer.bindTooltip(
-      `<div><strong>${name}</strong><br/>${provinceCountMapRef.current[name] ? `${formatNumber(provinceCountMapRef.current[name].count)} crimes` : 'No data available'}</div>`,
-      { sticky: true, direction: 'top' }
-    );
+    // Bind an empty tooltip; content is refreshed on hover so it always reflects
+    // the latest data (which loads after the GeoJSON mounts).
+    layer.bindTooltip('', { sticky: true, direction: 'top' });
 
     layer.on({
       mouseover: () => {
         setHoveredProvince(name);
+        const data = provinceCountMapRef.current[name];
+        layer.setTooltipContent(
+          `<div><strong>${name}</strong><br/>${data ? `${formatNumber(data.count)} crimes` : 'No data available'}</div>`
+        );
         layer.openTooltip();
       },
       mouseout: () => {
         setHoveredProvince(null);
         layer.closeTooltip();
-      },
-      click: () => {
-        const data = provinceCountMapRef.current[name];
-        layer.bindPopup(`<strong>${name}</strong><br/>${data ? `${formatNumber(data.count)} crimes` : 'No data available'}`).openPopup();
       },
     });
   }
