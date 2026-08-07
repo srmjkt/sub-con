@@ -88,14 +88,19 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   const [backupRows, setBackupRows] = useState<any[]>([]);
   const [backupGeoJson, setBackupGeoJson] = useState<any | null>(null);
 
+  const rowsRef = useRef(rows);
+  const geoJsonRef = useRef(geoJson);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
+  useEffect(() => { geoJsonRef.current = geoJson; }, [geoJson]);
+
   useEffect(() => {
     setMapKey((k) => k + 1);
   }, [dataSource, year, viewLevel]);
 
   const handleProvinceClick = (provinceName: string) => {
     if (viewLevel !== 'country') return;
-    setBackupRows(rows);
-    setBackupGeoJson(geoJson);
+    setBackupRows(rowsRef.current);
+    setBackupGeoJson(geoJsonRef.current);
     setSelectedProvince(provinceName);
     setViewLevel('province');
     setHoveredProvince(null);
@@ -338,7 +343,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
             {viewLevel === 'province' && (
               <button
                 onClick={handleBack}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/10"
               >
                 ← Back to Indonesia
               </button>
