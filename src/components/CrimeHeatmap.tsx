@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GeoJSON, MapContainer, TileLayer } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchWithFilters } from '@/lib/pusiknas/client.fetchWithFilters';
+import { getProvinceCode, PROVINCE_COORDS } from '@/lib/indonesiaLocations';
 
 type DataSource = 'manual' | 'api' | 'scrape';
+type ViewLevel = 'country' | 'province';
 
 interface CrimeHeatmapProps {
   dataSource?: DataSource;
@@ -79,14 +81,76 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
   const [mapKey, setMapKey] = useState(0);
 
+  // Drill-down state
+  const [viewLevel, setViewLevel] = useState<ViewLevel>('country');
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const [regencyGeoJson, setRegencyGeoJson] = useState<any | null>(null);
+  const [backupRows, setBackupRows] = useState<any[]>([]);
+  const [backupGeoJson, setBackupGeoJson] = useState<any | null>(null);
+
   useEffect(() => {
     setMapKey((k) => k + 1);
-  }, [dataSource, year]);
+  }, [dataSource, year, viewLevel]);
+
+  const handleProvinceClick = (provinceName: string) => {
+    if (viewLevel !== 'country') return;
+    setBackupRows(rows);
+    setBackupGeoJson(geoJson);
+    setSelectedProvince(provinceName);
+    setViewLevel('province');
+    setHoveredProvince(null);
+    setMapKey((k) => k + 1);
+  };
+
+  const handleBack = () => {
+    setRows(backupRows);
+    setGeoJson(backupGeoJson);
+    setSelectedProvince(null);
+    setViewLevel('country');
+    setRegencyGeoJson(null);
+    setHoveredProvince(null);
+    setMapKey((k) => k + 1);
+  };
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+
+    if (viewLevel === 'province' && selectedProvince) {
+      const code = getProvinceCode(selectedProvince);
+      if (!code) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
+      Promise.all([
+        fetch(`/api/admin/crime-data?province=${encodeURIComponent(selectedProvince)}&year=${year}&level=regency`)
+          .then((res) => res.json()),
+        fetch(`/api/geojson/regencies?province=${code}`),
+      ])
+        .then(async ([dataRes, geoRes]) => {
+          if (cancelled) return;
+          const data = await geoRes.json();
+          const crimeData = dataRes.crimeData || [];
+          const mapped = crimeData.map((item: any) => ({
+            provinsi: item.city,
+            count: item.crimeCount,
+          }));
+          setRegencyGeoJson(data);
+          setRows(mapped);
+          setLoading(false);
+        })
+        .catch((e) => {
+          if (!cancelled) {
+            console.error('Regency data fetch error', e);
+            setError('Failed to load regency data.');
+            setLoading(false);
+          }
+        });
+
+      return;
+    }
 
     if (dataSource === 'manual') {
       fetch(`/api/admin/crime-data?year=${year}`)
@@ -141,7 +205,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     return () => {
       cancelled = true;
     };
-  }, [dataSource, year]);
+  }, [dataSource, year, viewLevel, selectedProvince]);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,8 +283,6 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   function onEachFeature(feature: any, layer: any) {
     const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
 
-    // Bind an empty tooltip; content is refreshed on hover so it always reflects
-    // the latest data (which loads after the GeoJSON mounts).
     layer.bindTooltip('', { sticky: true, direction: 'top' });
 
     layer.on({
@@ -238,8 +300,19 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         layer.closeTooltip();
         layer.getElement()?.classList.remove('crime-province-hover');
       },
+      click: () => {
+        if (viewLevel === 'country') {
+          handleProvinceClick(name);
+        }
+      },
     });
   }
+
+  const displayGeoJson = viewLevel === 'province' ? regencyGeoJson : geoJson;
+  const mapCenter: [number, number] = viewLevel === 'country'
+    ? [-2.5489, 118.0149]
+    : (PROVINCE_COORDS[selectedProvince || ''] || [-2.5489, 118.0149]);
+  const mapZoom = viewLevel === 'country' ? 5 : 7;
 
   return (
     <div className="crime-heatmap-wrapper p-6">
@@ -258,10 +331,20 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       />
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Pusiknas — Crime Heatmap
-          </h1>
-          <p className="text-sm text-slate-500 capitalize">{dataSource} data view</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">
+              {viewLevel === 'country' ? 'Pusiknas — Crime Heatmap' : `${selectedProvince} — Regency Heatmap`}
+            </h1>
+            {viewLevel === 'province' && (
+              <button
+                onClick={handleBack}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                ← Back to Indonesia
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-slate-500 capitalize">{dataSource} data view · {viewLevel === 'province' ? 'Regency / City' : 'Province'} level</p>
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-slate-600">Year:</label>
@@ -292,8 +375,8 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         )}
 
         <MapContainer
-          center={[-2.5489, 118.0149]}
-          zoom={5}
+          center={mapCenter}
+          zoom={mapZoom}
           style={{ height: '600px', width: '100%' }}
           scrollWheelZoom
         >
@@ -301,9 +384,9 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           />
-          {geoJson && (
+          {displayGeoJson && (
             <GeoJSON
-              data={geoJson}
+              data={displayGeoJson}
               style={geoJsonStyle}
               onEachFeature={onEachFeature}
             />
@@ -323,7 +406,11 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       </div>
 
       {heatData.length === 0 && !loading && (
-        <p className="mt-4 text-sm text-slate-600">No data available for the selected filters.</p>
+        <p className="mt-4 text-sm text-slate-600">
+          {viewLevel === 'province'
+            ? 'No regency-level data available for this province.'
+            : 'No data available for the selected filters.'}
+        </p>
       )}
     </div>
   );

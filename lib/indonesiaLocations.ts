@@ -662,6 +662,55 @@ const PROVINCE_ALIASES: Record<string, string> = {
   "polda papua barat daya": "Papua Barat Daya",
 };
 
+export const PROVINCE_CODES: Record<string, string> = {
+  "Aceh": "11",
+  "Sumatera Utara": "12",
+  "Sumatera Barat": "13",
+  "Riau": "14",
+  "Jambi": "15",
+  "Sumatera Selatan": "16",
+  "Bengkulu": "17",
+  "Lampung": "18",
+  "Kepulauan Bangka Belitung": "19",
+  "Kepulauan Riau": "21",
+  "DKI Jakarta": "31",
+  "Jawa Barat": "32",
+  "Jawa Tengah": "33",
+  "Daerah Istimewa Yogyakarta": "34",
+  "Jawa Timur": "35",
+  "Banten": "36",
+  "Bali": "51",
+  "Nusa Tenggara Barat": "52",
+  "Nusa Tenggara Timur": "53",
+  "Kalimantan Barat": "61",
+  "Kalimantan Tengah": "62",
+  "Kalimantan Selatan": "63",
+  "Kalimantan Timur": "64",
+  "Kalimantan Utara": "65",
+  "Sulawesi Utara": "71",
+  "Sulawesi Tengah": "72",
+  "Sulawesi Selatan": "73",
+  "Sulawesi Tenggara": "74",
+  "Gorontalo": "75",
+  "Sulawesi Barat": "76",
+  "Maluku": "81",
+  "Maluku Utara": "82",
+  "Papua Barat": "91",
+  "Papua Tengah": "92",
+  "Papua Selatan": "93",
+  "Papua": "94",
+  "Papua Pegunungan": "95",
+  "Papua Barat Daya": "96",
+};
+
+export function getProvinceCode(province: string): string | undefined {
+  return PROVINCE_CODES[province];
+}
+
+export function getProvinceByCode(code: string): string | undefined {
+  return Object.entries(PROVINCE_CODES).find(([, v]) => v === code)?.[0];
+}
+
 export function normalizeProvince(raw: string): string {
   if (!raw) return '';
   const trimmed = raw.trim();
