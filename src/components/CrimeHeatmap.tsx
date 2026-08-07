@@ -49,7 +49,6 @@ const SCRAPE_ROWS = [
 
 export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) {
   const [year, setYear] = useState('2026');
-  const [query, setQuery] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [geoJson, setGeoJson] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +58,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
   useEffect(() => {
     setMapKey((k) => k + 1);
-  }, [dataSource, year, query]);
+  }, [dataSource, year]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,7 +98,6 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
     fetchWithFilters({
       year: Number(year),
-      q: query.trim() || undefined,
       groupBy: 'province',
     })
       .then((data) => {
@@ -120,7 +118,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     return () => {
       cancelled = true;
     };
-  }, [dataSource, year, query]);
+  }, [dataSource, year]);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,16 +175,6 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   useEffect(() => {
     provinceCountMapRef.current = provinceCountMap;
   }, [provinceCountMap]);
-
-  const summary = useMemo(() => {
-    const totalCrimes = heatData.reduce((sum, item) => sum + item.count, 0);
-    const topProvince = [...heatData].sort((a, b) => b.count - a.count)[0];
-    return {
-      totalCrimes,
-      topProvince,
-      provincesWithData: heatData.length,
-    };
-  }, [heatData]);
 
   function geoJsonStyle(feature: any) {
     const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
@@ -255,45 +243,11 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         </div>
       </div>
 
-      <div className="mb-4 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
-        <label className="mb-2 block text-sm font-medium text-slate-600">Search filters</label>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search location / crime..."
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-400 focus:outline-none"
-          disabled={dataSource !== 'api'}
-        />
-      </div>
-
       {error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
         </div>
       )}
-
-      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-slate-800">Map insight</p>
-            <p className="text-xs text-slate-500">Hover or click a province for details</p>
-          </div>
-          <div className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-            {summary.provincesWithData} provinces
-          </div>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Total crimes</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.totalCrimes)}</p>
-          </div>
-          <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Top province</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">{summary.topProvince?.province || '—'}</p>
-          </div>
-        </div>
-      </div>
 
       <div key={mapKey} className="relative overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
         {loading && (
