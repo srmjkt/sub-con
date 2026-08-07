@@ -50,6 +50,13 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('id-ID').format(value);
 }
 
+function normalizeRegencyName(name: string): string {
+  return name
+    .replace(/^Kabupaten\s+/i, '')
+    .replace(/^Kota\s+/i, '')
+    .trim();
+}
+
 const MANUAL_ROWS = [
   { provinsi: 'DKI Jakarta', count: 1200 },
   { provinsi: 'Jawa Barat', count: 980 },
@@ -269,7 +276,8 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   }, [provinceCountMap]);
 
   function geoJsonStyle(feature: any) {
-    const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
+    const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
+    const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : rawName;
     const data = provinceCountMapRef.current[name];
     const intensity = data ? data.intensity : 0;
     const isHovered = hoveredProvince === name;
@@ -286,13 +294,14 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   }
 
   function onEachFeature(feature: any, layer: any) {
-    const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
+    const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
+    const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : rawName;
 
     layer.on({
       mouseover: () => {
         setHoveredProvince(name);
         const data = provinceCountMapRef.current[name];
-        const content = `<div><strong>${name}</strong><br/>${data ? `${formatNumber(data.count)} crimes` : 'No data available'}</div>`;
+        const content = `<div><strong>${rawName}</strong><br/>${data ? `${formatNumber(data.count)} crimes` : 'No data available'}</div>`;
         layer.bindTooltip(content, { sticky: true, direction: 'top' }).openTooltip();
         layer.getElement()?.classList.add('crime-province-hover');
       },
@@ -303,7 +312,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       },
       click: () => {
         if (viewLevel === 'country') {
-          handleProvinceClick(name);
+          handleProvinceClick(rawName);
         }
       },
     });
