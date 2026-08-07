@@ -114,15 +114,15 @@ export async function DELETE(req: Request) {
     const level = searchParams.get('level');
     const city = searchParams.get('city');
 
+    if (!province) {
+      return NextResponse.json({ error: 'Province is required' }, { status: 400 });
+    }
+
     if (level === 'regency' && city) {
       await prisma.regencyCrimeData.deleteMany({
         where: { province, city },
       });
       return NextResponse.json({ success: true });
-    }
-
-    if (!province) {
-      return NextResponse.json({ error: 'Province is required' }, { status: 400 });
     }
 
     await prisma.crimeData.delete({
