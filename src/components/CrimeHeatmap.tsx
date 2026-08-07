@@ -11,15 +11,38 @@ interface CrimeHeatmapProps {
   dataSource?: DataSource;
 }
 
-function getColor(intensity: number): string {
-  const clamped = Math.max(0, Math.min(1, intensity));
-  if (clamped < 0.15) return '#f7fcb9';
-  if (clamped < 0.3) return '#d9f0a3';
-  if (clamped < 0.5) return '#addd8e';
-  if (clamped < 0.7) return '#41b6c4';
-  if (clamped < 0.85) return '#2c7fb8';
-  return '#253494';
+// Continuous heat palette (YlOrRd) interpolated for a smooth "heat" look.
+const HEAT_STOPS: { t: number; c: [number, number, number] }[] = [
+  { t: 0.0, c: [255, 255, 178] },
+  { t: 0.25, c: [254, 217, 118] },
+  { t: 0.5, c: [254, 153, 41] },
+  { t: 0.75, c: [240, 59, 32] },
+  { t: 1.0, c: [189, 0, 38] },
+];
+
+function interpolateColor(stops: { t: number; c: [number, number, number] }[], tRaw: number): string {
+  const t = Math.max(0, Math.min(1, tRaw));
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = stops[i];
+    const b = stops[i + 1];
+    if (t >= a.t && t <= b.t) {
+      const local = (t - a.t) / (b.t - a.t || 1);
+      const r = Math.round(a.c[0] + (b.c[0] - a.c[0]) * local);
+      const g = Math.round(a.c[1] + (b.c[1] - a.c[1]) * local);
+      const bl = Math.round(a.c[2] + (b.c[2] - a.c[2]) * local);
+      return `rgb(${r}, ${g}, ${bl})`;
+    }
+  }
+  const last = stops[stops.length - 1].c;
+  return `rgb(${last[0]}, ${last[1]}, ${last[2]})`;
 }
+
+function getColor(intensity: number): string {
+  return interpolateColor(HEAT_STOPS, intensity);
+}
+
+const HEAT_GRADIENT =
+  'linear-gradient(to right, rgb(255,255,178), rgb(254,217,118), rgb(254,153,41), rgb(240,59,32), rgb(189,0,38))';
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('id-ID').format(value);
@@ -182,16 +205,14 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     const intensity = data ? data.intensity : 0;
     const isHovered = hoveredProvince === name;
     const hasData = Boolean(data);
-    const fillOpacity = hasData ? 0.82 : 0.12;
-    const weight = isHovered ? 2.5 : 1.2;
-    const borderColor = isHovered ? '#fbbf24' : '#374151';
 
     return {
+      className: 'crime-province-path',
       fillColor: getColor(intensity),
-      weight,
+      weight: isHovered ? 3 : 1,
       opacity: 0.95,
-      color: borderColor,
-      fillOpacity,
+      color: isHovered ? '#fbbf24' : 'rgba(255,255,255,0.45)',
+      fillOpacity: hasData ? (isHovered ? 0.95 : 0.8) : (isHovered ? 0.25 : 0.12),
     };
   }
 
@@ -210,16 +231,31 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           `<div><strong>${name}</strong><br/>${data ? `${formatNumber(data.count)} crimes` : 'No data available'}</div>`
         );
         layer.openTooltip();
+        layer.getElement()?.classList.add('crime-province-hover');
       },
       mouseout: () => {
         setHoveredProvince(null);
         layer.closeTooltip();
+        layer.getElement()?.classList.remove('crime-province-hover');
       },
     });
   }
 
   return (
-    <div className="p-6">
+    <div className="crime-heatmap-wrapper p-6">
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+          .crime-heatmap-wrapper .leaflet-interactive {
+            transition: fill 0.35s ease, fill-opacity 0.35s ease, stroke 0.35s ease, stroke-width 0.35s ease, filter 0.35s ease;
+            cursor: pointer;
+          }
+          .crime-heatmap-wrapper .crime-province-hover {
+            filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.95));
+          }
+        `,
+        }}
+      />
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
@@ -277,15 +313,10 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
       <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
         <span className="font-semibold text-slate-700">Legend</span>
-        <div className="flex items-center gap-1">
-          {[0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => (
-            <div
-              key={t}
-              className="h-3 w-6 rounded-sm"
-              style={{ backgroundColor: getColor(t) }}
-            />
-          ))}
-        </div>
+        <div
+          className="h-3 w-40 rounded-sm"
+          style={{ background: HEAT_GRADIENT }}
+        />
         <span>Lower intensity</span>
         <span className="text-slate-400">•</span>
         <span>Higher intensity</span>
