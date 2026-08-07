@@ -288,16 +288,12 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   function onEachFeature(feature: any, layer: any) {
     const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
 
-    layer.bindTooltip('', { sticky: true, direction: 'top' });
-
     layer.on({
       mouseover: () => {
         setHoveredProvince(name);
         const data = provinceCountMapRef.current[name];
-        layer.setTooltipContent(
-          `<div><strong>${name}</strong><br/>${data ? `${formatNumber(data.count)} crimes` : 'No data available'}</div>`
-        );
-        layer.openTooltip();
+        const content = `<div><strong>${name}</strong><br/>${data ? `${formatNumber(data.count)} crimes` : 'No data available'}</div>`;
+        layer.bindTooltip(content, { sticky: true, direction: 'top' }).openTooltip();
         layer.getElement()?.classList.add('crime-province-hover');
       },
       mouseout: () => {
@@ -343,7 +339,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
             {viewLevel === 'province' && (
               <button
                 onClick={handleBack}
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/10"
+                className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-400/20"
               >
                 ← Back to Indonesia
               </button>
@@ -357,7 +353,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
             value={year}
             onChange={(e) => setYear(e.target.value)}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none"
-            disabled={dataSource !== 'api'}
+            disabled={dataSource === 'scrape'}
           >
             <option value="2026">2026</option>
             <option value="2025">2025</option>
