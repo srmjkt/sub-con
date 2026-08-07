@@ -13,13 +13,12 @@ interface CrimeHeatmapProps {
 
 function getColor(intensity: number): string {
   const clamped = Math.max(0, Math.min(1, intensity));
-  if (clamped < 0.2) return '#ffffcc';
-  if (clamped < 0.4) return '#ffeda0';
-  if (clamped < 0.6) return '#fed976';
-  if (clamped < 0.7) return '#feb24c';
-  if (clamped < 0.8) return '#fd8d3c';
-  if (clamped < 0.9) return '#fc4e2a';
-  return '#bd0026';
+  if (clamped < 0.15) return '#f7fcb9';
+  if (clamped < 0.3) return '#d9f0a3';
+  if (clamped < 0.5) return '#addd8e';
+  if (clamped < 0.7) return '#41b6c4';
+  if (clamped < 0.85) return '#2c7fb8';
+  return '#253494';
 }
 
 function formatNumber(value: number): string {
@@ -56,7 +55,6 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [mapKey, setMapKey] = useState(0);
 
   useEffect(() => {
@@ -180,16 +178,6 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     provinceCountMapRef.current = provinceCountMap;
   }, [provinceCountMap]);
 
-  useEffect(() => {
-    if (heatData.length > 0 && !selectedProvince) {
-      setSelectedProvince(heatData[0].province);
-    }
-
-    if (selectedProvince && !provinceCountMap[selectedProvince]) {
-      setSelectedProvince(null);
-    }
-  }, [heatData, provinceCountMap, selectedProvince]);
-
   const summary = useMemo(() => {
     const totalCrimes = heatData.reduce((sum, item) => sum + item.count, 0);
     const topProvince = [...heatData].sort((a, b) => b.count - a.count)[0];
@@ -200,27 +188,20 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     };
   }, [heatData]);
 
-  const selectedProvinceData = selectedProvince ? provinceCountMap[selectedProvince] : null;
-
-  const topProvinces = useMemo(() => {
-    return [...heatData].sort((a, b) => b.count - a.count).slice(0, 6);
-  }, [heatData]);
-
   function geoJsonStyle(feature: any) {
     const name = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
     const data = provinceCountMapRef.current[name];
     const intensity = data ? data.intensity : 0;
     const isHovered = hoveredProvince === name;
-    const isSelected = selectedProvince === name;
     const hasData = Boolean(data);
-    const fillOpacity = isSelected ? 0.95 : hasData ? 0.72 : 0.12;
-    const weight = isSelected ? 3 : isHovered ? 2 : 1;
-    const borderColor = isSelected ? '#f8fafc' : isHovered ? '#fde68a' : '#4b5563';
+    const fillOpacity = hasData ? 0.82 : 0.12;
+    const weight = isHovered ? 2.5 : 1.2;
+    const borderColor = isHovered ? '#fbbf24' : '#374151';
 
     return {
       fillColor: getColor(intensity),
       weight,
-      opacity: 0.9,
+      opacity: 0.95,
       color: borderColor,
       fillOpacity,
     };
@@ -244,7 +225,6 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         layer.closeTooltip();
       },
       click: () => {
-        setSelectedProvince(name);
         const data = provinceCountMapRef.current[name];
         layer.bindPopup(`<strong>${name}</strong><br/>${data ? `${formatNumber(data.count)} crimes` : 'No data available'}`).openPopup();
       },
@@ -275,32 +255,15 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         </div>
       </div>
 
-      <div className="mb-4 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
-          <label className="mb-2 block text-sm font-medium text-slate-600">Search filters</label>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search location / crime..."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-400 focus:outline-none"
-            disabled={dataSource !== 'api'}
-          />
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-slate-900 p-3 text-white shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-300">Focused province</p>
-              <p className="text-lg font-semibold">{selectedProvince || 'No selection'}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSelectedProvince(null)}
-              className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-slate-100 transition hover:bg-white/10"
-            >
-              Reset
-            </button>
-          </div>
-        </div>
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
+        <label className="mb-2 block text-sm font-medium text-slate-600">Search filters</label>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search location / crime..."
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-400 focus:outline-none"
+          disabled={dataSource !== 'api'}
+        />
       </div>
 
       {error && (
@@ -309,60 +272,26 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         </div>
       )}
 
-      <div className="mb-4 grid gap-3 xl:grid-cols-[1.3fr_0.7fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-slate-800">Live insight</p>
-              <p className="text-xs text-slate-500">Hover or click a province for details</p>
-            </div>
-            <div className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-              {summary.provincesWithData} provinces
-            </div>
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Map insight</p>
+            <p className="text-xs text-slate-500">Hover or click a province for details</p>
           </div>
-
-          <div className="grid gap-2 sm:grid-cols-3">
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Total crimes</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.totalCrimes)}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Top province</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{summary.topProvince?.province || '—'}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Selected</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{selectedProvinceData ? formatNumber(selectedProvinceData.count) : '—'}</p>
-            </div>
+          <div className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+            {summary.provincesWithData} provinces
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-800">Top provinces</p>
-            <p className="text-xs text-slate-500">Tap to focus</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-400">Total crimes</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.totalCrimes)}</p>
           </div>
-          <ul className="space-y-2">
-            {topProvinces.map((item) => {
-              const isActive = selectedProvince === item.province;
-              return (
-                <li key={item.province}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProvince(item.province)}
-                    className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition ${
-                      isActive
-                        ? 'border-cyan-400 bg-cyan-50 text-cyan-800'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="font-medium">{item.province}</span>
-                    <span className="text-xs">{formatNumber(item.count)}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-400">Top province</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{summary.topProvince?.province || '—'}</p>
+          </div>
         </div>
       </div>
 
