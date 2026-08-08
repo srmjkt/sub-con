@@ -13,13 +13,13 @@ interface CrimeHeatmapProps {
   dataSource?: DataSource;
 }
 
-// Continuous heat palette (YlOrRd) interpolated for a smooth "heat" look.
+// Continuous heat palette (green → yellow → red) interpolated for a smooth "heat" look.
 const HEAT_STOPS: { t: number; c: [number, number, number] }[] = [
-  { t: 0.0, c: [255, 255, 178] },
-  { t: 0.25, c: [254, 217, 118] },
-  { t: 0.5, c: [254, 153, 41] },
-  { t: 0.75, c: [240, 59, 32] },
-  { t: 1.0, c: [189, 0, 38] },
+  { t: 0.0, c: [34, 197, 94] },
+  { t: 0.25, c: [134, 239, 172] },
+  { t: 0.5, c: [253, 224, 71] },
+  { t: 0.75, c: [249, 115, 22] },
+  { t: 1.0, c: [220, 38, 38] },
 ];
 
 function interpolateColor(stops: { t: number; c: [number, number, number] }[], tRaw: number): string {
@@ -44,7 +44,7 @@ function getColor(intensity: number): string {
 }
 
 const HEAT_GRADIENT =
-  'linear-gradient(to right, rgb(255,255,178), rgb(254,217,118), rgb(254,153,41), rgb(240,59,32), rgb(189,0,38))';
+  'linear-gradient(to right, rgb(34,197,94), rgb(134,239,172), rgb(253,224,71), rgb(249,115,22), rgb(220,38,38))';
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('id-ID').format(value);
