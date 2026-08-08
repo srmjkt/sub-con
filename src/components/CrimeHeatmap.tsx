@@ -279,9 +279,9 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
     const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : rawName;
     const data = provinceCountMapRef.current[name];
+    const count = data ? data.count : 0;
     const intensity = data ? data.intensity : 0;
     const isHovered = hoveredProvince === name;
-    const hasData = Boolean(data);
 
     return {
       className: 'crime-province-path',
@@ -289,7 +289,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       weight: isHovered ? 3 : 1,
       opacity: 0.95,
       color: isHovered ? '#fbbf24' : 'rgba(255,255,255,0.45)',
-      fillOpacity: hasData ? (isHovered ? 0.95 : 0.8) : (isHovered ? 0.25 : 0.12),
+      fillOpacity: isHovered ? 0.95 : 0.8,
     };
   }
 
@@ -301,7 +301,8 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       mouseover: () => {
         setHoveredProvince(name);
         const data = provinceCountMapRef.current[name];
-        const content = `<div><strong>${rawName}</strong><br/>${data ? `${formatNumber(data.count)} crimes` : 'No data available'}</div>`;
+        const count = data ? data.count : 0;
+        const content = `<div><strong>${rawName}</strong><br/>${formatNumber(count)} crimes</div>`;
         layer.bindTooltip(content, { sticky: true, direction: 'top' }).openTooltip();
         layer.getElement()?.classList.add('crime-province-hover');
       },
