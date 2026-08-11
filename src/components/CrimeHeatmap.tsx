@@ -57,6 +57,14 @@ function normalizeRegencyName(name: string): string {
     .trim();
 }
 
+function normalizeDistrictName(name: string): string {
+  return name
+    .replace(/^Kecamatan\s+/i, '')
+    .replace(/^Kec\.\s+/i, '')
+    .replace(/^Kec\s+/i, '')
+    .trim();
+}
+
 const MANUAL_ROWS = [
   { provinsi: 'DKI Jakarta', count: 1200 },
   { provinsi: 'Jawa Barat', count: 980 },
@@ -342,7 +350,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
   function geoJsonStyle(feature: any) {
     const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
-    const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : rawName;
+    const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : viewLevel === 'district' ? normalizeDistrictName(rawName) : rawName;
     const data = provinceCountMapRef.current[name];
     const count = data ? data.count : 0;
     const intensity = data ? data.intensity : 0;
@@ -360,7 +368,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
   function onEachFeature(feature: any, layer: any) {
     const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
-    const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : viewLevel === 'district' ? rawName : rawName;
+    const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : viewLevel === 'district' ? normalizeDistrictName(rawName) : rawName;
 
     layer.on({
       mouseover: () => {
@@ -392,7 +400,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     : viewLevel === 'province'
       ? (PROVINCE_COORDS[selectedProvince || ''] || [-2.5489, 118.0149])
       : (PROVINCE_COORDS[selectedProvince || ''] || [-2.5489, 118.0149]);
-  const mapZoom = viewLevel === 'country' ? 5 : viewLevel === 'province' ? 7 : 9;
+  const mapZoom = viewLevel === 'country' ? 5 : viewLevel === 'province' ? 7 : 10;
 
   return (
     <div className="crime-heatmap-wrapper p-6">
