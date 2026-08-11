@@ -380,7 +380,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         if (viewLevel === 'country') {
           handleProvinceClick(rawName);
         } else if (viewLevel === 'province') {
-          handleProvinceClick(rawName);
+          handleProvinceClick(name);
         }
       },
     });
