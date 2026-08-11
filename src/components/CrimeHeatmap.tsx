@@ -164,11 +164,16 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       Promise.all([
         fetch(`/api/admin/crime-data?province=${encodeURIComponent(selectedProvince)}&city=${encodeURIComponent(selectedCity)}&year=${year}&level=district`)
           .then((res) => res.json()),
-        fetch(`/api/geojson/districts?province=${code}&city=${encodeURIComponent(selectedCity)}`),
+        fetch(`/api/geojson/districts?province=${code}&city=${encodeURIComponent(selectedCity)}`).then(async (geoRes) => {
+          if (!geoRes.ok) {
+            const text = await geoRes.text();
+            throw new Error(`District GeoJSON failed: ${geoRes.status} ${text}`);
+          }
+          return geoRes.json();
+        }),
       ])
-        .then(async ([dataRes, geoRes]) => {
+        .then(async ([dataRes, data]) => {
           if (cancelled) return;
-          const data = await geoRes.json();
           const crimeData = dataRes.crimeData || [];
           const mapped = crimeData.map((item: any) => ({
             provinsi: item.district,

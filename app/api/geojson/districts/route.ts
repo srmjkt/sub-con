@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getProvinceByCode } from '@/lib/indonesiaLocations';
 
 const BASE_URL = 'https://raw.githubusercontent.com/JfrAziz/indonesia-district/master';
 
@@ -11,7 +12,7 @@ async function getJson(url: string) {
   return res.json();
 }
 
-function normalizeCityForFolder(name: string): string {
+function normalizeForFolder(name: string): string {
   return name
     .toLowerCase()
     .replace(/^kota\s+/i, '')
@@ -30,21 +31,32 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'province and city are required' }, { status: 400 });
     }
 
-    const provinceSlug = `id${provinceCode}`;
-    const citySlug = `id${provinceCode}${String(Math.floor(Math.random() * 90) + 10).padStart(2, '0')}_${normalizeCityForFolder(city)}`;
+    const provinceName = getProvinceByCode(provinceCode);
+    if (!provinceName) {
+      return NextResponse.json({ error: 'Invalid province code' }, { status: 400 });
+    }
+
+    const provinceSlug = `id${provinceCode}_${normalizeForFolder(provinceName)}`;
+    const cityNormalized = normalizeForFolder(city);
 
     const provinceContents = await getJson(`${BASE_URL}/${provinceSlug}`);
-    const cityDir = provinceContents.find((item: any) => item.type === 'dir' && item.name.startsWith(citySlug));
+    const cityDir = (Array.isArray(provinceContents) ? provinceContents : [])
+      .filter((item: any) => item.type === 'dir')
+      .find((item: any) => item.name.endsWith(`_${cityNormalized}`));
 
     if (!cityDir) {
-      return NextResponse.json({ error: 'City not found' }, { status: 404 });
+      return NextResponse.json({ error: 'City not found', provinceSlug, cityNormalized }, { status: 404 });
     }
 
     const files = await getJson(cityDir.url);
-    const geojsonFiles = files.filter((f: any) => f.type === 'file' && f.name.endsWith('.geojson'));
+    const geojsonFiles = (Array.isArray(files) ? files : []).filter((f: any) => f.type === 'file' && f.name.endsWith('.geojson'));
 
     const features = await Promise.all(
-      geojsonFiles.map((f: any) => getJson(f.download_url).then((data: any) => data.features ?? []))
+      geojsonFiles.map((f: any) =>
+        getJson(f.download_url)
+          .then((data: any) => Array.isArray(data.features) ? data.features : [])
+          .catch(() => []),
+      ),
     );
 
     const flattened = features.flat();
