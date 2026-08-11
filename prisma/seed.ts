@@ -90,6 +90,21 @@ async function main() {
           create: { province, city: city.city, crimeCount, year },
         })
       }
+
+      const districts = city.districts
+      const districtCount = districts.length
+      for (const district of districts) {
+        const districtBase = Math.floor(base / districtCount)
+        const districtCrimeCount = Math.floor(districtBase * (0.5 + Math.random()))
+        for (const year of [2024, 2025, 2026]) {
+          await prisma.districtCrimeData.upsert({
+            where: { province_city_district_year: { province, city: city.city, district, year } },
+            update: { crimeCount: districtCrimeCount },
+            create: { province, city: city.city, district, crimeCount: districtCrimeCount, year },
+          })
+        }
+      }
+      console.log(`✅ District crime data seeded: ${province} - ${city.city} (${districtCount} districts)`)
     }
     console.log(`✅ Regency crime data seeded: ${province} (${cityCount} cities)`)
   }

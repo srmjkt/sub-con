@@ -7,7 +7,7 @@ import { fetchWithFilters } from '@/lib/pusiknas/client.fetchWithFilters';
 import { getProvinceCode, PROVINCE_COORDS } from '@/lib/indonesiaLocations';
 
 type DataSource = 'manual' | 'api' | 'scrape';
-type ViewLevel = 'country' | 'province';
+type ViewLevel = 'country' | 'province' | 'district';
 
 interface CrimeHeatmapProps {
   dataSource?: DataSource;
@@ -91,9 +91,13 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   // Drill-down state
   const [viewLevel, setViewLevel] = useState<ViewLevel>('country');
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [regencyGeoJson, setRegencyGeoJson] = useState<any | null>(null);
+  const [districtGeoJson, setDistrictGeoJson] = useState<any | null>(null);
   const [backupRows, setBackupRows] = useState<any[]>([]);
   const [backupGeoJson, setBackupGeoJson] = useState<any | null>(null);
+  const [backupRegencyRows, setBackupRegencyRows] = useState<any[]>([]);
+  const [backupRegencyGeoJson, setBackupRegencyGeoJson] = useState<any | null>(null);
 
   const rowsRef = useRef(rows);
   const geoJsonRef = useRef(geoJson);
@@ -104,22 +108,43 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     setMapKey((k) => k + 1);
   }, [dataSource, year, viewLevel]);
 
-  const handleProvinceClick = (provinceName: string) => {
-    if (viewLevel !== 'country') return;
-    setBackupRows(rowsRef.current);
-    setBackupGeoJson(geoJsonRef.current);
-    setSelectedProvince(provinceName);
-    setViewLevel('province');
-    setHoveredProvince(null);
-    setMapKey((k) => k + 1);
+  const handleProvinceClick = (name: string) => {
+    if (viewLevel === 'country') {
+      setBackupRows(rowsRef.current);
+      setBackupGeoJson(geoJsonRef.current);
+      setSelectedProvince(name);
+      setViewLevel('province');
+      setHoveredProvince(null);
+      setMapKey((k) => k + 1);
+    } else if (viewLevel === 'province') {
+      setBackupRegencyRows(rows);
+      setBackupRegencyGeoJson(regencyGeoJson);
+      setSelectedCity(name);
+      setViewLevel('district');
+      setHoveredProvince(null);
+      setMapKey((k) => k + 1);
+    }
   };
 
   const handleBack = () => {
+    if (viewLevel === 'district') {
+      setRows(backupRegencyRows);
+      setGeoJson(backupRegencyGeoJson);
+      setSelectedCity(null);
+      setViewLevel('province');
+      setDistrictGeoJson(null);
+      setHoveredProvince(null);
+      setMapKey((k) => k + 1);
+      return;
+    }
+
     setRows(backupRows);
     setGeoJson(backupGeoJson);
     setSelectedProvince(null);
+    setSelectedCity(null);
     setViewLevel('country');
     setRegencyGeoJson(null);
+    setDistrictGeoJson(null);
     setHoveredProvince(null);
     setMapKey((k) => k + 1);
   };
@@ -128,6 +153,41 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     let cancelled = false;
     setLoading(true);
     setError(null);
+
+    if (viewLevel === 'district' && selectedProvince && selectedCity) {
+      const code = getProvinceCode(selectedProvince);
+      if (!code) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
+      Promise.all([
+        fetch(`/api/admin/crime-data?province=${encodeURIComponent(selectedProvince)}&city=${encodeURIComponent(selectedCity)}&year=${year}&level=district`)
+          .then((res) => res.json()),
+        fetch(`/api/geojson/districts?province=${code}&city=${encodeURIComponent(selectedCity)}`),
+      ])
+        .then(async ([dataRes, geoRes]) => {
+          if (cancelled) return;
+          const data = await geoRes.json();
+          const crimeData = dataRes.crimeData || [];
+          const mapped = crimeData.map((item: any) => ({
+            provinsi: item.district,
+            count: item.crimeCount,
+          }));
+          setDistrictGeoJson(data);
+          setRows(mapped);
+          setLoading(false);
+        })
+        .catch((e) => {
+          if (!cancelled) {
+            console.error('District data fetch error', e);
+            setError('Failed to load district data.');
+            setLoading(false);
+          }
+        });
+
+      return;
+    }
 
     if (viewLevel === 'province' && selectedProvince) {
       const code = getProvinceCode(selectedProvince);
@@ -217,7 +277,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     return () => {
       cancelled = true;
     };
-  }, [dataSource, year, viewLevel, selectedProvince]);
+  }, [dataSource, year, viewLevel, selectedProvince, selectedCity]);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,7 +355,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
   function onEachFeature(feature: any, layer: any) {
     const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
-    const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : rawName;
+    const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : viewLevel === 'district' ? rawName : rawName;
 
     layer.on({
       mouseover: () => {
@@ -314,16 +374,20 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       click: () => {
         if (viewLevel === 'country') {
           handleProvinceClick(rawName);
+        } else if (viewLevel === 'province') {
+          handleProvinceClick(rawName);
         }
       },
     });
   }
 
-  const displayGeoJson = viewLevel === 'province' ? regencyGeoJson : geoJson;
+  const displayGeoJson = viewLevel === 'district' ? districtGeoJson : viewLevel === 'province' ? regencyGeoJson : geoJson;
   const mapCenter: [number, number] = viewLevel === 'country'
     ? [-2.5489, 118.0149]
-    : (PROVINCE_COORDS[selectedProvince || ''] || [-2.5489, 118.0149]);
-  const mapZoom = viewLevel === 'country' ? 5 : 7;
+    : viewLevel === 'province'
+      ? (PROVINCE_COORDS[selectedProvince || ''] || [-2.5489, 118.0149])
+      : (PROVINCE_COORDS[selectedProvince || ''] || [-2.5489, 118.0149]);
+  const mapZoom = viewLevel === 'country' ? 5 : viewLevel === 'province' ? 7 : 9;
 
   return (
     <div className="crime-heatmap-wrapper p-6">
@@ -344,18 +408,18 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-slate-900">
-              {viewLevel === 'country' ? 'Pusiknas — Crime Heatmap' : `${selectedProvince} — Regency Heatmap`}
+              {viewLevel === 'country' ? 'Pusiknas — Crime Heatmap' : viewLevel === 'province' ? `${selectedProvince} — Regency Heatmap` : `${selectedCity} — District Heatmap`}
             </h1>
-            {viewLevel === 'province' && (
+            {viewLevel !== 'country' && (
               <button
                 onClick={handleBack}
                 className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-400/20"
               >
-                ← Back to Indonesia
+                ← Back
               </button>
             )}
           </div>
-          <p className="text-sm text-slate-500 capitalize">{dataSource} data view · {viewLevel === 'province' ? 'Regency / City' : 'Province'} level</p>
+          <p className="text-sm text-slate-500 capitalize">{dataSource} data view · {viewLevel === 'province' ? 'Regency / City' : viewLevel === 'district' ? 'District / Kecamatan' : 'Province'} level</p>
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-slate-600">Year:</label>
@@ -420,7 +484,9 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         <p className="mt-4 text-sm text-slate-600">
           {viewLevel === 'province'
             ? 'No regency-level data available for this province.'
-            : 'No data available for the selected filters.'}
+            : viewLevel === 'district'
+              ? 'No district-level data available for this city.'
+              : 'No data available for the selected filters.'}
         </p>
       )}
     </div>

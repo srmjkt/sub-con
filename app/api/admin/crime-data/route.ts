@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: Fetch crime data, optionally filtered by year/level/city
+// GET: Fetch crime data, optionally filtered by year/level/city/district
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -9,6 +9,17 @@ export async function GET(req: Request) {
     const level = url.searchParams.get('level');
     const province = url.searchParams.get('province');
     const city = url.searchParams.get('city');
+
+    if (level === 'district' && province && city) {
+      const where: any = { province, city };
+      if (year) where.year = Number(year);
+
+      const data = await prisma.districtCrimeData.findMany({
+        where,
+        orderBy: { district: 'asc' },
+      });
+      return NextResponse.json({ crimeData: data });
+    }
 
     if (level === 'regency') {
       const where: any = {};
@@ -46,10 +57,38 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { province, crimeCount, year, notes, updatedById, level, city } = body;
+    const { province, crimeCount, year, notes, updatedById, level, city, district } = body;
 
     if (!province) {
       return NextResponse.json({ error: 'Province is required' }, { status: 400 });
+    }
+
+    if (level === 'district' && city && district) {
+      const data = await prisma.districtCrimeData.upsert({
+        where: {
+          province_city_district_year: {
+            province,
+            city,
+            district,
+            year: Number(year) || new Date().getFullYear(),
+          },
+        },
+        update: {
+          crimeCount: Number(crimeCount) || 0,
+          notes: notes || null,
+          updatedById: updatedById || null,
+        },
+        create: {
+          province,
+          city,
+          district,
+          crimeCount: Number(crimeCount) || 0,
+          year: Number(year) || new Date().getFullYear(),
+          notes: notes || null,
+          updatedById: updatedById || null,
+        },
+      });
+      return NextResponse.json({ crimeData: data });
     }
 
     if (level === 'regency') {
@@ -113,9 +152,17 @@ export async function DELETE(req: Request) {
     const province = searchParams.get('province');
     const level = searchParams.get('level');
     const city = searchParams.get('city');
+    const district = searchParams.get('district');
 
     if (!province) {
       return NextResponse.json({ error: 'Province is required' }, { status: 400 });
+    }
+
+    if (level === 'district' && city && district) {
+      await prisma.districtCrimeData.deleteMany({
+        where: { province, city, district },
+      });
+      return NextResponse.json({ success: true });
     }
 
     if (level === 'regency' && city) {

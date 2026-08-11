@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Sidebar } from "@/components/Sidebar";
-import { getCities, getProvinceCode } from "@/lib/indonesiaLocations";
+import { getCities, getDistricts, getProvinceCode } from "@/lib/indonesiaLocations";
 
 const ALL_PROVINCES = [
   "Aceh", "Sumatera Utara", "Sumatera Barat", "Riau", "Kepulauan Riau",
@@ -39,27 +39,42 @@ interface RegencyCrimeDataItem {
   updatedAt: string;
 }
 
-type Tab = "province" | "regency";
+interface DistrictCrimeDataItem {
+  id: string;
+  province: string;
+  city: string;
+  district: string;
+  crimeCount: number;
+  year: number;
+  notes: string | null;
+  updatedAt: string;
+}
+
+type Tab = "province" | "regency" | "district";
 
 export default function CrimeDataPage() {
   const { user, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<Tab>("province");
   const [provinceData, setProvinceData] = useState<CrimeDataItem[]>([]);
   const [regencyData, setRegencyData] = useState<RegencyCrimeDataItem[]>([]);
+  const [districtData, setDistrictData] = useState<DistrictCrimeDataItem[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState("2026");
   const [selectedProvince, setSelectedProvince] = useState("Jawa Barat");
+  const [selectedCity, setSelectedCity] = useState("Bandung");
 
   const [provinceFormData, setProvinceFormData] = useState<Record<string, { crimeCount: string; notes: string; year: string }>>({});
   const [regencyFormData, setRegencyFormData] = useState<Record<string, { crimeCount: string; notes: string; year: string }>>({});
+  const [districtFormData, setDistrictFormData] = useState<Record<string, { crimeCount: string; notes: string; year: string }>>({});
 
   useEffect(() => {
     if (!authLoading && user && user.role === "ADMIN") {
       fetchProvinceData();
       fetchRegencyData();
+      fetchDistrictData();
     }
   }, [authLoading, user]);
 
@@ -92,6 +107,21 @@ export default function CrimeDataPage() {
     }
   }, [tab, regencyData, selectedYear]);
 
+  useEffect(() => {
+    if (tab === "district") {
+      const formMap: Record<string, { crimeCount: string; notes: string; year: string }> = {};
+      districtData.forEach((item) => {
+        const key = `${item.province}__${item.city}__${item.district}`;
+        formMap[key] = {
+          crimeCount: String(item.crimeCount),
+          notes: item.notes || "",
+          year: String(item.year),
+        };
+      });
+      setDistrictFormData(formMap);
+    }
+  }, [tab, districtData, selectedYear]);
+
   async function fetchProvinceData() {
     try {
       setLoadingData(true);
@@ -112,6 +142,17 @@ export default function CrimeDataPage() {
       if (!res.ok) throw new Error("Failed to fetch regency data");
       const data = await res.json();
       setRegencyData(data.crimeData || []);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
+  async function fetchDistrictData() {
+    try {
+      const res = await fetch(`/api/admin/crime-data?province=${encodeURIComponent(selectedProvince)}&city=${encodeURIComponent(selectedCity)}&year=${selectedYear}&level=district`);
+      if (!res.ok) throw new Error("Failed to fetch district data");
+      const data = await res.json();
+      setDistrictData(data.crimeData || []);
     } catch (e: any) {
       setError(e.message);
     }
@@ -218,6 +259,59 @@ export default function CrimeDataPage() {
     }
   }
 
+  async function handleSaveDistrict(district: string) {
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+
+      const key = `${selectedProvince}__${selectedCity}__${district}`;
+      const data = districtFormData[key] || { crimeCount: "0", notes: "" };
+
+      const res = await fetch("/api/admin/crime-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          province: selectedProvince,
+          city: selectedCity,
+          district,
+          crimeCount: Number(data.crimeCount) || 0,
+          year: Number(selectedYear),
+          level: "district",
+          notes: data.notes || null,
+          updatedById: user?.id,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to save district data");
+      setSuccess(`Data for ${district} saved successfully`);
+      setTimeout(() => setSuccess(null), 3000);
+      await fetchDistrictData();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteDistrict(district: string) {
+    if (!confirm(`Delete crime data for ${district}?`)) return;
+    try {
+      setSaving(true);
+      const res = await fetch(`/api/admin/crime-data?province=${encodeURIComponent(selectedProvince)}&city=${encodeURIComponent(selectedCity)}&district=${encodeURIComponent(district)}&level=district`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete district data");
+      setSuccess(`Data for ${district} deleted`);
+      setTimeout(() => setSuccess(null), 3000);
+      await fetchDistrictData();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function handleProvinceInputChange(province: string, field: "crimeCount" | "notes" | "year", value: string) {
     setProvinceFormData((prev) => ({
       ...prev,
@@ -233,6 +327,21 @@ export default function CrimeDataPage() {
   function handleRegencyInputChange(city: string, field: "crimeCount" | "notes" | "year", value: string) {
     setRegencyFormData((prev) => {
       const key = `${selectedProvince}__${city}`;
+      return {
+        ...prev,
+        [key]: {
+          crimeCount: prev[key]?.crimeCount || "0",
+          notes: prev[key]?.notes || "",
+          year: prev[key]?.year || selectedYear,
+          [field]: value,
+        },
+      };
+    });
+  }
+
+  function handleDistrictInputChange(district: string, field: "crimeCount" | "notes" | "year", value: string) {
+    setDistrictFormData((prev) => {
+      const key = `${selectedProvince}__${selectedCity}__${district}`;
       return {
         ...prev,
         [key]: {
@@ -317,6 +426,15 @@ export default function CrimeDataPage() {
               }`}
             >
               Regency / City
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("district")}
+              className={`px-4 py-2 text-sm font-medium ${
+                tab === "district" ? "bg-cyan-400/20 text-cyan-100" : "bg-white/5 text-slate-400 hover:bg-white/10"
+              }`}
+            >
+              District / Kecamatan
             </button>
           </div>
 
@@ -522,6 +640,139 @@ export default function CrimeDataPage() {
                             {existing && (
                               <button
                                 onClick={() => handleDeleteRegency(city)}
+                                disabled={saving}
+                                className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* District Table */}
+          {tab === "district" && (
+            <section className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-sky-950/30 backdrop-blur">
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-white">Province:</label>
+                  <select
+                    value={selectedProvince}
+                    onChange={(e) => {
+                      const province = e.target.value;
+                      setSelectedProvince(province);
+                      const firstCity = getCities(province)[0] || "";
+                      setSelectedCity(firstCity);
+                      fetchDistrictData();
+                    }}
+                    className="border border-white/10 bg-white/5 rounded p-2 text-sm text-white"
+                  >
+                    {ALL_PROVINCES.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-white">City:</label>
+                  <select
+                    value={selectedCity}
+                    onChange={(e) => {
+                      setSelectedCity(e.target.value);
+                      fetchDistrictData();
+                    }}
+                    className="border border-white/10 bg-white/5 rounded p-2 text-sm text-white"
+                  >
+                    {getCities(selectedProvince).map((city) => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-white">Year:</label>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => {
+                      setSelectedYear(e.target.value);
+                      fetchDistrictData();
+                    }}
+                    className="border border-white/10 bg-white/5 rounded p-2 text-sm text-white"
+                  >
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-white/5">
+                      <th className="text-left p-2 border border-white/10 text-white">District / Kecamatan</th>
+                      <th className="text-left p-2 border border-white/10 text-white">Year</th>
+                      <th className="text-left p-2 border border-white/10 text-white">Crime Count</th>
+                      <th className="text-left p-2 border border-white/10 text-white">Notes</th>
+                      <th className="text-left p-2 border border-white/10 text-white">Last Updated</th>
+                      <th className="text-left p-2 border border-white/10 text-white">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getDistricts(selectedProvince, selectedCity).map((district) => {
+                      const existing = districtData.find((d) => d.district === district);
+                      const key = `${selectedProvince}__${selectedCity}__${district}`;
+                      const form = districtFormData[key] || { crimeCount: "", notes: "", year: selectedYear };
+                      return (
+                        <tr key={district} className="hover:bg-white/5">
+                          <td className="p-2 border border-white/10 font-medium text-white">{district}</td>
+                          <td className="p-2 border border-white/10">
+                            <select
+                              value={form.year}
+                              onChange={(e) => handleDistrictInputChange(district, "year", e.target.value)}
+                              className="w-full px-2 py-1 border border-white/10 bg-white/5 rounded text-sm text-white"
+                            >
+                              <option value="2026">2026</option>
+                              <option value="2025">2025</option>
+                              <option value="2024">2024</option>
+                            </select>
+                          </td>
+                          <td className="p-2 border border-white/10">
+                            <input
+                              type="number"
+                              value={form.crimeCount}
+                              onChange={(e) => handleDistrictInputChange(district, "crimeCount", e.target.value)}
+                              placeholder="0"
+                              className="w-24 px-2 py-1 border border-white/10 bg-white/5 rounded text-sm text-white"
+                            />
+                          </td>
+                          <td className="p-2 border border-white/10">
+                            <input
+                              type="text"
+                              value={form.notes}
+                              onChange={(e) => handleDistrictInputChange(district, "notes", e.target.value)}
+                              placeholder="Optional notes"
+                              className="w-full px-2 py-1 border border-white/10 bg-white/5 rounded text-sm text-white"
+                            />
+                          </td>
+                          <td className="p-2 border border-white/10 text-slate-400 text-xs">
+                            {existing ? new Date(existing.updatedAt).toLocaleDateString("id-ID") : "-"}
+                          </td>
+                          <td className="p-2 border border-white/10">
+                            <button
+                              onClick={() => handleSaveDistrict(district)}
+                              disabled={saving}
+                              className="px-3 py-1 bg-cyan-600 text-white rounded text-xs hover:bg-cyan-700 disabled:opacity-50 mr-2"
+                            >
+                              Save
+                            </button>
+                            {existing && (
+                              <button
+                                onClick={() => handleDeleteDistrict(district)}
                                 disabled={saving}
                                 className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
                               >
