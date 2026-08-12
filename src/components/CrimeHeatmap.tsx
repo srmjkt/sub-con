@@ -172,22 +172,23 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       Promise.all([
         fetch(`/api/admin/crime-data?province=${encodeURIComponent(selectedProvince)}&city=${encodeURIComponent(selectedCity)}&year=${year}&level=district`)
           .then((res) => res.json()),
-        fetch(`/api/geojson/districts?province=${code}&city=${encodeURIComponent(selectedCity)}`).then(async (geoRes) => {
-          if (!geoRes.ok) {
-            const text = await geoRes.text();
-            throw new Error(`District GeoJSON failed: ${geoRes.status} ${text}`);
-          }
-          return geoRes.json();
-        }),
+        fetch(`/api/geojson/districts?province=${code}&city=${encodeURIComponent(selectedCity)}`)
+          .then(async (res) => {
+            if (!res.ok) {
+              const text = await res.text();
+              throw new Error(`District GeoJSON failed: ${res.status} ${text}`);
+            }
+            return res.json();
+          }),
       ])
-        .then(async ([dataRes, data]) => {
+        .then(async ([dataRes, geoData]) => {
           if (cancelled) return;
           const crimeData = dataRes.crimeData || [];
           const mapped = crimeData.map((item: any) => ({
             provinsi: item.district,
             count: item.crimeCount,
           }));
-          setDistrictGeoJson(data);
+          setDistrictGeoJson(geoData);
           setRows(mapped);
           setLoading(false);
         })
@@ -320,8 +321,13 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     rows.forEach((row) => {
       const rawProvince = String(row.provinsi || row.province || row.Provinsi || '').trim();
       if (!rawProvince) return;
+      const normalized = viewLevel === 'province'
+        ? normalizeRegencyName(rawProvince)
+        : viewLevel === 'district'
+          ? normalizeDistrictName(rawProvince)
+          : rawProvince;
       const count = Number(row.count || row.jumlah || row.Count || row.crimeCount || 0);
-      counts[rawProvince] = (counts[rawProvince] || 0) + count;
+      counts[normalized] = (counts[normalized] || 0) + count;
     });
 
     const maxCount = Math.max(1, ...Object.values(counts));
@@ -333,15 +339,20 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     });
 
     return { heatData: points };
-  }, [rows]);
+  }, [rows, viewLevel]);
 
   const provinceCountMap = useMemo(() => {
     const map: Record<string, { count: number; intensity: number }> = {};
     heatData.forEach((p) => {
-      map[p.province] = { count: p.count, intensity: p.intensity };
+      const normalized = viewLevel === 'province'
+        ? normalizeRegencyName(p.province)
+        : viewLevel === 'district'
+          ? normalizeDistrictName(p.province)
+          : p.province;
+      map[normalized] = { count: p.count, intensity: p.intensity };
     });
     return map;
-  }, [heatData]);
+  }, [heatData, viewLevel]);
 
   const provinceCountMapRef = useRef(provinceCountMap);
   useEffect(() => {
@@ -349,7 +360,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   }, [provinceCountMap]);
 
   function geoJsonStyle(feature: any) {
-    const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
+    const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || feature.properties?.district || feature.properties?.kecamatan || feature.properties?.name_en || '').trim();
     const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : viewLevel === 'district' ? normalizeDistrictName(rawName) : rawName;
     const data = provinceCountMapRef.current[name];
     const count = data ? data.count : 0;
@@ -367,7 +378,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
   }
 
   function onEachFeature(feature: any, layer: any) {
-    const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || '').trim();
+    const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || feature.properties?.district || feature.properties?.kecamatan || feature.properties?.name_en || '').trim();
     const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : viewLevel === 'district' ? normalizeDistrictName(rawName) : rawName;
 
     layer.on({
