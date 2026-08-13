@@ -394,13 +394,14 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     const data = provinceCountMapRef.current[name];
     
     // Debug logging - only log a few samples to avoid console spam
-    if (viewLevel === 'district' && !window._districtLogsShown) {
-      if (!window._districtLogCount) window._districtLogCount = 0;
-      if (window._districtLogCount < 5) {
+    const w = typeof window !== 'undefined' ? (window as any) : {};
+    if (viewLevel === 'district' && !w._districtLogsShown) {
+      if (!w._districtLogCount) w._districtLogCount = 0;
+      if (w._districtLogCount < 5) {
         console.log(`[Styling] Feature: raw="${rawName}" → normalized="${name}" → hasData=${!!data}`, data);
-        window._districtLogCount++;
-        if (window._districtLogCount === 5) {
-          window._districtLogsShown = true;
+        w._districtLogCount++;
+        if (w._districtLogCount === 5) {
+          w._districtLogsShown = true;
           console.log('[Styling] Sample logs complete. Check the logs above.');
         }
       }
