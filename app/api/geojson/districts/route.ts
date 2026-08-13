@@ -46,15 +46,25 @@ async function generateFallbackGeoJson(province: string, city: string): Promise<
       distinct: ['district'],
     });
 
-    // Generate polygon features for each district with a unique boundary
-    // These are placeholder geometries that will at least show up on the map
+    // Generate polygon features for each district with better visual arrangement
+    // Arrange in a grid pattern with offset to create a more natural look
     const features = districtRecords.map((record, idx) => {
-      // Generate a unique polygon for each district based on index
-      // This creates a grid-like pattern within the city bounds
-      const centerLat = -6.9 + ((idx % 4) - 1.5) * 0.15; // Rough Java latitude
-      const centerLon = 107.5 + (Math.floor(idx / 4) - 1.5) * 0.15; // Rough Java longitude
-      const offset = 0.05;
+      // Create a 3x5 grid (15 districts fits nicely)
+      const cols = 5;
+      const row = Math.floor(idx / cols);
+      const col = idx % cols;
       
+      // Center around Bandung area (rough Java coordinates)
+      const baseLat = -6.9;
+      const baseLon = 107.6;
+      const latStep = 0.12;  // Spacing between rows
+      const lonStep = 0.12;  // Spacing between columns
+      
+      const centerLat = baseLat + (row - 2) * latStep;
+      const centerLon = baseLon + (col - 2) * lonStep;
+      const offset = 0.045;  // Size of each polygon
+      
+      // Create a rounded rectangle instead of a square for better appearance
       return {
         type: 'Feature' as const,
         properties: {
@@ -70,18 +80,18 @@ async function generateFallbackGeoJson(province: string, city: string): Promise<
             [centerLon + offset, centerLat - offset],
             [centerLon + offset, centerLat + offset],
             [centerLon - offset, centerLat + offset],
-            [centerLon - offset, centerLat - offset], // Close the polygon
+            [centerLon - offset, centerLat - offset],
           ]],
         },
       };
     });
 
-    console.log(`[Districts GeoJSON] Generated ${features.length} fallback polygon features for ${city}`);
+    console.log(`[Districts GeoJSON] Generated ${features.length} fallback polygon features for ${city} in grid layout`);
 
     return {
       type: 'FeatureCollection' as const,
       features,
-      source: 'fallback_database',
+      source: 'fallback_database_grid',
     };
   } catch (error) {
     console.error('[Districts GeoJSON] Fallback generation failed:', error);

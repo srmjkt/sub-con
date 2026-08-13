@@ -383,30 +383,18 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     return map;
   }, [heatData, viewLevel]);
 
-  const provinceCountMapRef = useRef(provinceCountMap);
+  // Store in state to ensure styling function always has current data
+  const [heatDataMap, setHeatDataMap] = useState<Record<string, { count: number; intensity: number }>>({});
   useEffect(() => {
-    provinceCountMapRef.current = provinceCountMap;
+    setHeatDataMap(provinceCountMap);
   }, [provinceCountMap]);
 
   function geoJsonStyle(feature: any) {
     const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || feature.properties?.district || feature.properties?.kecamatan || feature.properties?.name_en || '').trim();
     const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : viewLevel === 'district' ? normalizeDistrictName(rawName) : rawName;
-    const data = provinceCountMapRef.current[name];
     
-    // Debug logging - only log a few samples to avoid console spam
-    const w = typeof window !== 'undefined' ? (window as any) : {};
-    if (viewLevel === 'district' && !w._districtLogsShown) {
-      if (!w._districtLogCount) w._districtLogCount = 0;
-      if (w._districtLogCount < 5) {
-        console.log(`[Styling] Feature: raw="${rawName}" → normalized="${name}" → hasData=${!!data}`, data);
-        w._districtLogCount++;
-        if (w._districtLogCount === 5) {
-          w._districtLogsShown = true;
-          console.log('[Styling] Sample logs complete. Check the logs above.');
-        }
-      }
-    }
-    
+    // Use state instead of ref for proper React synchronization
+    const data = heatDataMap[name];
     const count = data ? data.count : 0;
     const intensity = data ? data.intensity : 0;
     const isHovered = hoveredProvince === name;
@@ -428,7 +416,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     layer.on({
       mouseover: () => {
         setHoveredProvince(name);
-        const data = provinceCountMapRef.current[name];
+        const data = heatDataMap[name];
         const count = data ? data.count : 0;
         const content = `<div><strong>${rawName}</strong><br/>${formatNumber(count)} crimes</div>`;
         layer.bindTooltip(content, { sticky: true, direction: 'top' }).openTooltip();
