@@ -209,7 +209,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
             raw: f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en || '',
             normalized: normalizeDistrictName(f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en || '')
           }));
-          const uniqueGeoNames = [...new Set(geoFeatureNames.map(n => n.normalized))];
+          const uniqueGeoNames = [...new Set(geoFeatureNames.map((n: any) => n.normalized))];
           console.log('Unique GeoJSON normalized names:', uniqueGeoNames.slice(0, 20));
           
           const mapped = crimeData.map((item: any) => ({
