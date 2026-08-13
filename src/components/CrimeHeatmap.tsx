@@ -435,7 +435,8 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         } else if (viewLevel === 'district') {
           // At district level, clicking doesn't drill down further, but we could add
           // functionality here in the future (e.g., show detailed stats)
-          console.log('Clicked district:', { rawName, normalized: name, data: provinceCountMapRef.current[name] });
+          const data = heatDataMap[name];
+          console.log('Clicked district:', { rawName, normalized: name, data });
         }
       },
     });
