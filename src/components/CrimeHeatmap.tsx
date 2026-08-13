@@ -165,7 +165,10 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     if (viewLevel === 'district' && selectedProvince && selectedCity) {
       const code = getProvinceCode(selectedProvince);
       if (!code) {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError(`Province code not found for: ${selectedProvince}`);
+          setLoading(false);
+        }
         return;
       }
 
@@ -183,7 +186,9 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       ])
         .then(async ([dataRes, geoData]) => {
           if (cancelled) return;
+          console.log('District data loaded:', { dataRes, geoDataFeatures: geoData?.features?.length });
           const crimeData = dataRes.crimeData || [];
+          console.log('Crime data for districts:', crimeData);
           const mapped = crimeData.map((item: any) => ({
             provinsi: item.district,
             count: item.crimeCount,
@@ -195,7 +200,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         .catch((e) => {
           if (!cancelled) {
             console.error('District data fetch error', e);
-            setError('Failed to load district data.');
+            setError(`Failed to load district data: ${e.message}`);
             setLoading(false);
           }
         });
