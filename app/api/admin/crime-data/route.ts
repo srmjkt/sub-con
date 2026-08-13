@@ -14,10 +14,15 @@ export async function GET(req: Request) {
       const where: any = { province, city };
       if (year) where.year = Number(year);
 
+      console.log(`[Crime Data] Fetching district data with query:`, JSON.stringify(where));
       const data = await prisma.districtCrimeData.findMany({
         where,
         orderBy: { district: 'asc' },
       });
+      console.log(`[Crime Data] District query returned ${data.length} records for ${province}/${city}`);
+      if (data.length === 0) {
+        console.warn(`[Crime Data] WARNING: No district crime data found for ${province}/${city}/${year || 'all years'}`);
+      }
       return NextResponse.json({ crimeData: data });
     }
 
@@ -27,10 +32,12 @@ export async function GET(req: Request) {
       if (city) where.city = city;
       if (year) where.year = Number(year);
 
+      console.log(`[Crime Data] Fetching regency data with query:`, JSON.stringify(where));
       const data = await prisma.regencyCrimeData.findMany({
         where,
         orderBy: { province: 'asc' },
       });
+      console.log(`[Crime Data] Regency query returned ${data.length} records`);
       return NextResponse.json({ crimeData: data });
     }
 
@@ -42,14 +49,15 @@ export async function GET(req: Request) {
       where,
       orderBy: { province: 'asc' },
     });
+    console.log(`[Crime Data] Province query returned ${crimeData.length} records`);
     return NextResponse.json({ crimeData });
   } catch (error: any) {
     if (error?.code === 'P2021' || error?.message?.includes('does not exist') || error?.message?.includes('relation')) {
-      console.log('CrimeData table does not exist yet, returning empty array');
+      console.log('[Crime Data] CrimeData table does not exist yet, returning empty array');
       return NextResponse.json({ crimeData: [] });
     }
-    console.error('Error fetching crime data:', error);
-    return NextResponse.json({ error: 'Failed to fetch crime data' }, { status: 500 });
+    console.error('[Crime Data] Error fetching crime data:', error);
+    return NextResponse.json({ error: 'Failed to fetch crime data', details: error.message }, { status: 500 });
   }
 }
 

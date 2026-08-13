@@ -386,10 +386,10 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     return {
       className: 'crime-province-path',
       fillColor: getColor(intensity),
-      weight: isHovered ? 3 : 1,
+      weight: isHovered ? 4 : 2,
       opacity: 0.95,
-      color: isHovered ? '#fbbf24' : 'rgba(255,255,255,0.45)',
-      fillOpacity: isHovered ? 0.95 : 0.8,
+      color: isHovered ? '#fbbf24' : 'rgba(255,255,255,0.7)',
+      fillOpacity: isHovered ? 0.95 : 0.7,
     };
   }
 
@@ -416,6 +416,10 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           handleProvinceClick(rawName);
         } else if (viewLevel === 'province') {
           handleProvinceClick(name);
+        } else if (viewLevel === 'district') {
+          // At district level, clicking doesn't drill down further, but we could add
+          // functionality here in the future (e.g., show detailed stats)
+          console.log('Clicked district:', { rawName, normalized: name, data: provinceCountMapRef.current[name] });
         }
       },
     });
