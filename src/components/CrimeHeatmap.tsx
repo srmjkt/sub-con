@@ -193,9 +193,11 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           // Log first few GeoJSON feature names to see what we're working with
           const sampleFeatures = (geoData?.features || []).slice(0, 5).map((f: any) => ({
             name: f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en,
-            allProps: Object.keys(f.properties || {})
+            allProps: Object.keys(f.properties || {}),
+            fullProps: f.properties
           }));
           console.log('Sample GeoJSON features:', sampleFeatures);
+          console.log('Total GeoJSON features:', geoData?.features?.length);
           
           const mapped = crimeData.map((item: any) => ({
             provinsi: item.district,
