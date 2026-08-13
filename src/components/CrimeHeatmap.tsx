@@ -189,10 +189,19 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           console.log('District data loaded:', { dataRes, geoDataFeatures: geoData?.features?.length });
           const crimeData = dataRes.crimeData || [];
           console.log('Crime data for districts:', crimeData);
+          
+          // Log first few GeoJSON feature names to see what we're working with
+          const sampleFeatures = (geoData?.features || []).slice(0, 5).map((f: any) => ({
+            name: f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en,
+            allProps: Object.keys(f.properties || {})
+          }));
+          console.log('Sample GeoJSON features:', sampleFeatures);
+          
           const mapped = crimeData.map((item: any) => ({
             provinsi: item.district,
             count: item.crimeCount,
           }));
+          console.log('Mapped rows for rendering:', mapped);
           setDistrictGeoJson(geoData);
           setRows(mapped);
           setLoading(false);
