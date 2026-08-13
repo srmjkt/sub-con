@@ -249,8 +249,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: `City listing failed: ${e.message}` }, { status: 404 });
     }
 
-    const geojsonFiles = (Array.isArray(files) ? files : []).filter((f: any) => f.type === 'file' && f.name.endsWith('.geojson'));
-    console.log(`[Districts GeoJSON] Found ${geojsonFiles.length} GeoJSON files`);
+    const geojsonFiles = (Array.isArray(files) ? files : []).filter((f: any) => {
+      if (f.type !== 'file' || !f.name.endsWith('.geojson')) return false;
+      const name = f.name.toLowerCase();
+      // Exclude whole-city / province boundary files; keep actual district polygons.
+      if (name.includes('_kota_') || name.includes('kota_')) return false;
+      if (name.endsWith('_district.geojson')) return false;
+      return true;
+    });
+    console.log(`[Districts GeoJSON] Found ${geojsonFiles.length} district GeoJSON files after filtering out city/province boundary files`);
 
     if (geojsonFiles.length === 0) {
       console.warn(`[Districts GeoJSON] No GeoJSON files found in city directory. Using fallback.`);
@@ -279,8 +286,16 @@ export async function GET(req: Request) {
       ),
     );
 
-    const flattened = features.flat();
-    console.log(`[Districts GeoJSON] Total features from GitHub: ${flattened.length}`);
+    const flattened = features
+      .flat()
+      .filter((feature: any) => {
+        const props = feature?.properties || {};
+        const districtName = props.district || props.kecamatan || props.name || props.name_en || '';
+        const hasDistrictField = Boolean(props.district || props.kecamatan);
+        const hasOnlyProvinceOrCityMeta = !hasDistrictField && (Boolean(props.province) || Boolean(props.PROVINSI) || Boolean(props.city) || Boolean(props.regency));
+        return hasDistrictField || (!hasOnlyProvinceOrCityMeta && !!String(districtName).trim());
+      });
+    console.log(`[Districts GeoJSON] Total district features from GitHub: ${flattened.length}`);
 
     // If GitHub returned no features, use fallback
     if (flattened.length === 0) {
