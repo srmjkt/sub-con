@@ -5,6 +5,10 @@ import { prisma } from '@/lib/prisma';
 const GITHUB_API = 'https://api.github.com/repos/JfrAziz/indonesia-district/contents';
 const RAW_BASE = 'https://raw.githubusercontent.com/JfrAziz/indonesia-district/master';
 
+// Alternative sources for fallback
+const GEO_BOUNDARIES_URL = 'https://www.geoboundaries.org/gbRequest.html';
+const HDX_INDONESIA = 'https://data.humdata.org/dataset/cod-ab-idn';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -33,6 +37,48 @@ function normalizeForFolder(name: string): string {
     .replace(/^kabupaten\s+/i, '')
     .replace(/\s+/g, '_')
     .replace(/[^a-z0-9_]/g, '');
+}
+
+// Helper to normalize district names for matching
+function normalizeDistrictNameForMatching(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/^kecamatan\s+/i, 'kecamatan_')
+    .replace(/^kec\.\s+/i, 'kec_')
+    .replace(/^kec\s+/i, 'kec_')
+    .trim();
+}
+
+// Calculate similarity between two strings (simple Levenshtein-like)
+function getNameSimilarity(a: string, b: string): number {
+  const str1 = a.toLowerCase();
+  const str2 = b.toLowerCase();
+  
+  if (str1 === str2) return 1;
+  if (str1.includes(str2) || str2.includes(str1)) return 0.95;
+  
+  // Check for common prefixes/suffixes
+  const prefixes = ['kecamatan', 'kec', 'kelurahan', 'desa'];
+  let norm1 = str1;
+  let norm2 = str2;
+  
+  for (const prefix of prefixes) {
+    norm1 = norm1.replace(new RegExp(`^${prefix}\\s+`), '');
+    norm2 = norm2.replace(new RegExp(`^${prefix}\\s+`), '');
+  }
+  
+  if (norm1 === norm2) return 0.9;
+  
+  // Levenshtein distance
+  const maxLen = Math.max(norm1.length, norm2.length);
+  let distance = 0;
+  
+  for (let i = 0; i < maxLen; i++) {
+    if (norm1[i] !== norm2[i]) distance++;
+  }
+  
+  const similarity = 1 - (distance / maxLen);
+  return similarity > 0.7 ? similarity : 0;
 }
 
 // Fallback: Generate minimal GeoJSON from district names in database
@@ -262,61 +308,58 @@ export async function GET(req: Request) {
       console.warn(`[Districts GeoJSON] Could not fetch expected districts from DB:`, err);
     }
 
-    // Filter/aggregate features to match district level
+    // Filter/aggregate features to match district level using fuzzy matching
     // GitHub often returns sub-village level, so we need to intelligently filter
     let filteredFeatures = flattened;
     
-    if (expectedDistricts.length > 0 && flattened.length > expectedDistricts.length * 5) {
-      console.log(`[Districts GeoJSON] Filtering from ${flattened.length} to expected district count ${expectedDistricts.length}`);
+    if (expectedDistricts.length > 0 && flattened.length > expectedDistricts.length * 2) {
+      console.log(`[Districts GeoJSON] Applying fuzzy matching: ${flattened.length} features vs ${expectedDistricts.length} expected districts`);
       
-      // Try to match features to expected districts
+      // Use fuzzy matching to find best features
       const matchedFeatures: typeof flattened = [];
-      const processedNames = new Set<string>();
+      const usedIndices = new Set<number>();
       
       for (const expectedDistrict of expectedDistricts) {
-        // Normalize the expected district name
-        const normalized = expectedDistrict
-          .toLowerCase()
-          .replace(/^kecamatan\s+/i, '')
-          .replace(/^kec\.\s+/i, '')
-          .replace(/^kec\s+/i, '')
-          .trim();
+        let bestMatch: { feature: any; similarity: number; index: number } | null = null;
         
-        // Find matching feature(s)
-        const matchingFeature = flattened.find((f: any) => {
-          const featureName = (f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en || '')
-            .toLowerCase()
-            .replace(/^kecamatan\s+/i, '')
-            .replace(/^kec\.\s+/i, '')
-            .replace(/^kec\s+/i, '')
-            .trim();
-          return featureName === normalized && !processedNames.has(featureName);
-        });
+        for (let i = 0; i < flattened.length; i++) {
+          if (usedIndices.has(i)) continue;
+          
+          const feature = flattened[i];
+          const featureName = (feature.properties?.name || feature.properties?.district || feature.properties?.kecamatan || feature.properties?.name_en || '').toString().trim();
+          
+          const similarity = getNameSimilarity(expectedDistrict, featureName);
+          
+          if (similarity > 0.7 && (!bestMatch || similarity > bestMatch.similarity)) {
+            bestMatch = { feature, similarity, index: i };
+          }
+        }
         
-        if (matchingFeature) {
-          console.log(`[Districts GeoJSON] Matched "${expectedDistrict}" to GeoJSON feature`);
-          matchedFeatures.push(matchingFeature);
-          const featureName = (matchingFeature.properties?.name || matchingFeature.properties?.district || matchingFeature.properties?.kecamatan || matchingFeature.properties?.name_en || '').toLowerCase().trim();
-          processedNames.add(featureName);
+        if (bestMatch && bestMatch.similarity > 0.7) {
+          console.log(`[Districts GeoJSON] Matched "${expectedDistrict}" (similarity: ${bestMatch.similarity.toFixed(2)}) to feature`);
+          matchedFeatures.push(bestMatch.feature);
+          usedIndices.add(bestMatch.index);
         } else {
-          console.warn(`[Districts GeoJSON] NO MATCH for expected district: "${expectedDistrict}"`);
+          console.warn(`[Districts GeoJSON] No match found for district "${expectedDistrict}"`);
         }
       }
       
       if (matchedFeatures.length > 0) {
-        console.log(`[Districts GeoJSON] Filtered to ${matchedFeatures.length} district-level features`);
         filteredFeatures = matchedFeatures;
-      } else {
-        console.log(`[Districts GeoJSON] NO MATCHES FOUND! Using database fallback instead of ${flattened.length} unmatched features`);
-        // Use database fallback instead of mismatched GitHub data
-        const fallbackGeoJson = await generateFallbackGeoJson(provinceName, city);
-        if (fallbackGeoJson.features.length > 0) {
-          if (!cachedGeoJson) cachedGeoJson = {};
-          cachedGeoJson[cacheKey] = fallbackGeoJson;
-          cacheTimestamp = now;
-          console.log(`[Districts GeoJSON] Returning ${fallbackGeoJson.features.length} fallback features for ${city}`);
-          return NextResponse.json(fallbackGeoJson);
-        }
+        console.log(`[Districts GeoJSON] Matched ${matchedFeatures.length} features out of ${expectedDistricts.length} expected districts`);
+      }
+    }
+    
+    // If fuzzy matching didn't work and we have many unmatched features, use fallback
+    if (filteredFeatures.length === 0 && expectedDistricts.length > 0) {
+      console.log(`[Districts GeoJSON] No matches found with fuzzy matching. Using database fallback instead of ${flattened.length} unmatched features`);
+      const fallbackGeoJson = await generateFallbackGeoJson(provinceName, city);
+      if (fallbackGeoJson.features.length > 0) {
+        if (!cachedGeoJson) cachedGeoJson = {};
+        cachedGeoJson[cacheKey] = fallbackGeoJson;
+        cacheTimestamp = now;
+        console.log(`[Districts GeoJSON] Returning ${fallbackGeoJson.features.length} fallback features for ${city}`);
+        return NextResponse.json(fallbackGeoJson);
       }
     }
 
