@@ -115,8 +115,16 @@ export async function GET(req: Request) {
 
     const provinceSlug = `id${provinceCode}_${normalizeForFolder(provinceName)}`;
     const cityNormalized = normalizeForFolder(city);
+    
+    // Improve city matching: handle "Kota " prefix
+    const isCityType = city.toLowerCase().startsWith('kota ') || city.toLowerCase().startsWith('kota') || city.includes('Kota');
+    const searchTerms = [
+      isCityType ? `kota_${cityNormalized}` : cityNormalized, // Try with Kota prefix first if applicable
+      cityNormalized // Try without prefix
+    ];
 
-    console.log(`[Districts GeoJSON] Looking for province slug: ${provinceSlug}, city folder: ${cityNormalized}`);
+    console.log(`[Districts GeoJSON] Looking for province slug: ${provinceSlug}, city folder: ${cityNormalized}, isCityType: ${isCityType}, searchTerms: ${searchTerms.join(', ')}`);
+
 
     let provinceContents: any[];
     let githubError: string | null = null;
@@ -130,16 +138,23 @@ export async function GET(req: Request) {
       provinceContents = [];
     }
 
-    const cityDir = (Array.isArray(provinceContents) ? provinceContents : [])
-      .filter((item: any) => item.type === 'dir')
-      .find((item: any) => item.name.toLowerCase().includes(cityNormalized));
+    // Try to find city directory with improved matching
+    let cityDir: any = null;
+    const dirs = (Array.isArray(provinceContents) ? provinceContents : []).filter((item: any) => item.type === 'dir');
+    
+    // Try each search term in order
+    for (const searchTerm of searchTerms) {
+      const match = dirs.find((item: any) => item.name.toLowerCase() === `id${provinceCode}_${searchTerm}` || item.name.toLowerCase().endsWith(`_${searchTerm}`));
+      if (match) {
+        console.log(`[Districts GeoJSON] Matched city directory: "${match.name}" with search term "${searchTerm}"`);
+        cityDir = match;
+        break;
+      }
+    }
 
     if (!cityDir) {
       console.warn(`[Districts GeoJSON] City directory not found in GitHub. Available dirs:`, 
-        (Array.isArray(provinceContents) ? provinceContents : [])
-          .filter((i: any) => i.type === 'dir')
-          .map((i: any) => i.name)
-          .slice(0, 10)
+        dirs.map((i: any) => i.name).slice(0, 10)
       );
       
       // Use fallback GeoJSON from database
@@ -148,13 +163,14 @@ export async function GET(req: Request) {
         if (!cachedGeoJson) cachedGeoJson = {};
         cachedGeoJson[cacheKey] = fallbackGeoJson;
         cacheTimestamp = now;
+        console.log(`[Districts GeoJSON] Using fallback (city directory not found)`);
         return NextResponse.json(fallbackGeoJson);
       }
       
       return NextResponse.json({ 
         error: 'City not found in GitHub repository, and no fallback data available', 
         provinceSlug, 
-        cityNormalized,
+        searchTerms,
         githubError
       }, { status: 404 });
     }
@@ -281,7 +297,16 @@ export async function GET(req: Request) {
         console.log(`[Districts GeoJSON] Filtered to ${matchedFeatures.length} district-level features`);
         filteredFeatures = matchedFeatures;
       } else {
-        console.log(`[Districts GeoJSON] No matches found, using all ${flattened.length} features as fallback`);
+        console.log(`[Districts GeoJSON] NO MATCHES FOUND! Using database fallback instead of ${flattened.length} unmatched features`);
+        // Use database fallback instead of mismatched GitHub data
+        const fallbackGeoJson = await generateFallbackGeoJson(provinceName, city);
+        if (fallbackGeoJson.features.length > 0) {
+          if (!cachedGeoJson) cachedGeoJson = {};
+          cachedGeoJson[cacheKey] = fallbackGeoJson;
+          cacheTimestamp = now;
+          console.log(`[Districts GeoJSON] Returning ${fallbackGeoJson.features.length} fallback features for ${city}`);
+          return NextResponse.json(fallbackGeoJson);
+        }
       }
     }
 
