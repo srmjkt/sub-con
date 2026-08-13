@@ -188,16 +188,29 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           if (cancelled) return;
           console.log('District data loaded:', { dataRes, geoDataFeatures: geoData?.features?.length });
           const crimeData = dataRes.crimeData || [];
-          console.log('Crime data for districts:', crimeData);
+          console.log('Crime data for districts:', crimeData.map((c: any) => ({ district: c.district, count: c.crimeCount })));
           
           // Log first few GeoJSON feature names to see what we're working with
-          const sampleFeatures = (geoData?.features || []).slice(0, 5).map((f: any) => ({
-            name: f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en,
-            allProps: Object.keys(f.properties || {}),
-            fullProps: f.properties
+          const sampleFeatures = (geoData?.features || []).slice(0, 10).map((f: any, idx: number) => ({
+            idx,
+            name: f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en || 'NO NAME',
+            type: f.properties?.type || 'unknown',
+            allProps: Object.keys(f.properties || {}).join(', '),
           }));
-          console.log('Sample GeoJSON features:', sampleFeatures);
+          console.log('Sample GeoJSON features (first 10):', sampleFeatures);
           console.log('Total GeoJSON features:', geoData?.features?.length);
+          
+          // Build lookup for expected district names
+          const expectedDistricts = crimeData.map((c: any) => normalizeDistrictName(c.district));
+          console.log('Expected normalized districts:', expectedDistricts);
+          
+          // Try to find matches in GeoJSON features
+          const geoFeatureNames = (geoData?.features || []).map((f: any) => ({
+            raw: f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en || '',
+            normalized: normalizeDistrictName(f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en || '')
+          }));
+          const uniqueGeoNames = [...new Set(geoFeatureNames.map(n => n.normalized))];
+          console.log('Unique GeoJSON normalized names:', uniqueGeoNames.slice(0, 20));
           
           const mapped = crimeData.map((item: any) => ({
             provinsi: item.district,
@@ -379,6 +392,20 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     const rawName = String(feature.properties?.name || feature.properties?.Propinsi || feature.properties?.province || feature.properties?.PROVINSI || feature.properties?.district || feature.properties?.kecamatan || feature.properties?.name_en || '').trim();
     const name = viewLevel === 'province' ? normalizeRegencyName(rawName) : viewLevel === 'district' ? normalizeDistrictName(rawName) : rawName;
     const data = provinceCountMapRef.current[name];
+    
+    // Debug logging - only log a few samples to avoid console spam
+    if (viewLevel === 'district' && !window._districtLogsShown) {
+      if (!window._districtLogCount) window._districtLogCount = 0;
+      if (window._districtLogCount < 5) {
+        console.log(`[Styling] Feature: raw="${rawName}" → normalized="${name}" → hasData=${!!data}`, data);
+        window._districtLogCount++;
+        if (window._districtLogCount === 5) {
+          window._districtLogsShown = true;
+          console.log('[Styling] Sample logs complete. Check the logs above.');
+        }
+      }
+    }
+    
     const count = data ? data.count : 0;
     const intensity = data ? data.intensity : 0;
     const isHovered = hoveredProvince === name;

@@ -46,21 +46,37 @@ async function generateFallbackGeoJson(province: string, city: string): Promise<
       distinct: ['district'],
     });
 
-    const features = districtRecords.map((record, idx) => ({
-      type: 'Feature' as const,
-      properties: {
-        name: record.district,
-        district: record.district,
-        kecamatan: record.district,
-        id: `${province}_${city}_${record.district}_${idx}`,
-      },
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [107.5 + Math.random() * 2, -6.9 + Math.random() * 2], // Rough center of Java
-      },
-    }));
+    // Generate polygon features for each district with a unique boundary
+    // These are placeholder geometries that will at least show up on the map
+    const features = districtRecords.map((record, idx) => {
+      // Generate a unique polygon for each district based on index
+      // This creates a grid-like pattern within the city bounds
+      const centerLat = -6.9 + ((idx % 4) - 1.5) * 0.15; // Rough Java latitude
+      const centerLon = 107.5 + (Math.floor(idx / 4) - 1.5) * 0.15; // Rough Java longitude
+      const offset = 0.05;
+      
+      return {
+        type: 'Feature' as const,
+        properties: {
+          name: record.district,
+          district: record.district,
+          kecamatan: record.district,
+          id: `${province}_${city}_${record.district}_${idx}`,
+        },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [centerLon - offset, centerLat - offset],
+            [centerLon + offset, centerLat - offset],
+            [centerLon + offset, centerLat + offset],
+            [centerLon - offset, centerLat + offset],
+            [centerLon - offset, centerLat - offset], // Close the polygon
+          ]],
+        },
+      };
+    });
 
-    console.log(`[Districts GeoJSON] Generated ${features.length} fallback features for ${city}`);
+    console.log(`[Districts GeoJSON] Generated ${features.length} fallback polygon features for ${city}`);
 
     return {
       type: 'FeatureCollection' as const,
@@ -206,9 +222,72 @@ export async function GET(req: Request) {
       }
     }
 
+    // Get list of expected district names from database to help filter/match
+    let expectedDistricts: string[] = [];
+    try {
+      const districtRecords = await prisma.districtCrimeData.findMany({
+        where: { province: provinceName, city },
+        select: { district: true },
+        distinct: ['district'],
+      });
+      expectedDistricts = districtRecords.map(r => r.district);
+      console.log(`[Districts GeoJSON] Expected districts from DB: ${expectedDistricts.join(', ')}`);
+    } catch (err) {
+      console.warn(`[Districts GeoJSON] Could not fetch expected districts from DB:`, err);
+    }
+
+    // Filter/aggregate features to match district level
+    // GitHub often returns sub-village level, so we need to intelligently filter
+    let filteredFeatures = flattened;
+    
+    if (expectedDistricts.length > 0 && flattened.length > expectedDistricts.length * 5) {
+      console.log(`[Districts GeoJSON] Filtering from ${flattened.length} to expected district count ${expectedDistricts.length}`);
+      
+      // Try to match features to expected districts
+      const matchedFeatures: typeof flattened = [];
+      const processedNames = new Set<string>();
+      
+      for (const expectedDistrict of expectedDistricts) {
+        // Normalize the expected district name
+        const normalized = expectedDistrict
+          .toLowerCase()
+          .replace(/^kecamatan\s+/i, '')
+          .replace(/^kec\.\s+/i, '')
+          .replace(/^kec\s+/i, '')
+          .trim();
+        
+        // Find matching feature(s)
+        const matchingFeature = flattened.find((f: any) => {
+          const featureName = (f.properties?.name || f.properties?.district || f.properties?.kecamatan || f.properties?.name_en || '')
+            .toLowerCase()
+            .replace(/^kecamatan\s+/i, '')
+            .replace(/^kec\.\s+/i, '')
+            .replace(/^kec\s+/i, '')
+            .trim();
+          return featureName === normalized && !processedNames.has(featureName);
+        });
+        
+        if (matchingFeature) {
+          console.log(`[Districts GeoJSON] Matched "${expectedDistrict}" to GeoJSON feature`);
+          matchedFeatures.push(matchingFeature);
+          const featureName = (matchingFeature.properties?.name || matchingFeature.properties?.district || matchingFeature.properties?.kecamatan || matchingFeature.properties?.name_en || '').toLowerCase().trim();
+          processedNames.add(featureName);
+        } else {
+          console.warn(`[Districts GeoJSON] NO MATCH for expected district: "${expectedDistrict}"`);
+        }
+      }
+      
+      if (matchedFeatures.length > 0) {
+        console.log(`[Districts GeoJSON] Filtered to ${matchedFeatures.length} district-level features`);
+        filteredFeatures = matchedFeatures;
+      } else {
+        console.log(`[Districts GeoJSON] No matches found, using all ${flattened.length} features as fallback`);
+      }
+    }
+
     const result = {
       type: 'FeatureCollection' as const,
-      features: flattened,
+      features: filteredFeatures,
     };
 
     if (!cachedGeoJson) cachedGeoJson = {};
