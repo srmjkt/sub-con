@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { extractLocation } from '@/lib/locationExtractor';
+import { getSession } from '@/lib/auth';
 
 const POWERBI_URL =
   process.env.PUSIKNAS_POWERBI_URL ||
@@ -180,6 +181,11 @@ function makeInCondition(source: string, property: string, values: string[]) {
 
 export async function GET(req: Request) {
   try {
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+    }
+
     const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
     if (isRateLimited(ip)) {
       return NextResponse.json({ error: 'rate_limited' }, { status: 429 });

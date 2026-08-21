@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import PusiknasPowerBIEmbed from '@/components/PusiknasPowerBIEmbed';
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 const CrimeHeatmap = dynamic(() => import('@/components/CrimeHeatmap'), {
   ssr: false,
@@ -12,7 +14,17 @@ const CrimeHeatmap = dynamic(() => import('@/components/CrimeHeatmap'), {
 type Tab = 'manual' | 'api' | 'scrape' | 'pbi';
 
 export default function Page() {
-  const [tab, setTab] = useState<Tab>('api');
+  const { user, loading } = useAuth()
+  const router = useRouter()
+  const [tab, setTab] = useState<Tab>('api')
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login?next=/pusiknas')
+    }
+  }, [user, loading, router])
+
+  if (loading || !user) return null
 
   return (
     <main className="p-6">

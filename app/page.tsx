@@ -365,10 +365,22 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="text-center mb-12">
+         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-white mb-4">{user ? "Welcome to Sub-Con" : "Security Risk Management System."}</h1>
           <p className="text-xl text-slate-300">Mitigate your risks. Secure your surroundings.</p>
         </div>
+
+        {!user && (
+          <div className="max-w-5xl mx-auto mb-12">
+            <Link href="/login?next=/pusiknas" className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group flex flex-col items-center">
+              <div className="text-center">
+                <div className="text-4xl mb-4">🧭</div>
+                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Pusiknas Crime Data</h2>
+                <p className="text-sm text-slate-400">Sign in to access the Pusiknas crime data dashboard</p>
+              </div>
+            </Link>
+          </div>
+        )}
 
         {user && (
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">

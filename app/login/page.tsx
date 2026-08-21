@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next') || ''
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -14,6 +16,13 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState("")
   const [forgotMessage, setForgotMessage] = useState("")
   const [forgotLoading, setForgotLoading] = useState(false)
+
+  function isSafeNext(value: string) {
+    if (!value) return false
+    if (value.startsWith('http') || value.startsWith('//')) return false
+    if (value.includes('</') || value.includes('<script')) return false
+    return value.startsWith('/')
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,16 +44,19 @@ export default function LoginPage() {
         return
       }
 
-      // Redirect based on role
-      const role = data.user.role
-      if (role === "ADMIN") {
-        router.push("/admin")
-      } else if (role === "INPUTTER") {
-        router.push("/inputter")
-      } else if (role === "VIEWER") {
-        router.push("/viewer")
+      if (isSafeNext(next)) {
+        router.push(next)
       } else {
-        router.push("/dashboard")
+        const role = data.user.role
+        if (role === "ADMIN") {
+          router.push("/admin")
+        } else if (role === "INPUTTER") {
+          router.push("/inputter")
+        } else if (role === "VIEWER") {
+          router.push("/viewer")
+        } else {
+          router.push("/dashboard")
+        }
       }
     } catch {
       setError("An error occurred. Please try again.")
@@ -246,5 +258,13 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center"><div className="text-white">Loading...</div></div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
