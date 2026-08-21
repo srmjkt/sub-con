@@ -116,7 +116,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     setMapKey((k) => k + 1);
   }, [dataSource, year, viewLevel]);
 
-  const handleProvinceClick = (name: string) => {
+  const handleProvinceClick = (name: string, rawName?: string) => {
     if (viewLevel === 'country') {
       setBackupRows(rowsRef.current);
       setBackupGeoJson(geoJsonRef.current);
@@ -127,7 +127,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     } else if (viewLevel === 'province') {
       setBackupRegencyRows(rows);
       setBackupRegencyGeoJson(regencyGeoJson);
-      setSelectedCity(name);
+      setSelectedCity(normalizeRegencyName(rawName || name));
       setViewLevel('district');
       setHoveredProvince(null);
       setMapKey((k) => k + 1);
@@ -429,9 +429,9 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       },
       click: () => {
         if (viewLevel === 'country') {
-          handleProvinceClick(rawName);
+          handleProvinceClick(rawName, rawName);
         } else if (viewLevel === 'province') {
-          handleProvinceClick(name);
+          handleProvinceClick(name, rawName);
         } else if (viewLevel === 'district') {
           // At district level, clicking doesn't drill down further, but we could add
           // functionality here in the future (e.g., show detailed stats)
@@ -522,6 +522,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           />
           {displayGeoJson && (
             <GeoJSON
+              key={`${mapKey}-${JSON.stringify(heatDataMap)}`}
               data={displayGeoJson}
               style={geoJsonStyle}
               onEachFeature={onEachFeature}

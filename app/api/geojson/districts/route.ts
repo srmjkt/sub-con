@@ -81,6 +81,43 @@ function getNameSimilarity(a: string, b: string): number {
   return similarity > 0.7 ? similarity : 0;
 }
 
+function districtKey(feature: any): string {
+  const props = feature?.properties || {};
+  return String(
+    props.district_code ||
+    props.district ||
+    props.kecamatan ||
+    props.name ||
+    props.name_en ||
+    '',
+  )
+    .toLowerCase()
+    .replace(/^kecamatan\s+/i, '')
+    .replace(/^kec\.?\s+/i, '')
+    .trim();
+}
+
+function mergeDistrictFeatures(features: any[]): any[] {
+  const grouped = new Map<string, { properties: any; polygons: any[] }>();
+
+  for (const feature of features) {
+    const geometry = feature?.geometry;
+    const key = districtKey(feature);
+    if (!key || !geometry) continue;
+
+    const group = grouped.get(key) || { properties: feature.properties || {}, polygons: [] };
+    if (geometry.type === 'Polygon') group.polygons.push(geometry.coordinates);
+    if (geometry.type === 'MultiPolygon') group.polygons.push(...geometry.coordinates);
+    grouped.set(key, group);
+  }
+
+  return [...grouped.values()].map(({ properties, polygons }) => ({
+    type: 'Feature',
+    properties,
+    geometry: { type: 'MultiPolygon', coordinates: polygons },
+  }));
+}
+
 // Fallback: Generate minimal GeoJSON from district names in database
 async function generateFallbackGeoJson(province: string, city: string): Promise<any> {
   try {
@@ -171,15 +208,17 @@ export async function GET(req: Request) {
 
     const provinceSlug = `id${provinceCode}_${normalizeForFolder(provinceName)}`;
     const cityNormalized = normalizeForFolder(city);
-    
-    // Improve city matching: handle "Kota " prefix
-    const isCityType = city.toLowerCase().startsWith('kota ') || city.toLowerCase().startsWith('kota') || city.includes('Kota');
+    const cityLower = city.toLowerCase();
+    const isCityType = cityLower.startsWith('kota ') || cityLower.startsWith('kota') || cityLower.includes('kota');
+    const isRegencyType = cityLower.startsWith('kabupaten ') || cityLower.startsWith('kabupaten') || cityLower.includes('kabupaten');
     const searchTerms = [
-      isCityType ? `kota_${cityNormalized}` : cityNormalized, // Try with Kota prefix first if applicable
-      cityNormalized // Try without prefix
+      isCityType ? `kota_${cityNormalized}` : `kota_${cityNormalized}`,
+      isRegencyType ? `kabupaten_${cityNormalized}` : `kabupaten_${cityNormalized}`,
+      cityNormalized,
+      isCityType ? cityNormalized : `kota_${cityNormalized}`,
     ];
 
-    console.log(`[Districts GeoJSON] Looking for province slug: ${provinceSlug}, city folder: ${cityNormalized}, isCityType: ${isCityType}, searchTerms: ${searchTerms.join(', ')}`);
+    console.log(`[Districts GeoJSON] Looking for province slug: ${provinceSlug}, city folder: ${cityNormalized}, isCityType: ${isCityType}, isRegencyType: ${isRegencyType}, searchTerms: ${searchTerms.join(', ')}`);
 
 
     let provinceContents: any[];
@@ -198,13 +237,28 @@ export async function GET(req: Request) {
     let cityDir: any = null;
     const dirs = (Array.isArray(provinceContents) ? provinceContents : []).filter((item: any) => item.type === 'dir');
     
-    // Try each search term in order
-    for (const searchTerm of searchTerms) {
-      const match = dirs.find((item: any) => item.name.toLowerCase() === `id${provinceCode}_${searchTerm}` || item.name.toLowerCase().endsWith(`_${searchTerm}`));
+    // Prefer exact city-type directories when both Kota and Kabupaten exist for the same base name.
+    const preferredMatches = [...new Set(searchTerms.filter(Boolean))];
+    for (const searchTerm of preferredMatches) {
+      const match = dirs.find((item: any) => {
+        const name = item.name.toLowerCase();
+        return name === `id${provinceCode}_${searchTerm}` || name.endsWith(`_${searchTerm}`);
+      });
       if (match) {
         console.log(`[Districts GeoJSON] Matched city directory: "${match.name}" with search term "${searchTerm}"`);
         cityDir = match;
         break;
+      }
+    }
+
+    if (!cityDir) {
+      const fallbackFromName = dirs.find((item: any) => {
+        const name = item.name.toLowerCase();
+        return name.includes(`_${cityNormalized}`) || name.endsWith(`_${cityNormalized}`);
+      });
+      if (fallbackFromName) {
+        console.log(`[Districts GeoJSON] Fallback matched ambiguous city directory: "${fallbackFromName.name}"`);
+        cityDir = fallbackFromName;
       }
     }
 
@@ -295,7 +349,8 @@ export async function GET(req: Request) {
         const hasOnlyProvinceOrCityMeta = !hasDistrictField && (Boolean(props.province) || Boolean(props.PROVINSI) || Boolean(props.city) || Boolean(props.regency));
         return hasDistrictField || (!hasOnlyProvinceOrCityMeta && !!String(districtName).trim());
       });
-    console.log(`[Districts GeoJSON] Total district features from GitHub: ${flattened.length}`);
+    const districtFeatures = mergeDistrictFeatures(flattened);
+    console.log(`[Districts GeoJSON] Aggregated ${flattened.length} village features into ${districtFeatures.length} district features`);
 
     // If GitHub returned no features, use fallback
     if (flattened.length === 0) {
@@ -325,22 +380,22 @@ export async function GET(req: Request) {
 
     // Filter/aggregate features to match district level using fuzzy matching
     // GitHub often returns sub-village level, so we need to intelligently filter
-    let filteredFeatures = flattened;
+    let filteredFeatures = districtFeatures;
     
-    if (expectedDistricts.length > 0 && flattened.length > expectedDistricts.length * 2) {
-      console.log(`[Districts GeoJSON] Applying fuzzy matching: ${flattened.length} features vs ${expectedDistricts.length} expected districts`);
+    if (expectedDistricts.length > 0 && districtFeatures.length > expectedDistricts.length) {
+      console.log(`[Districts GeoJSON] Applying fuzzy matching: ${districtFeatures.length} features vs ${expectedDistricts.length} expected districts`);
       
       // Use fuzzy matching to find best features
-      const matchedFeatures: typeof flattened = [];
+      const matchedFeatures: typeof districtFeatures = [];
       const usedIndices = new Set<number>();
       
       for (const expectedDistrict of expectedDistricts) {
         let bestMatch: { feature: any; similarity: number; index: number } | null = null;
         
-        for (let i = 0; i < flattened.length; i++) {
+        for (let i = 0; i < districtFeatures.length; i++) {
           if (usedIndices.has(i)) continue;
           
-          const feature = flattened[i];
+          const feature = districtFeatures[i];
           const featureName = (feature.properties?.name || feature.properties?.district || feature.properties?.kecamatan || feature.properties?.name_en || '').toString().trim();
           
           const similarity = getNameSimilarity(expectedDistrict, featureName);
@@ -365,7 +420,7 @@ export async function GET(req: Request) {
       }
     }
     
-    // If fuzzy matching didn't work and we have many unmatched features, use fallback
+    // If no database records exist, keep every district boundary from the source.
     if (filteredFeatures.length === 0 && expectedDistricts.length > 0) {
       console.log(`[Districts GeoJSON] No matches found with fuzzy matching. Using database fallback instead of ${flattened.length} unmatched features`);
       const fallbackGeoJson = await generateFallbackGeoJson(provinceName, city);
