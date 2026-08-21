@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import PusiknasPowerBIEmbed from '@/components/PusiknasPowerBIEmbed';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const CrimeHeatmap = dynamic(() => import('@/components/CrimeHeatmap'), {
   ssr: false,
@@ -26,9 +27,17 @@ export default function Page() {
 
   if (loading || !user) return null
 
+  const dashboardHref = user.role === 'ADMIN' ? '/admin' : user.role === 'INPUTTER' ? '/inputter' : '/viewer'
+
   return (
     <main className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Pusiknas — Crime Data</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Pusiknas — Crime Data</h1>
+        <div className="flex items-center gap-3">
+          <Link href={dashboardHref} className="text-sm text-cyan-400 hover:text-cyan-300 transition px-3 py-1.5 rounded-lg border border-cyan-400/30 hover:border-cyan-400/50">Dashboard</Link>
+          <Link href="/" className="text-sm text-slate-400 hover:text-white transition px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20">Back to Home</Link>
+        </div>
+      </div>
 
       <div className="mb-4 inline-flex rounded-lg border border-gray-200 overflow-hidden">
         <button

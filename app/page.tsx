@@ -145,6 +145,11 @@ export default function HomePage() {
   const [hoveredDot, setHoveredDot] = useState<string>("")
   const [mapImageError, setMapImageError] = useState(false)
   const [mapViewBox, setMapViewBox] = useState({ x: 0, y: 0, w: 100, h: 75 })
+  const [showPusiknasLogin, setShowPusiknasLogin] = useState(false)
+  const [pusiknasEmail, setPusiknasEmail] = useState("")
+  const [pusiknasPassword, setPusiknasPassword] = useState("")
+  const [pusiknasError, setPusiknasError] = useState("")
+  const [pusiknasLoading, setPusiknasLoading] = useState(false)
   const mapSvgRef = useRef<SVGSVGElement>(null)
 
   const touchStartY = useRef(0)
@@ -229,6 +234,29 @@ export default function HomePage() {
   }, [mapViewBox])
 
   const resetMapView = useCallback(() => setMapViewBox({ x: 0, y: 0, w: 100, h: 75 }), [])
+
+  const handlePusiknasLogin = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPusiknasError("")
+    setPusiknasLoading(true)
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: pusiknasEmail, password: pusiknasPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setPusiknasError(data.error || "Login failed")
+        setPusiknasLoading(false)
+        return
+      }
+      window.location.href = "/pusiknas"
+    } catch {
+      setPusiknasError("An error occurred. Please try again.")
+      setPusiknasLoading(false)
+    }
+  }, [pusiknasEmail, pusiknasPassword])
 
   useEffect(() => {
     (async () => {
@@ -361,7 +389,19 @@ export default function HomePage() {
           <div className="text-sm text-slate-500">v.2026.1.0</div>
           <div className="flex items-center gap-4">
             {showMapPanel ? <button onClick={() => { setShowMapPanel(false); setSelectedDots([]); setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" }) }} className="text-sm text-slate-400 hover:text-white transition px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20">Close Map</button> : <button onClick={() => setShowMapPanel(true)} className="text-sm text-cyan-400 hover:text-cyan-300 transition px-3 py-1.5 rounded-lg border border-cyan-400/30 hover:border-cyan-400/50">Show Map</button>}
-            {user ? <div className="text-sm text-slate-400">{user.name} ({user.role}) &middot; <Link href="/login" className="text-cyan-400 hover:text-cyan-300 hover:underline">Dashboard</Link></div> : <Link href="/login" className="text-sm text-cyan-400 hover:text-cyan-300 hover:underline">Sign In</Link>}
+            {showPusiknasLogin ? (
+              <form onSubmit={handlePusiknasLogin} className="flex items-center gap-2">
+                <input type="text" value={pusiknasEmail} onChange={(e) => setPusiknasEmail(e.target.value)} placeholder="Email or username" required className="w-40 rounded-lg border border-white/10 bg-slate-950/50 px-2 py-1 text-xs text-white placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none" />
+                <input type="password" value={pusiknasPassword} onChange={(e) => setPusiknasPassword(e.target.value)} placeholder="Password" required className="w-28 rounded-lg border border-white/10 bg-slate-950/50 px-2 py-1 text-xs text-white placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none" />
+                <button type="submit" disabled={pusiknasLoading} className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">{pusiknasLoading ? "..." : "Go"}</button>
+                <button type="button" onClick={() => { setShowPusiknasLogin(false); setPusiknasError("") }} className="text-xs text-slate-400 hover:text-white transition">Cancel</button>
+              </form>
+            ) : !user ? (
+              <button onClick={() => setShowPusiknasLogin(true)} className="text-sm text-emerald-400 hover:text-emerald-300 transition px-3 py-1.5 rounded-lg border border-emerald-400/30 hover:border-emerald-400/50">Pusiknas</button>
+            ) : (
+              <div className="text-sm text-slate-400">{user.name} ({user.role}) &middot; <Link href="/login" className="text-cyan-400 hover:text-cyan-300 hover:underline">Dashboard</Link></div>
+            )}
+            {pusiknasError && <span className="text-xs text-red-400">{pusiknasError}</span>}
           </div>
         </div>
 
@@ -369,18 +409,6 @@ export default function HomePage() {
           <h1 className="text-5xl font-bold text-white mb-4">{user ? "Welcome to Sub-Con" : "Security Risk Management System."}</h1>
           <p className="text-xl text-slate-300">Mitigate your risks. Secure your surroundings.</p>
         </div>
-
-        {!user && (
-          <div className="max-w-5xl mx-auto mb-12">
-            <Link href="/login?next=/pusiknas" className="rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur hover:bg-white/10 transition group flex flex-col items-center">
-              <div className="text-center">
-                <div className="text-4xl mb-4">🧭</div>
-                <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-cyan-300 transition">Pusiknas Crime Data</h2>
-                <p className="text-sm text-slate-400">Sign in to access the Pusiknas crime data dashboard</p>
-              </div>
-            </Link>
-          </div>
-        )}
 
         {user && (
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">
