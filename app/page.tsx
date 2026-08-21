@@ -396,10 +396,11 @@ export default function HomePage() {
                 <button type="submit" disabled={pusiknasLoading} className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">{pusiknasLoading ? "..." : "Go"}</button>
                 <button type="button" onClick={() => { setShowPusiknasLogin(false); setPusiknasError("") }} className="text-xs text-slate-400 hover:text-white transition">Cancel</button>
               </form>
-            ) : !user ? (
-              <button onClick={() => setShowPusiknasLogin(true)} className="text-sm text-emerald-400 hover:text-emerald-300 transition px-3 py-1.5 rounded-lg border border-emerald-400/30 hover:border-emerald-400/50">Pusiknas</button>
             ) : (
-              <div className="text-sm text-slate-400">{user.name} ({user.role}) &middot; <Link href="/login" className="text-cyan-400 hover:text-cyan-300 hover:underline">Dashboard</Link></div>
+              <>
+                {!user && <button onClick={() => setShowPusiknasLogin(true)} className="text-sm text-emerald-400 hover:text-emerald-300 transition px-3 py-1.5 rounded-lg border border-emerald-400/30 hover:border-emerald-400/50">Pusiknas</button>}
+                {!user ? <Link href="/login" className="text-sm text-cyan-400 hover:text-cyan-300 hover:underline">Sign In</Link> : <div className="text-sm text-slate-400">{user.name} ({user.role}) &middot; <Link href="/login" className="text-cyan-400 hover:text-cyan-300 hover:underline">Dashboard</Link></div>}
+              </>
             )}
             {pusiknasError && <span className="text-xs text-red-400">{pusiknasError}</span>}
           </div>
