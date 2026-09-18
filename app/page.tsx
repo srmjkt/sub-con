@@ -22,6 +22,32 @@ interface NewsItem {
   }
 }
 
+// Dynamic keyword-based label definitions
+const LABEL_KEYWORDS = [
+  { label: 'Economic Crisis', keywords: ['krisis ekonomi', 'inflasi', 'resesi', 'krisis moneter', 'hiperinflasi', 'PHK', 'pemutusan hubungan kerja', 'pengangguran', 'harga bbm', 'bensin naik', 'solar naik', 'harga pangan', 'sembako', 'harga beras', 'saham anjlok', 'bursa jatuh', 'krisis keuangan', 'bank gagal', 'nilai tukar', 'defisit', 'korupsi', 'pailit'] },
+  { label: 'Political Crisis', keywords: ['krisis politik', 'kejatuhan pemerintah', 'skandal politik', 'kudeta', 'demo menuntut', 'mundur', 'toppling', 'reformasi', 'ancaman pemberontakan'] },
+  { label: 'Social Unrest', keywords: ['demo', 'demonstrasi', 'unjuk rasa', 'mogok', 'bentrokan', 'kerusuhan', 'anarkis', 'brutal', 'mahasiswa demo', 'buruh demo', 'barikade', 'provokasi', 'hasut', 'intimidasi', 'konflik sosial'] },
+  { label: 'Cyber Security', keywords: ['hack', 'hacker', 'ransomware', 'cyber attack', 'data breach', 'pelanggaran data', 'serangan siber', 'cyber', 'malware', 'phishing'] },
+  { label: 'Crime & Terrorism', keywords: ['teroris', 'terorisme', 'bom', 'ledakan', 'bom bunuh diri', 'jihad', 'penembakan', 'pembunuhan', 'pembacokan', 'pengeroyokan', 'tawuran', 'narkoba', 'sabu', 'ganja', 'narkotika', 'psikotropika', 'kejahatan', 'perampokan', 'pencurian', 'begal', 'klitih', 'geng motor', 'sindikat', 'mafia', 'kartel', 'ilegal', 'penculikan', 'trafficking', 'kekerasan seksual', 'pemerkosaan', 'pelecehan'] },
+  { label: 'Disaster Emergency', keywords: ['bencana', 'gempa', 'banjir', 'kebakaran', 'longsor', 'erupsi', 'tsunami', 'tanah longsor', 'tanah runtuh', 'gunung meletus', 'banjir bandang', 'kemarau panjang', 'kehausan'] },
+  { label: 'Corporate Security', keywords: ['pabrik tutup', 'industri tutup', 'perusahaan bangkrut', 'PHK massal', 'kerusuhan kerja', 'pemogokan', 'bangkrut', 'insolvensi', 'company closure'] },
+  { label: 'Health Crisis', keywords: ['pandemi', 'wabah', 'outbreak', 'epidemi', 'krisis kesehatan', 'virus corona', 'covid', 'flu burung', 'demam berdarah', 'DBD', 'dengue'] },
+  { label: 'Energy & Food Security', keywords: ['krisis energi', 'krisis minyak', 'krisis gas', 'listrik mati', 'pemadaman listrik', 'krisis pangan', 'ketahanan pangan', 'kelangkaan'] },
+]
+
+// Label color scheme
+const LABEL_COLORS: Record<string, string> = {
+  'Economic Crisis': 'bg-amber-900/40 border-amber-600/50 text-amber-200',
+  'Political Crisis': 'bg-rose-900/40 border-rose-600/50 text-rose-200',
+  'Social Unrest': 'bg-orange-900/40 border-orange-600/50 text-orange-200',
+  'Cyber Security': 'bg-indigo-900/40 border-indigo-600/50 text-indigo-200',
+  'Crime & Terrorism': 'bg-red-900/40 border-red-600/50 text-red-200',
+  'Disaster Emergency': 'bg-emerald-900/40 border-emerald-600/50 text-emerald-200',
+  'Corporate Security': 'bg-violet-900/40 border-violet-600/50 text-violet-200',
+  'Health Crisis': 'bg-cyan-900/40 border-cyan-600/50 text-cyan-200',
+  'Energy & Food Security': 'bg-lime-900/40 border-lime-600/50 text-lime-200',
+}
+
 interface PaginationInfo {
   page: number
   limit: number
@@ -38,6 +64,14 @@ function formatDateID(timestamp: number): string {
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear()
   return `${day}/${month}/${year}`
+}
+
+// NEW: Extract security labels from a news item based on keywords in headline/summary
+function extractLabelsFromItem(item: NewsItem): string[] {
+  const text = `${item.headline} ${item.summary}`.toLowerCase()
+  return LABEL_KEYWORDS
+    .filter(({ keywords }) => keywords.some(kw => text.includes(kw.toLowerCase())))
+    .map(({ label }) => label)
 }
 
 const NEWS_SOURCES = [
@@ -336,7 +370,9 @@ export default function HomePage() {
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center"><div className="text-white">Loading...</div></div>
 
-  const displayedNews = showAllNews ? news : news.slice(0, INITIAL_LIMIT)
+  const displayedNews = showAllNews
+    ? news.map(item => ({ ...item, labels: extractLabelsFromItem(item) }))
+    : news.slice(0, INITIAL_LIMIT).map(item => ({ ...item, labels: extractLabelsFromItem(item) }))
   const selectedProvinceNames = selectedDots.length > 0 ? selectedDots.map(p => PROVINCE_CAPITALS_ACTIVE.find(c => c.province === p)?.name || p).join(', ') : ""
 
   return (
@@ -456,10 +492,104 @@ export default function HomePage() {
             </div>
             {showSourceFilter && <div className="mb-6 p-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/5"><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-semibold text-cyan-200">Filter by News Source</h3><button onClick={() => { setSourceFilter([]); setShowSourceFilter(false) }} className="text-xs text-slate-400 hover:text-white transition">Clear Filter</button></div><div className="flex flex-wrap gap-2">{NEWS_SOURCES.map((s) => (<button key={s.key} onClick={() => handleSourceClick(s.key)} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${sourceFilter.includes(s.key) ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`}>{s.label}</button>))}</div>{sourceFilter.length > 0 && <div className="mt-3 text-xs text-slate-400">Showing news from: <span className="text-cyan-300 ml-1">{sourceFilter.map(s => NEWS_SOURCES.find(ns => ns.key === s)?.label || s).join(', ')}</span></div>}</div>}
             {showLocationFilter && <div className="mb-6 p-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/5"><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-semibold text-emerald-200">Filter by Location</h3><button onClick={() => { setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" }); setShowLocationFilter(false) }} className="text-xs text-slate-400 hover:text-white transition">Clear Filter</button></div><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"><div><label className="block text-xs font-medium text-slate-400 mb-1">Province</label><select value={locationFilter.province} onChange={(e) => setLocationFilter({ province: e.target.value, city: "", district: "", village: "", rw: "", rt: "" })} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All Provinces</option>{getProvinces().map(p => (<option key={p} value={p}>{p}</option>))}</select></div>{locationFilter.province && <div><label className="block text-xs font-medium text-slate-400 mb-1">City/Regency</label><select value={locationFilter.city} onChange={(e) => setLocationFilter(prev => ({ ...prev, city: e.target.value, district: "", village: "", rw: "", rt: "" }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All Cities</option>{availableCities.map(c => (<option key={c} value={c}>{c}</option>))}</select></div>}{locationFilter.city && <div><label className="block text-xs font-medium text-slate-400 mb-1">District</label><select value={locationFilter.district} onChange={(e) => setLocationFilter(prev => ({ ...prev, district: e.target.value, village: "", rw: "", rt: "" }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All Districts</option>{availableDistricts.map(d => (<option key={d} value={d}>{d}</option>))}</select></div>}{locationFilter.district && <div><label className="block text-xs font-medium text-slate-400 mb-1">Village</label><select value={locationFilter.village} onChange={(e) => setLocationFilter(prev => ({ ...prev, village: e.target.value, rw: "", rt: "" }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All Villages</option>{availableVillages.map(v => (<option key={v} value={v}>{v}</option>))}</select></div>}{locationFilter.village && <div><label className="block text-xs font-medium text-slate-400 mb-1">RW</label><select value={locationFilter.rw} onChange={(e) => setLocationFilter(prev => ({ ...prev, rw: e.target.value, rt: "" }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All RW</option>{getRWOptions().map(rw => (<option key={rw} value={rw}>RW {rw}</option>))}</select></div>}{locationFilter.rw && <div><label className="block text-xs font-medium text-slate-400 mb-1">RT</label><select value={locationFilter.rt} onChange={(e) => setLocationFilter(prev => ({ ...prev, rt: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All RT</option>{getRTOptions().map(rt => (<option key={rt} value={rt}>RT {rt}</option>))}</select></div>}</div>{locationFilter.province && <div className="mt-3 text-xs text-slate-400">Showing news from:<span className="text-emerald-300 ml-1">{locationFilter.province}{locationFilter.city ? ` > ${locationFilter.city}` : ""}{locationFilter.district ? ` > ${locationFilter.district}` : ""}{locationFilter.village ? ` > ${locationFilter.village}` : ""}{locationFilter.rw ? ` > RW ${locationFilter.rw}` : ""}{locationFilter.rt ? ` > RT ${locationFilter.rt}` : ""}</span></div>}</div>}
-            {newsLoading ? <div className="text-center py-12"><div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-cyan-400 border-t-transparent"></div><p className="text-slate-400 mt-4">Loading news...</p></div> : news.length === 0 ? <div className="text-center py-12"><p className="text-slate-400">No security news available at the moment.</p>{selectedDots.length > 0 && <button onClick={() => { setSelectedDots([]); setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" }) }} className="mt-3 text-sm text-cyan-400 hover:text-cyan-300 underline">Clear province filter to see all news</button>}</div> : (
-              <><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{displayedNews.map((item) => (<a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 hover:bg-slate-950/80 transition group"><div className="flex items-start justify-between gap-2 mb-2"><span className="inline-flex rounded-full border border-cyan-700/50 bg-cyan-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-cyan-300">{item.source}</span>{item.security?.isRelevant && <div className="flex gap-1"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.bgColor || 'bg-slate-900/30 border-slate-700/50'} ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.color || 'text-slate-300'}`}>{SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.label || item.security.severity}</span><span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">{item.security.category.replace(/_/g, ' ')}</span></div>}</div><h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-300 transition line-clamp-2">{item.headline}</h3><p className="text-sm text-slate-400 mb-3 line-clamp-3">{item.summary}</p><div className="flex items-center justify-between text-xs text-slate-500"><span>{item.category}</span><span title={new Date(item.timestamp).toLocaleString()}>{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {formatDateID(item.timestamp)}</span></div></a>))}</div>
-                {pagination?.hasMore && <div className="mt-6 text-center"><button onClick={handleLoadMore} disabled={loadingMore} className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-6 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50">{loadingMore ? <span className="flex items-center gap-2"><div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent"></div>Loading older news...</span> : <span className="flex items-center gap-2"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>Load Older News</span>}</button></div>}
-                {pagination && <div className="mt-4 text-center text-xs text-slate-600">Showing page {pagination.page} of {pagination.totalPages} ({pagination.totalItems} total)</div>}</>
+            {newsLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-cyan-400 border-t-transparent"></div>
+                <p className="text-slate-400 mt-4">Loading news...</p>
+              </div>
+            ) : news.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-slate-400">No security news available at the moment.</p>
+                {selectedDots.length > 0 && (
+                  <button
+                    onClick={() => { setSelectedDots([]); setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" }) }}
+                    className="mt-3 text-sm text-cyan-400 hover:text-cyan-300 underline"
+                  >
+                    Clear province filter to see all news
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {displayedNews.map((item) => (
+                    <a
+                      key={item.id}
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 hover:bg-slate-950/80 transition group"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span className="inline-flex rounded-full border border-cyan-700/50 bg-cyan-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-cyan-300">
+                          {item.source}
+                        </span>
+                        {item.security?.isRelevant && (
+                          <div className="flex gap-1">
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.bgColor || 'bg-slate-900/30 border-slate-700/50'} ${SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.color || 'text-slate-300'}`}>
+                              {SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.label || item.security.severity}
+                            </span>
+                            <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
+                              {item.security.category.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        )}
+                        {/* NEW: Security label badges */}
+                        {item.labels && item.labels.length > 0 && (
+                          <div className="flex gap-1 flex-wrap justify-end">
+                            {item.labels.map(label => (
+                              <span
+                                key={label}
+                                className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${LABEL_COLORS[label] || 'border-violet-700/50 bg-violet-900/30 text-violet-300'}`}
+                              >
+                                {label.replace(/_/g, ' ')}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-300 transition line-clamp-2">
+                        {item.headline}
+                      </h3>
+                      <p className="text-sm text-slate-400 mb-3 line-clamp-3">{item.summary}</p>
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>{item.category}</span>
+                        <span title={new Date(item.timestamp).toLocaleString()}>
+                          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {formatDateID(item.timestamp)}
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+                {pagination?.hasMore && (
+                  <div className="mt-6 text-center">
+                    <button
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-6 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50"
+                    >
+                      {loadingMore ? (
+                        <span className="flex items-center gap-2">
+                          <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent"></div>
+                          Loading older news...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          </svg>
+                          Load Older News
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                )}
+                {pagination && (
+                  <div className="mt-4 text-center text-xs text-slate-600">
+                    Showing page {pagination.page} of {pagination.totalPages} ({pagination.totalItems} total)
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
