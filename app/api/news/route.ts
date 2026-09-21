@@ -291,6 +291,16 @@ export async function GET(request: Request) {
   const filterCity = searchParams.get('city')
   const filterDistrict = searchParams.get('district')
   const query = searchParams.get('q')?.trim()
+  const labelParam = searchParams.get('labels')
+
+  // NEW: Parse labels filter
+  const requestedLabels: string[] = labelParam ? labelParam.split(',').map(l => l.trim()).filter(Boolean) : []
+  if (requestedLabels.length > 0) {
+    const invalidLabels = requestedLabels.filter(l => !LABEL_KEYWORDS[l])
+    if (invalidLabels.length > 0) {
+      return NextResponse.json({ items: [], pagination: null, error: 'Invalid label parameter' }, { status: 400 })
+    }
+  }
 
   const sourcesToFetch: SourceKey[] = requestedSources
     ? (requestedSources.split(',').filter(s => s) as SourceKey[])
@@ -367,6 +377,11 @@ export async function GET(request: Request) {
     }
   }
 
+  // NEW: Apply label filter (after security filtering, before location filtering)
+  if (requestedLabels.length > 0) {
+    filteredNews = filteredNews.filter((item) => itemMatchesLabels(item, requestedLabels))
+  }
+
   if (filterProvince || filterCity || filterDistrict) {
     filteredNews = filteredNews.filter((item) => {
       const loc = item.location
@@ -431,6 +446,31 @@ function countCategories(items: NewsItemRaw[]): Record<string, number> {
     counts[cat] = (counts[cat] || 0) + 1
   }
   return counts
+}
+
+// Label keywords for filtering news by security topic
+const LABEL_KEYWORDS: Record<string, string[]> = {
+  'Economic Crisis': ['krisis ekonomi', 'inflasi', 'resesi', 'krisis moneter', 'hiperinflasi', 'PHK', 'pemutusan hubungan kerja', 'pengangguran', 'harga bbm', 'bensin naik', 'solar naik', 'harga pangan', 'sembako', 'harga beras', 'saham anjlok', 'bursa jatuh', 'krisis keuangan', 'bank gagal', 'nilai tukar', 'defisit', 'korupsi', 'pailit'],
+  'Political Crisis': ['krisis politik', 'kejatuhan pemerintah', 'skandal politik', 'kudeta', 'demo menuntut', 'mundur', 'toppling', 'reformasi', 'ancaman pemberontakan'],
+  'Social Unrest': ['demo', 'demonstrasi', 'unjuk rasa', 'mogok', 'bentrokan', 'kerusuhan', 'anarkis', 'brutal', 'mahasiswa demo', 'buruh demo', 'barikade', 'provokasi', 'hasut', 'intimidasi', 'konflik sosial'],
+  'Cyber Security': ['hack', 'hacker', 'ransomware', 'cyber attack', 'data breach', 'pelanggaran data', 'serangan siber', 'cyber', 'malware', 'phishing'],
+  'Crime & Terrorism': ['teroris', 'terorisme', 'bom', 'ledakan', 'bom bunuh diri', 'jihad', 'penembakan', 'pembunuhan', 'pembacokan', 'pengeroyokan', 'tawuran', 'narkoba', 'sabu', 'ganja', 'narkotika', 'psikotropika', 'kejahatan', 'perampokan', 'pencurian', 'begal', 'klitih', 'geng motor', 'sindikat', 'mafia', 'kartel', 'ilegal', 'penculikan', 'trafficking', 'kekerasan seksual', 'pemerkosaan', 'pelecehan'],
+  'Disaster Emergency': ['bencana', 'gempa', 'banjir', 'kebakaran', 'longsor', 'erupsi', 'tsunami', 'tanah longsor', 'tanah runtuh', 'gunung meletus', 'banjir bandang', 'kemarau panjang', 'kehausan'],
+  'Corporate Security': ['pabrik tutup', 'industri tutup', 'perusahaan bangkrut', 'PHK massal', 'kerusuhan kerja', 'pemogokan', 'bangkrut', 'insolvensi', 'company closure'],
+  'Health Crisis': ['pandemi', 'wabah', 'outbreak', 'epidemi', 'krisis kesehatan', 'virus corona', 'covid', 'flu burung', 'demam berdarah', 'DBD', 'dengue'],
+  'Energy & Food Security': ['krisis energi', 'krisis minyak', 'krisis gas', 'listrik mati', 'pemadaman listrik', 'krisis pangan', 'ketahanan pangan', 'kelangkaan'],
+}
+
+// Check if an item matches any of the requested labels
+function itemMatchesLabels(item: NewsItemRaw, requestedLabels: string[]): boolean {
+  const text = `${item.headline} ${item.summary}`.toLowerCase()
+  for (const label of requestedLabels) {
+    const keywords = LABEL_KEYWORDS[label]
+    if (keywords && keywords.some(kw => text.includes(kw.toLowerCase()))) {
+      return true
+    }
+  }
+  return false
 }
 
 export const dynamic = 'force-dynamic'

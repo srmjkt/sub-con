@@ -227,10 +227,12 @@ export default function HomePage() {
       if (locationFilter.district) params.set('district', locationFilter.district)
       if (sourceFilter.length > 0) params.set('sources', sourceFilter.join(','))
       if (searchQuery.trim()) params.set('search', searchQuery.trim())
+      // NEW: Add labels filter
+      if (selectedLabels.length > 0) params.set('labels', selectedLabels.join(','))
       const res = await fetch(`/api/news?${params.toString()}`)
       return await res.json()
     } catch (e) { console.error("Failed to fetch news:", e); return null }
-  }, [locationFilter, sourceFilter, searchQuery])
+  }, [locationFilter, sourceFilter, searchQuery, selectedLabels])
 
   const wheelAccumulator = useRef(0)
   const wheelActive = useRef(false)
