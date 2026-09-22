@@ -541,6 +541,69 @@ export default function HomePage() {
                     ))}
                   </div>
                 </div>
+                
+                {/* Location Filter Section */}
+                <div className="mb-4 p-3 rounded-xl border border-white/5 bg-slate-950/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-medium text-emerald-300">Location</h4>
+                    <button 
+                      onClick={() => { setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" }); setShowAllNews(false) }} 
+                      className="text-xs text-slate-500 hover:text-white transition"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-medium text-slate-500 mb-1">Province</label>
+                      <select 
+                        value={locationFilter.province} 
+                        onChange={(e) => setLocationFilter({ province: e.target.value, city: "", district: "", village: "", rw: "", rt: "" })}
+                        className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-white focus:border-emerald-400/50 focus:outline-none"
+                      >
+                        <option value="">All Provinces</option>
+                        {getProvinces().map(p => (<option key={p} value={p}>{p}</option>))}
+                      </select>
+                    </div>
+                    {locationFilter.province && (
+                      <div>
+                        <label className="block text-[10px] font-medium text-slate-500 mb-1">City/Regency</label>
+                        <select 
+                          value={locationFilter.city} 
+                          onChange={(e) => setLocationFilter(prev => ({ ...prev, city: e.target.value, district: "", village: "", rw: "", rt: "" }))}
+                          className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-white focus:border-emerald-400/50 focus:outline-none"
+                        >
+                          <option value="">All Cities</option>
+                          {availableCities.map(c => (<option key={c} value={c}>{c}</option>))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Security Label Filter Section */}
+                <div className="mb-2 p-3 rounded-xl border border-white/5 bg-slate-950/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-medium text-violet-300">Security Label</h4>
+                    <button 
+                      onClick={() => { setSelectedLabels([]); setShowAllNews(false) }} 
+                      className="text-xs text-slate-500 hover:text-white transition"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {LABEL_KEYWORDS.map(({ label }) => (
+                      <button 
+                        key={label}
+                        onClick={() => setSelectedLabels(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label])}
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${selectedLabels.includes(label) ? (LABEL_COLORS[label] || 'border-violet-400/50 bg-violet-400/15 text-violet-200') : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
