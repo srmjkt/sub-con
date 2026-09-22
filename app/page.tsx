@@ -178,6 +178,7 @@ export default function HomePage() {
   // NEW: Security label filter state
   const [selectedLabels, setSelectedLabels] = useState<string[]>([])
   const [showLabelFilter, setShowLabelFilter] = useState(false)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [showMapPanel, setShowMapPanel] = useState(false)
   const [selectedDots, setSelectedDots] = useState<string[]>([])
   const [hoveredDot, setHoveredDot] = useState<string>("")
@@ -490,20 +491,59 @@ export default function HomePage() {
                     </button>
                   )}
                 </div>
-                <button onClick={() => setShowSourceFilter(!showSourceFilter)} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${showSourceFilter || sourceFilter.length > 0 ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'}`}><span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 3v18" /></svg>{sourceFilter.length > 0 ? `${sourceFilter.length} Source${sourceFilter.length > 1 ? 's' : ''}` : "Filter by News Source"}</span></button>
-                <button onClick={() => setShowLocationFilter(!showLocationFilter)} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${showLocationFilter || locationFilter.province ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'}`}><span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>{locationFilter.province ? locationFilter.city || locationFilter.province : "Filter by Location"}</span></button>
-                {/* NEW: Labels filter button */}
-                <button onClick={() => setShowLabelFilter(!showLabelFilter)} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${showLabelFilter || selectedLabels.length > 0 ? 'border-violet-400/30 bg-violet-400/10 text-violet-100' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'}`}><span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" /></svg>{selectedLabels.length > 0 ? `${selectedLabels.length} Label${selectedLabels.length > 1 ? 's' : ''}` : "Filter by Label"}</span></button>
+                {/* NEW: Unified filter button */}
+                <button onClick={() => setShowFilterPanel(!showFilterPanel)} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${showFilterPanel || sourceFilter.length > 0 || locationFilter.province || selectedLabels.length > 0 ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'}`}>
+                  <span className="flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    {sourceFilter.length > 0 || locationFilter.province || selectedLabels.length > 0 
+                      ? `${sourceFilter.length + (locationFilter.province ? 1 : 0) + selectedLabels.length} Filter${(sourceFilter.length + (locationFilter.province ? 1 : 0) + selectedLabels.length) > 1 ? 's' : ''} Active` 
+                      : 'Filter'}
+                  </span>
+                </button>
                 <button onClick={handleRefresh} disabled={refreshing} className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50">{refreshing ? <span className="flex items-center gap-1"><div className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-cyan-400 border-t-transparent"></div>Refreshing...</span> : <span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>Refresh</span>}</button>
                 {news.length > INITIAL_LIMIT && <button onClick={() => setShowAllNews(!showAllNews)} className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20">{showAllNews ? "Show Less" : "Show All"}</button>}
               </div>
             </div>
-            {showSourceFilter && <div className="mb-6 p-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/5"><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-semibold text-cyan-200">Filter by News Source</h3><button onClick={() => { setSourceFilter([]); setShowSourceFilter(false) }} className="text-xs text-slate-400 hover:text-white transition">Clear Filter</button></div><div className="flex flex-wrap gap-2">{NEWS_SOURCES.map((s) => (<button key={s.key} onClick={() => handleSourceClick(s.key)} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${sourceFilter.includes(s.key) ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`}>{s.label}</button>))}</div>{sourceFilter.length > 0 && <div className="mt-3 text-xs text-slate-400">Showing news from: <span className="text-cyan-300 ml-1">{sourceFilter.map(s => NEWS_SOURCES.find(ns => ns.key === s)?.label || s).join(', ')}</span></div>}</div>}
+            {showFilterPanel && (
+              <div className="mb-6 p-4 rounded-2xl border border-white/10 bg-slate-900/50">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-white">Filter Options</h3>
+                  <button 
+                    onClick={() => setShowFilterPanel(false)} 
+                    className="text-xs text-slate-400 hover:text-white transition"
+                  >
+                    Close
+                  </button>
+                </div>
+                
+                {/* News Source Filter Section */}
+                <div className="mb-4 p-3 rounded-xl border border-white/5 bg-slate-950/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-medium text-cyan-300">News Source</h4>
+                    <button 
+                      onClick={() => { setSourceFilter([]); setShowAllNews(false) }} 
+                      className="text-xs text-slate-500 hover:text-white transition"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {NEWS_SOURCES.map((s) => (
+                      <button 
+                        key={s.key}
+                        onClick={() => handleSourceClick(s.key)}
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${sourceFilter.includes(s.key) ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200' : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
-            {/* NEW: Security label filter panel */}
-            {showLabelFilter && <div className="mb-6 p-4 rounded-2xl border border-violet-400/20 bg-violet-400/5"><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-semibold text-violet-200">Filter by Security Label</h3><button onClick={() => { setSelectedLabels([]); setShowLabelFilter(false) }} className="text-xs text-slate-400 hover:text-white transition">Clear Filter</button></div><div className="flex flex-wrap gap-2">{LABEL_KEYWORDS.map(({ label }) => (<button key={label} onClick={() => setSelectedLabels(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label])} className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${selectedLabels.includes(label) ? (LABEL_COLORS[label] || 'border-violet-400/50 bg-violet-400/15 text-violet-200') : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`}>{label}</button>))}</div>{selectedLabels.length > 0 && <div className="mt-3 text-xs text-slate-400">Showing news with labels: <span className="text-violet-300 ml-1">{selectedLabels.join(', ')}</span></div>}</div>}
-
-            {showLocationFilter && <div className="mb-6 p-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/5"><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-semibold text-emerald-200">Filter by Location</h3><button onClick={() => { setLocationFilter({ province: "", city: "", district: "", village: "", rw: "", rt: "" }); setShowLocationFilter(false) }} className="text-xs text-slate-400 hover:text-white transition">Clear Filter</button></div><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"><div><label className="block text-xs font-medium text-slate-400 mb-1">Province</label><select value={locationFilter.province} onChange={(e) => setLocationFilter({ province: e.target.value, city: "", district: "", village: "", rw: "", rt: "" })} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All Provinces</option>{getProvinces().map(p => (<option key={p} value={p}>{p}</option>))}</select></div>{locationFilter.province && <div><label className="block text-xs font-medium text-slate-400 mb-1">City/Regency</label><select value={locationFilter.city} onChange={(e) => setLocationFilter(prev => ({ ...prev, city: e.target.value, district: "", village: "", rw: "", rt: "" }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All Cities</option>{availableCities.map(c => (<option key={c} value={c}>{c}</option>))}</select></div>}{locationFilter.city && <div><label className="block text-xs font-medium text-slate-400 mb-1">District</label><select value={locationFilter.district} onChange={(e) => setLocationFilter(prev => ({ ...prev, district: e.target.value, village: "", rw: "", rt: "" }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All Districts</option>{availableDistricts.map(d => (<option key={d} value={d}>{d}</option>))}</select></div>}{locationFilter.district && <div><label className="block text-xs font-medium text-slate-400 mb-1">Village</label><select value={locationFilter.village} onChange={(e) => setLocationFilter(prev => ({ ...prev, village: e.target.value, rw: "", rt: "" }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All Villages</option>{availableVillages.map(v => (<option key={v} value={v}>{v}</option>))}</select></div>}{locationFilter.village && <div><label className="block text-xs font-medium text-slate-400 mb-1">RW</label><select value={locationFilter.rw} onChange={(e) => setLocationFilter(prev => ({ ...prev, rw: e.target.value, rt: "" }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All RW</option>{getRWOptions().map(rw => (<option key={rw} value={rw}>RW {rw}</option>))}</select></div>}{locationFilter.rw && <div><label className="block text-xs font-medium text-slate-400 mb-1">RT</label><select value={locationFilter.rt} onChange={(e) => setLocationFilter(prev => ({ ...prev, rt: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-emerald-400/50 focus:outline-none"><option value="">All RT</option>{getRTOptions().map(rt => (<option key={rt} value={rt}>RT {rt}</option>))}</select></div>}</div>{locationFilter.province && <div className="mt-3 text-xs text-slate-400">Showing news from:<span className="text-emerald-300 ml-1">{locationFilter.province}{locationFilter.city ? ` > ${locationFilter.city}` : ""}{locationFilter.district ? ` > ${locationFilter.district}` : ""}{locationFilter.village ? ` > ${locationFilter.village}` : ""}{locationFilter.rw ? ` > RW ${locationFilter.rw}` : ""}{locationFilter.rt ? ` > RT ${locationFilter.rt}` : ""}</span></div>}</div>}
             {newsLoading ? (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-cyan-400 border-t-transparent"></div>
