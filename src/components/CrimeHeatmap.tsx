@@ -50,6 +50,49 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('id-ID').format(value);
 }
 
+/**
+ * The Pusiknas endpoints answer with machine-readable codes instead of human
+ * sentences - for example "missing_resource_key" (raised when the PowerBI API
+ * key is not configured on the server), "UNAUTHORIZED" or "rate_limited".
+ * Those codes are useful in the console but meaningless in the UI, so translate
+ * them into an actionable sentence while keeping the raw code in parentheses so
+ * support can still trace it.
+ */
+function describeDataError(error: unknown, fallback: string): string {
+  const code =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : String((error as { message?: unknown } | null)?.message ?? '').trim();
+
+  switch (code) {
+    case 'missing_resource_key':
+      return `${fallback} The Pusiknas API key is not configured on the server. Add the PUSIKNAS_POWERBI_RESOURCE_KEY environment variable and restart the server (error code: missing_resource_key).`;
+    case 'UNAUTHORIZED':
+      return 'Your session has expired. Please sign in again to load the crime data (error code: UNAUTHORIZED).';
+    case 'FORBIDDEN':
+      return 'Your account is not allowed to view this crime data (error code: FORBIDDEN).';
+    case 'rate_limited':
+      return 'Too many requests were sent to the crime data API. Please wait a moment and try again (error code: rate_limited).';
+    default:
+      return code ? `${fallback} (error code: ${code})` : fallback;
+  }
+}
+
+/**
+ * Resolves a fetch response to JSON, throwing the server-provided error code when
+ * the request failed. Without this the map silently renders an empty layer
+ * because `res.json()` happily parses `{"error":"..."}` bodies.
+ */
+async function jsonOrThrow(res: Response): Promise<any> {
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(body?.error || `HTTP ${res.status}`);
+  }
+  return body;
+}
+
 function normalizeRegencyName(name: string): string {
   return name
     .replace(/^Kabupaten\s+/i, '')
@@ -174,17 +217,11 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
       Promise.all([
         fetch(`/api/admin/crime-data?province=${encodeURIComponent(selectedProvince)}&city=${encodeURIComponent(selectedCity)}&year=${year}&level=district`)
-          .then((res) => res.json()),
+          .then(jsonOrThrow),
         fetch(`/api/geojson/districts?province=${code}&city=${encodeURIComponent(selectedCity)}`)
-          .then(async (res) => {
-            if (!res.ok) {
-              const text = await res.text();
-              throw new Error(`District GeoJSON failed: ${res.status} ${text}`);
-            }
-            return res.json();
-          }),
+          .then(jsonOrThrow),
       ])
-        .then(async ([dataRes, geoData]) => {
+        .then(([dataRes, geoData]) => {
           if (cancelled) return;
           console.log('District data loaded:', { dataRes, geoDataFeatures: geoData?.features?.length });
           const crimeData = dataRes.crimeData || [];
@@ -224,7 +261,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         .catch((e) => {
           if (!cancelled) {
             console.error('District data fetch error', e);
-            setError(`Failed to load district data: ${e.message}`);
+            setError(describeDataError(e, 'Failed to load district data.'));
             setLoading(false);
           }
         });
@@ -241,12 +278,11 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
       Promise.all([
         fetch(`/api/admin/crime-data?province=${encodeURIComponent(selectedProvince)}&year=${year}&level=regency`)
-          .then((res) => res.json()),
-        fetch(`/api/geojson/regencies?province=${code}`),
+          .then(jsonOrThrow),
+        fetch(`/api/geojson/regencies?province=${code}`).then(jsonOrThrow),
       ])
-        .then(async ([dataRes, geoRes]) => {
+        .then(([dataRes, data]) => {
           if (cancelled) return;
-          const data = await geoRes.json();
           const crimeData = dataRes.crimeData || [];
           const mapped = crimeData.map((item: any) => ({
             provinsi: item.city,
@@ -259,7 +295,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         .catch((e) => {
           if (!cancelled) {
             console.error('Regency data fetch error', e);
-            setError('Failed to load regency data.');
+            setError(describeDataError(e, 'Failed to load regency data.'));
             setLoading(false);
           }
         });
@@ -269,7 +305,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
     if (dataSource === 'manual') {
       fetch(`/api/admin/crime-data?year=${year}`)
-        .then((res) => res.json())
+        .then(jsonOrThrow)
         .then((data) => {
           if (!cancelled) {
             const crimeData = data.crimeData || [];
@@ -284,7 +320,12 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         .catch((e) => {
           if (!cancelled) {
             console.error('Manual crime data fetch error', e);
-            setError('Failed to load manual crime data. Please set data in Admin > Crime Data.');
+            setError(
+              describeDataError(
+                e,
+                'Failed to load manual crime data. Please set data in Admin > Crime Data.',
+              ),
+            );
             setRows([]);
             setLoading(false);
           }
@@ -311,7 +352,9 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       .catch((e) => {
         if (!cancelled) {
           console.error('Heatmap fetch error', e);
-          setError(String(e.message || e));
+          setError(
+            describeDataError(e, 'Failed to load crime data from the Pusiknas API.'),
+          );
           setRows([]);
           setLoading(false);
         }
@@ -498,8 +541,26 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
       </div>
 
       {error && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
+        <div
+          role="alert"
+          className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 5a1 1 0 012 0v4a1 1 0 11-2 0V5zm1 10a1.25 1.25 0 100-2.5 1.25 1.25 0 000 2.5z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <p className="leading-relaxed">
+            <span className="font-semibold">Map data unavailable. </span>
+            {error}
+          </p>
         </div>
       )}
 
