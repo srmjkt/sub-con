@@ -640,6 +640,7 @@ const PROVINCE_ALIASES: Record<string, string> = {
   "polda aceh": "Aceh",
   "polda di yogyakarta": "Daerah Istimewa Yogyakarta",
   "polda diy": "Daerah Istimewa Yogyakarta",
+  "di yogyakarta": "Daerah Istimewa Yogyakarta",
   "polda bali": "Bali",
   "poldakalimantan barat": "Kalimantan Barat",
   "polda kalimantan tengah": "Kalimantan Tengah",

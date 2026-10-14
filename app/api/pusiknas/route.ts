@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { extractLocation } from '@/lib/locationExtractor';
 import { getSession } from '@/lib/auth';
+import { buildPowerBIQuery, normalizeProvinceRows, parsePowerBIResponse } from '@/lib/pusiknas/powerbi';
 
 const POWERBI_URL =
   process.env.PUSIKNAS_POWERBI_URL ||
@@ -106,79 +107,6 @@ async function forwardPowerBIQuery(payload: any) {
   }
 }
 
-function parsePowerBIResponse(json: any) {
-  try {
-    // PowerBI response structure can vary; try multiple paths
-    const results = json?.results ?? [json];
-    const firstResult = results[0];
-    
-    // Try different paths to find the data
-    let candidate = firstResult?.result?.data ?? firstResult?.result ?? firstResult;
-    
-    // Sometimes data is nested deeper
-    let dsr = candidate?.dsr ?? candidate;
-    let ds = dsr?.DS?.[0] ?? dsr?.DS ?? dsr ?? null;
-    
-    // If not found, try alternative paths
-    if (!ds) {
-      // Try: result.data.dsr.DS[0].DM0[0].Rows
-      const altPath = firstResult?.result?.data?.dsr?.DS?.[0];
-      if (altPath) {
-        ds = altPath;
-      }
-    }
-    
-    // Try to find columns and rows in multiple possible locations
-    const columns = ds?.COLUMNS ?? ds?.Columns ?? ds?.columns ?? ds?.DM0?.[0]?.COLUMNS ?? [];
-    let rows = ds?.Rows ?? ds?.rows ?? ds?.R ?? ds?.DM0?.[0]?.Rows ?? [];
-    
-    // PowerBI rows can be in different formats:
-    // Format 1: [["DKI Jakarta", 1200], ["Jawa Barat", 980]]
-    // Format 2: [[{"Value": "DKI Jakarta"}, {"Value": 1200}]]
-    // Format 3: [{"c": [{"v": "DKI Jakarta"}, {"v": 1200}]}]
-    
-    if (!Array.isArray(columns) || !Array.isArray(rows)) {
-      console.log('[Pusiknas] No columns/rows found. DS keys:', ds ? Object.keys(ds) : 'null');
-      console.log('[Pusiknas] Full candidate:', JSON.stringify(candidate).substring(0, 1000));
-      return [];
-    }
-
-    return rows.map((r: any) => {
-      const obj: Record<string, any> = {};
-      
-      // Handle different row formats
-      const rowArray = Array.isArray(r) ? r : (r?.c ?? r?.row ?? [r]);
-      
-      columns.forEach((c: any, i: number) => {
-        const key = typeof c === 'string' ? c : c && c.Name ? c.Name : (c && c.name ? c.name : `col_${i}`);
-        let val = rowArray[i];
-        
-        // Extract value from nested objects
-        if (val && typeof val === 'object' && !Array.isArray(val)) {
-          val = val.Value ?? val.v ?? val.value ?? val;
-        }
-        
-        obj[key] = val;
-      });
-      return obj;
-    });
-  } catch (e) {
-    console.error('parsePowerBIResponse error', e);
-    return [];
-  }
-}
-
-function makeInCondition(source: string, property: string, values: string[]) {
-  return {
-    Condition: {
-      In: {
-        Expressions: [{ Column: { Expression: { SourceRef: { Source: source } }, Property: property } }],
-        Values: [values.map(v => ({ Literal: { Value: String(v) } }))],
-      },
-    },
-  };
-}
-
 export async function GET(req: Request) {
   try {
     const session = await getSession()
@@ -205,119 +133,26 @@ export async function GET(req: Request) {
     const satker = url.searchParams.get('satker') ?? aliasLocation?.satker ?? undefined;
     const crime_type = url.searchParams.get('crime_type');
     const whereExtra = url.searchParams.get('where');
-    const isHeatmap = url.searchParams.get('groupBy') === 'province';
-
-    const payload: any = {
-      version: '1.0.0',
-      queries: [
-        {
-          Query: {
-            Commands: [
-              {
-                SemanticQueryDataShapeCommand: {
-                  Query: {
-                    Version: 2,
-                    From: [
-                      { Name: 'v', Entity: 'VIEW_DATA_LP', Type: 0 },
-                      { Name: 'l', Entity: 'LocalDateTable_12add86b-6ca9-411c-b150-5826b6bdf752', Type: 0 },
-                      { Name: 'v1', Entity: 'VIEW_MASTER_SATKER_EMP', Type: 0 },
-                    ],
-                    Select: isHeatmap ? [
-                      {
-                        Column: {
-                          Expression: { SourceRef: { Source: 'v1' } },
-                          Property: 'kode_provinsi',
-                        },
-                        Name: 'kode_provinsi',
-                        NativeReferenceName: 'kode_provinsi',
-                      },
-                      {
-                        Column: {
-                          Expression: { SourceRef: { Source: 'v1' } },
-                          Property: 'provinsi',
-                        },
-                        Name: 'provinsi',
-                        NativeReferenceName: 'provinsi',
-                      },
-                      {
-                        Measure: {
-                          Expression: { SourceRef: { Source: 'v' } },
-                          Property: 'Statistik Kriminal - Detail (2)',
-                        },
-                        Name: 'count',
-                        NativeReferenceName: 'Statistik Kriminal - Detail (2)',
-                      },
-                    ] : [
-                      {
-                        Measure: {
-                          Expression: { SourceRef: { Source: 'v' } },
-                          Property: 'Statistik Kriminal - Detail (2)',
-                        },
-                        Name: 'VIEW_DATA_LP.Statistik Kriminal - Detail (2)',
-                        NativeReferenceName: 'Statistik Kriminal - Detail (2)',
-                      },
-                    ],
-                    Where: [makeInCondition('l', 'Year', [`${year}L`])],
-                    Binding: {
-                      Primary: { Groupings: [{ Projections: isHeatmap ? [0, 1, 2] : [0] }] },
-                      DataReduction: { DataVolume: 3, Primary: { Top: {} } },
-                      Version: 1,
-                    },
-                    ExecutionMetricsKind: 1,
-                  },
-                },
-              },
-            ],
-          },
-          CacheKey: '{}',
-          ApplicationContext: {
-            DatasetId: 'edcee19b-e8fc-4f8a-bdc1-6a3410863eed',
-            Sources: [{ ReportId: 'ec40848e-ee84-4f8a-b5a1016130676', VisualId: '7ba22eff7ec9a6002391' }],
-          },
-        },
-      ],
-      cancelQueries: [],
-      modelId: 5179165,
-    };
-
-    if (!isHeatmap) {
-      if (province) {
-        const values = province.split(',');
-        payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
-          makeInCondition('v1', 'kode_provinsi', values)
-        );
-      }
-      if (polda) {
-        const values = polda.split(',');
-        payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
-          makeInCondition('v1', 'Polda', values)
-        );
-      }
-      if (satker) {
-        const values = satker.split(',');
-        payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
-          makeInCondition('v1', 'satker', values)
-        );
-      }
-      if (crime_type) {
-        const values = crime_type.split(',');
-        payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(
-          makeInCondition('v', 'jenis', values)
-        );
-      }
-      if (whereExtra) {
-        try {
-          const extra = JSON.parse(whereExtra);
-          if (Array.isArray(extra)) {
-            extra.forEach((w) =>
-              payload.queries[0].Query.Commands[0].SemanticQueryDataShapeCommand.Query.Where.push(w)
-            );
-          }
-        } catch (e) {
-          if (DEBUG) console.error('whereExtra parse error', e);
-        }
+    const groupBy = url.searchParams.get('groupBy');
+    let extraWhere: any[] | null = null;
+    if (whereExtra) {
+      try {
+        const parsed = JSON.parse(whereExtra);
+        if (Array.isArray(parsed)) extraWhere = parsed;
+      } catch (e) {
+        if (DEBUG) console.error('whereExtra parse error', e);
       }
     }
+
+    const payload = buildPowerBIQuery({
+      year,
+      groupBy,
+      province,
+      polda,
+      satker,
+      crimeType: crime_type,
+      extraWhere,
+    });
 
     const key = hashPayload(payload);
     const cached = await readCache(key);
@@ -330,7 +165,7 @@ export async function GET(req: Request) {
     }
 
     const resp = await forwardPowerBIQuery(payload);
-    const rows = parsePowerBIResponse(resp);
+    const rows = normalizeProvinceRows(parsePowerBIResponse(resp));
 
     try {
       await writeCache(key, rows);

@@ -3,7 +3,8 @@
 import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { SEVERITY_LABELS } from "@/lib/securityClassifier"
+import { SEVERITY_LABELS, SECURITY_CATEGORY_LABELS } from "@/lib/securityClassifier"
+import { SecurityCategory } from "@/lib/securityClassifier"
 import { getProvinces, getCities, getDistricts, getVillageSuggestions, getRWOptions, getRTOptions } from "@/lib/indonesiaLocations"
 
 interface NewsItem {
@@ -645,7 +646,7 @@ export default function HomePage() {
                               {SEVERITY_LABELS[item.security.severity as keyof typeof SEVERITY_LABELS]?.label || item.security.severity}
                             </span>
                             <span className="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-300">
-                              {item.security.category.replace(/_/g, ' ')}
+                              {SECURITY_CATEGORY_LABELS[item.security.category as SecurityCategory]?.label || item.security.category.replace(/_/g, ' ')}
                             </span>
                           </div>
                         )}
