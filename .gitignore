@@ -30,3 +30,9 @@ yarn-error.log*
 .cache/
 
 *.bak
+
+# Agent scratch space (local-only debug/probe files)
+.kilo/
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
