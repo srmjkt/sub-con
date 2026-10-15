@@ -14,6 +14,10 @@ const CrimeHeatmap = dynamic(() => import('@/components/CrimeHeatmap'), {
 
 type Tab = 'manual' | 'api' | 'scrape' | 'pbi';
 
+// 'manual' and 'scrape' are legacy data sources kept for potential future use.
+// They are hidden from the UI for now; set this to true to bring the tabs back.
+const SHOW_LEGACY_TABS = false;
+
 export default function Page() {
   const { user, loading } = useAuth()
   const router = useRouter()
@@ -40,15 +44,17 @@ export default function Page() {
       </div>
 
       <div className="mb-4 inline-flex rounded-lg border border-gray-200 overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setTab('manual')}
-          className={`px-4 py-2 text-sm font-medium ${
-            tab === 'manual' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          Manual
-        </button>
+        {SHOW_LEGACY_TABS && (
+          <button
+            type="button"
+            onClick={() => setTab('manual')}
+            className={`px-4 py-2 text-sm font-medium ${
+              tab === 'manual' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Manual
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setTab('api')}
@@ -58,15 +64,17 @@ export default function Page() {
         >
           API
         </button>
-        <button
-          type="button"
-          onClick={() => setTab('scrape')}
-          className={`px-4 py-2 text-sm font-medium ${
-            tab === 'scrape' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          Scrape
-        </button>
+        {SHOW_LEGACY_TABS && (
+          <button
+            type="button"
+            onClick={() => setTab('scrape')}
+            className={`px-4 py-2 text-sm font-medium ${
+              tab === 'scrape' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Scrape
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setTab('pbi')}
