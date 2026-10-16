@@ -5,7 +5,18 @@ export interface FetchOptions {
   satker?: string;
   crime_type?: string;
   q?: string;
-  groupBy?: 'province' | 'polda' | 'satker' | 'crime_type';
+  groupBy?:
+    | 'province'
+    | 'golongan'
+    | 'jenis'
+    | 'lokasi'
+    | 'waktu'
+    | 'motif'
+    | 'polda'
+    | 'polres'
+    | 'polsek'
+    | 'satker'
+    | 'crime_type';
 }
 
 export async function fetchWithFilters(

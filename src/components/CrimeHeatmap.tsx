@@ -8,10 +8,40 @@ import { getProvinceCode, PROVINCE_COORDS } from '@/lib/indonesiaLocations';
 
 type DataSource = 'manual' | 'api' | 'scrape';
 type ViewLevel = 'country' | 'province' | 'district';
+/** Breakdown dimensions exposed in the API view (keys of /api/pusiknas groupBy). */
+type Breakdown =
+  | 'province'
+  | 'golongan'
+  | 'jenis'
+  | 'lokasi'
+  | 'waktu'
+  | 'motif'
+  | 'polda'
+  | 'polres'
+  | 'polsek'
+  | 'satker';
 
 interface CrimeHeatmapProps {
   dataSource?: DataSource;
 }
+
+/**
+ * Visitor-facing breakdown picker. Labels mirror the official PowerBI report
+ * visuals; 'province' keeps the geographic map, everything else renders a
+ * ranked bar list (those dimensions are categorical, not geographic).
+ */
+const BREAKDOWN_OPTIONS: Array<{ value: Breakdown; label: string }> = [
+  { value: 'province', label: 'Kejahatan Per Provinsi' },
+  { value: 'golongan', label: 'Golongan Kejahatan' },
+  { value: 'jenis', label: 'Jenis Kejahatan' },
+  { value: 'lokasi', label: 'Lokasi Kejadian' },
+  { value: 'waktu', label: 'Waktu Kejadian' },
+  { value: 'motif', label: 'Motif Kejahatan' },
+  { value: 'polda', label: 'Kejahatan Tingkat Mabes / Polda' },
+  { value: 'polres', label: 'Kejahatan Tingkat Polres' },
+  { value: 'polsek', label: 'Kejahatan Tingkat Polsek' },
+  { value: 'satker', label: 'Kejahatan Tingkat Satker' },
+];
 
 // Continuous heat palette (green → yellow → red) interpolated for a smooth "heat" look.
 const HEAT_STOPS: { t: number; c: [number, number, number] }[] = [
@@ -132,6 +162,7 @@ const SCRAPE_ROWS = [
 
 export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) {
   const [year, setYear] = useState('2026');
+  const [breakdown, setBreakdown] = useState<Breakdown>('province');
   const [rows, setRows] = useState<any[]>([]);
   const [geoJson, setGeoJson] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,7 +188,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
   useEffect(() => {
     setMapKey((k) => k + 1);
-  }, [dataSource, year, viewLevel]);
+  }, [dataSource, year, viewLevel, breakdown]);
 
   const handleProvinceClick = (name: string, rawName?: string) => {
     if (viewLevel === 'country') {
@@ -341,7 +372,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
     fetchWithFilters({
       year: Number(year),
-      groupBy: 'province',
+      groupBy: breakdown,
     })
       .then((data) => {
         if (!cancelled) {
@@ -363,7 +394,7 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
     return () => {
       cancelled = true;
     };
-  }, [dataSource, year, viewLevel, selectedProvince, selectedCity]);
+  }, [dataSource, year, breakdown, viewLevel, selectedProvince, selectedCity]);
 
   useEffect(() => {
     let cancelled = false;
@@ -412,6 +443,39 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
 
     return { heatData: points };
   }, [rows, viewLevel]);
+
+  /**
+   * Ranked rows for the non-geographic breakdowns. PowerBI caps synchronous
+   * responses at ~100 groups (the query sorts by count, so we receive the TOP
+   * buckets); blank labels are pulled out of the chart and reported as a note
+   * instead of a giant "(blank)" bar that would flatten every real value.
+   */
+  const breakdownView = useMemo(() => {
+    if (breakdown === 'province') return null;
+    const items = new Map<string, number>();
+    let blankCount = 0;
+    for (const row of rows ?? []) {
+      const labelEntry = Object.entries(row ?? {}).find(([k]) => k !== 'count');
+      const raw = labelEntry?.[1];
+      const count = Number((row as any)?.count || 0);
+      const label = raw == null ? '' : String(raw).trim();
+      if (!label) {
+        blankCount += count;
+        continue;
+      }
+      items.set(label, (items.get(label) ?? 0) + count);
+    }
+    const sorted = [...items.entries()]
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count);
+    const max = sorted.length > 0 ? Math.max(...sorted.map((b) => b.count)) : 1;
+    return {
+      bars: sorted.map((b) => ({ ...b, intensity: max > 0 ? b.count / max : 0 })),
+      total: sorted.reduce((s, b) => s + b.count, 0),
+      blankCount,
+      capped: (rows?.length ?? 0) >= 99,
+    };
+  }, [rows, breakdown]);
 
   const provinceCountMap = useMemo(() => {
     const map: Record<string, { count: number; intensity: number }> = {};
@@ -512,7 +576,13 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-slate-900">
-              {viewLevel === 'country' ? 'Pusiknas — Crime Heatmap' : viewLevel === 'province' ? `${selectedProvince} — Regency Heatmap` : `${selectedCity} — District Heatmap`}
+              {viewLevel !== 'country'
+                ? viewLevel === 'province'
+                  ? `${selectedProvince} — Regency Heatmap`
+                  : `${selectedCity} — District Heatmap`
+                : breakdown === 'province'
+                  ? 'Pusiknas — Crime Heatmap'
+                  : `Pusiknas — ${BREAKDOWN_OPTIONS.find((o) => o.value === breakdown)?.label}`}
             </h1>
             {viewLevel !== 'country' && (
               <button
@@ -523,9 +593,44 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
               </button>
             )}
           </div>
-          <p className="text-sm text-slate-500 capitalize">{dataSource} data view · {viewLevel === 'province' ? 'Regency / City' : viewLevel === 'district' ? 'District / Kecamatan' : 'Province'} level</p>
+          <p className="text-sm text-slate-500 capitalize">
+            {dataSource} data view ·{' '}
+            {viewLevel !== 'country'
+              ? viewLevel === 'province'
+                ? 'Regency / City level'
+                : 'District / Kecamatan level'
+              : BREAKDOWN_OPTIONS.find((o) => o.value === breakdown)?.label ?? 'Province'}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {dataSource === 'api' && (
+            <>
+              <label className="text-sm font-medium text-slate-600">Tampilan:</label>
+              <select
+                value={breakdown}
+                onChange={(e) => {
+                  const next = e.target.value as Breakdown;
+                  setBreakdown(next);
+                  // Leaving a drill-down behind would otherwise fetch regency
+                  // rows into a bar view; always return to country level.
+                  if (next !== 'province' && viewLevel !== 'country') {
+                    setViewLevel('country');
+                    setSelectedProvince(null);
+                    setSelectedCity(null);
+                    setHoveredProvince(null);
+                  }
+                }}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none"
+              >
+                {BREAKDOWN_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <span className="text-slate-300">|</span>
+            </>
+          )}
           <label className="text-sm font-medium text-slate-600">Year:</label>
           <select
             value={year}
@@ -558,12 +663,53 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
             />
           </svg>
           <p className="leading-relaxed">
-            <span className="font-semibold">Map data unavailable. </span>
+            <span className="font-semibold">{breakdown === 'province' ? 'Map data unavailable. ' : 'Data unavailable. '}</span>
             {error}
           </p>
         </div>
       )}
 
+      {breakdown !== 'province' && breakdownView && (
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+          {loading ? (
+            <div className="flex items-center justify-center bg-white/70 p-10 backdrop-blur-sm">
+              <p className="text-sm font-semibold text-slate-700">Loading data…</p>
+            </div>
+          ) : breakdownView.bars.length === 0 ? (
+            <p className="p-6 text-sm text-slate-600">No data available for the selected filters.</p>
+          ) : (
+            <div className="max-h-[600px] overflow-y-auto p-4">
+              <ul className="space-y-2">
+                {breakdownView.bars.map((bar) => (
+                  <li key={bar.label} className="grid grid-cols-[minmax(160px,32%)_1fr_auto] items-center gap-3">
+                    <span className="truncate text-sm text-slate-700" title={bar.label}>
+                      {bar.label}
+                    </span>
+                    <div className="h-4 overflow-hidden rounded bg-slate-100">
+                      <div
+                        className="h-full rounded"
+                        style={{ width: `${Math.max(1, bar.intensity * 100)}%`, background: getColor(bar.intensity) }}
+                      />
+                    </div>
+                    <span className="w-24 text-right text-sm tabular-nums text-slate-600">{formatNumber(bar.count)}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                <p>
+                  Total ditampilkan: {formatNumber(breakdownView.total)} kasus
+                  {breakdownView.capped ? ' · menampilkan 100 kelompok teratas (PowerBI membatasi respons)' : ''}
+                </p>
+                {breakdownView.blankCount > 0 && (
+                  <p>{formatNumber(breakdownView.blankCount)} kasus tanpa keterangan tidak ditampilkan di grafik.</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {breakdown === 'province' && (
       <div key={mapKey} className="relative overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
         {loading && (
           <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-white/70 backdrop-blur-sm">
@@ -595,7 +741,9 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
           )}
         </MapContainer>
       </div>
+      )}
 
+      {breakdown === 'province' && (
       <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
         <span className="font-semibold text-slate-700">Legend</span>
         <div
@@ -606,8 +754,9 @@ export default function CrimeHeatmap({ dataSource = 'api' }: CrimeHeatmapProps) 
         <span className="text-slate-400">•</span>
         <span>Higher intensity</span>
       </div>
+      )}
 
-      {heatData.length === 0 && !loading && (
+      {breakdown === 'province' && heatData.length === 0 && !loading && (
         <p className="mt-4 text-sm text-slate-600">
           {viewLevel === 'province'
             ? 'No regency-level data available for this province.'

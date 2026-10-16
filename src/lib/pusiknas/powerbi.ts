@@ -69,7 +69,10 @@ export function makeInCondition(
 
 export interface PusiknasQueryOptions {
   year?: string | null;
-  /** 'province' groups by province; any other value returns the plain total. */
+  /**
+   * Grouping dimension. Any key of GROUP_BY_COLUMNS groups the Jumlah_CT
+   * measure by that column; an unknown/absent value returns the plain total.
+   */
   groupBy?: string | null;
   province?: string | null;
   polda?: string | null;
@@ -78,6 +81,31 @@ export interface PusiknasQueryOptions {
   /** Pre-built condition objects appended verbatim (route `where` param). */
   extraWhere?: unknown[] | null;
 }
+
+/**
+ * Registry of supported groupBy dimensions, mirroring the official report's
+ * visuals ("Kejahatan Per Provinsi", "Golongan Kejahatan", ...) — each of
+ * which charts the same VIEW_DATA_LP.Jumlah_CT measure split by one column.
+ * `source` refers to an alias that is always present in the query's From
+ * clause: 'v' = VIEW_DATA_LP, 'v1' = VIEW_MASTER_SATKER_EMP. `name` is the
+ * Select name echoed back in parsed rows ({ <name>, count }).
+ */
+export const GROUP_BY_COLUMNS: Record<string, { source: string; property: string; name: string; entity?: string }> = {
+  province: { source: 'v', property: 'Nama_Propinsi', name: 'provinsi' },
+  golongan: { source: 'v', property: 'Golongan_Kejahatan', name: 'golongan' },
+  jenis: { source: 'v', property: 'Jenis_Kejahatan', name: 'jenis' },
+  lokasi: { source: 'v', property: 'Lokasi_Kejahatan', name: 'lokasi' },
+  waktu: { source: 'v', property: 'Waktu_kejadian_new', name: 'waktu' },
+  motif: { source: 'v', property: 'motif_kejahatan', name: 'motif' },
+  polda: { source: 'v1', property: 'Polda', name: 'polda' },
+  // Hierarchy breakdowns use the report's own VIEW_MASTER_POLRES_POLSEK columns
+  // (the "Kejahatan Tingkat ..." / "Kejahatan Per ..." visuals); `entity` adds
+  // that alias to the From clause. Probe-verified: NamaSatker_Filtered blanks
+  // 7,230 vs 131,490 on VIEW_MASTER_SATKER_EMP.satker.
+  polres: { source: 'vp', property: 'NamaPolres', name: 'polres', entity: 'VIEW_MASTER_POLRES_POLSEK' },
+  polsek: { source: 'vp', property: 'NamaPolsek', name: 'polsek', entity: 'VIEW_MASTER_POLRES_POLSEK' },
+  satker: { source: 'vp', property: 'NamaSatker_Filtered', name: 'satker', entity: 'VIEW_MASTER_POLRES_POLSEK' },
+};
 
 function sanitizeYear(year: string | null | undefined): string {
   const digits = String(year ?? '').replace(/\D/g, '');
@@ -110,19 +138,20 @@ function resolveProvinceValues(input: string | null | undefined): string[] {
 
 /**
  * Builds the full PowerBI `querydata` payload for /api/pusiknas.
- * `groupBy === 'province'` selects the province heatmap shape
- * (Nama_Propinsi + Jumlah_CT grouped); otherwise a single total.
+ * A `groupBy` matching a GROUP_BY_COLUMNS key groups Jumlah_CT by that
+ * column (province heatmap shape and the other report breakdowns);
+ * otherwise a single total.
  */
 export function buildPowerBIQuery(options: PusiknasQueryOptions): Record<string, any> {
   const year = sanitizeYear(options.year);
-  const grouped = options.groupBy === 'province';
+  const groupCol = options.groupBy ? GROUP_BY_COLUMNS[options.groupBy] : undefined;
 
-  const select: any[] = grouped
+  const select: any[] = groupCol
     ? [
         {
-          Column: { Expression: { SourceRef: { Source: 'v' } }, Property: 'Nama_Propinsi' },
-          Name: 'provinsi',
-          NativeReferenceName: 'Nama_Propinsi',
+          Column: { Expression: { SourceRef: { Source: groupCol.source } }, Property: groupCol.property },
+          Name: groupCol.name,
+          NativeReferenceName: groupCol.property,
         },
         {
           Measure: { Expression: { SourceRef: { Source: 'v' } }, Property: 'Jumlah_CT' },
@@ -151,6 +180,18 @@ export function buildPowerBIQuery(options: PusiknasQueryOptions): Record<string,
   if (crimeValues.length > 0) where.push(makeInCondition('v', 'Jenis_Kejahatan', crimeValues));
   if (Array.isArray(options.extraWhere)) where.push(...options.extraWhere);
 
+  // Base aliases are always referenced (year filter -> l, filters -> v/v1);
+  // dimension-specific extras (vp = VIEW_MASTER_POLRES_POLSEK) join only when
+  // the selected grouping needs them.
+  const from: any[] = [
+    { Name: 'v', Entity: 'VIEW_DATA_LP', Type: 0 },
+    { Name: 'l', Entity: 'LocalDateTable_12add86b-6ca9-411c-b150-5826b6bdf752', Type: 0 },
+    { Name: 'v1', Entity: 'VIEW_MASTER_SATKER_EMP', Type: 0 },
+  ];
+  if (groupCol?.entity && !from.some((f) => f.Name === groupCol.source)) {
+    from.push({ Name: groupCol.source, Entity: groupCol.entity, Type: 0 });
+  }
+
   return {
     version: '1.0.0',
     queries: [
@@ -161,13 +202,28 @@ export function buildPowerBIQuery(options: PusiknasQueryOptions): Record<string,
               SemanticQueryDataShapeCommand: {
                 Query: {
                   Version: 2,
-                  From: [
-                    { Name: 'v', Entity: 'VIEW_DATA_LP', Type: 0 },
-                    { Name: 'l', Entity: 'LocalDateTable_12add86b-6ca9-411c-b150-5826b6bdf752', Type: 0 },
-                    { Name: 'v1', Entity: 'VIEW_MASTER_SATKER_EMP', Type: 0 },
-                  ],
+                  From: from,
                   Select: select,
                   Where: where,
+                  // Grouped queries sort by measure descending so the ~100-row
+                  // synchronous-response cap returns the largest buckets first
+                  // (the report itself is sorted the same way). Note: the sort
+                  // clause key is `Expression` (not `Expr`) and Direction must
+                  // be spelled out ('Descending'/'Ascending') or the endpoint
+                  // rejects it. Ungrouped totals skip this - a single row
+                  // cannot be mis-ordered.
+                  ...(groupCol
+                    ? {
+                        OrderBy: [
+                          {
+                            Direction: 'Descending',
+                            Expression: {
+                              Measure: { Expression: { SourceRef: { Source: 'v' } }, Property: 'Jumlah_CT' },
+                            },
+                          },
+                        ],
+                      }
+                    : {}),
                   Binding: {
                     Primary: { Groupings: [{ Projections: select.map((_, i) => i) }] },
                     DataReduction: { DataVolume: 3, Primary: { Top: {} } },

@@ -4,6 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  GROUP_BY_COLUMNS,
   buildPowerBIQuery,
   makeInCondition,
   normalizeProvinceRows,
@@ -141,6 +142,48 @@ async function run() {
     escaped.Condition.In.Values[0][0].Literal.Value === "'O''Brien'",
     `quote escaping failed: ${escaped.Condition.In.Values[0][0].Literal.Value}`
   );
+
+  // --- Query builder: breakdown groupings (mirror the report's visuals) ---
+  const groupedKeys = ['golongan', 'jenis', 'lokasi', 'waktu', 'motif', 'polda', 'polres', 'polsek', 'satker'];
+  for (const key of groupedKeys) {
+    const gq = getQuery(buildPowerBIQuery({ year: '2026', groupBy: key }));
+    const reg = (GROUP_BY_COLUMNS as any)[key];
+    assert(gq.Select.length === 2, `${key}: select must be column + measure`);
+    assert(gq.Select[0].Column.Expression.SourceRef.Source === reg.source, `${key}: source alias`);
+    assert(gq.Select[0].Column.Property === reg.property, `${key}: column property`);
+    assert(gq.Select[0].Name === reg.name, `${key}: select name`);
+    // Grouped queries sort desc by measure: the synchronous API caps ~100
+    // rows, so without OrderBy big dimensions return an alphabetical slice.
+    assert(Array.isArray(gq.OrderBy) && gq.OrderBy.length === 1, `${key}: OrderBy required`);
+    assert(gq.OrderBy[0].Direction === 'Descending', `${key}: OrderBy direction`);
+    assert(gq.OrderBy[0].Expression.Measure.Property === 'Jumlah_CT', `${key}: OrderBy measure`);
+    if (reg.entity) {
+      assert(
+        gq.From.some((f: any) => f.Name === reg.source && f.Entity === reg.entity),
+        `${key}: From must join ${reg.entity}`
+      );
+    } else {
+      assert(!gq.From.some((f: any) => f.Name === 'vp'), `${key}: no stray vp join`);
+    }
+  }
+
+  // Province grouping keeps the heatmap shape AND gains OrderBy.
+  const provGrouped = getQuery(buildPowerBIQuery({ year: '2026', groupBy: 'province' }));
+  assert(provGrouped.OrderBy?.length === 1, 'province grouping must carry OrderBy');
+  assert(!provGrouped.From.some((f: any) => f.Name === 'vp'), 'province query must not join vp');
+
+  // Unknown / absent groupBy degrades to the plain total - no grouping, no OrderBy.
+  const unknownGroup = getQuery(buildPowerBIQuery({ year: '2026', groupBy: 'nope' }));
+  assert(unknownGroup.Select.length === 1, 'unknown groupBy must fall back to the total');
+  assert(unknownGroup.OrderBy === undefined, 'totals must not carry OrderBy');
+
+  // Filters still attach to a non-province grouping (v1 stays in From alongside vp).
+  const filteredGroup = getQuery(
+    buildPowerBIQuery({ year: '2026', groupBy: 'polres', polda: 'Polda Metro Jaya' })
+  );
+  assert(filteredGroup.Where.length === 2, `year+polda filters expected, got ${filteredGroup.Where.length}`);
+  assert(filteredGroup.From.some((f: any) => f.Name === 'vp'), 'polres+polda query needs vp and v1 in From');
+  assert(filteredGroup.From.some((f: any) => f.Name === 'v1'), 'polres+polda query needs vp and v1 in From');
 
   console.log('OK');
 }
