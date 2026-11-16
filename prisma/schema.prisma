@@ -88,6 +88,7 @@ model User {
   incidentReportEdits    IncidentReportEdit[]
   incidentAttachments   IncidentAttachment[]
   attachments   Attachment[]
+  osintAlerts     OsintAlert[]
 }
 
 // ─── Employee Management ──────────────────────────────────────────
@@ -291,6 +292,132 @@ model Attachment {
   uploadedById     String
   uploadedBy       User     @relation(fields: [uploadedById], references: [id])
   createdAt        DateTime @default(now())
+}
+
+// ─── OSINT Module ─────────────────────────────────────────────────────
+
+model OsintSource {
+  id          String   @id @default(uuid())
+  name        String
+  type        OsintSourceType
+  target      String   // e.g. github org name, RSS URL, domain
+  isEnabled   Boolean  @default(true)
+  apiKey      String?  // optional, for sources that need a public API key
+  lastCollectedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  collections OsintCollection[]
+  @@index([type])
+  @@index([isEnabled])
+}
+
+enum OsintSourceType {
+  GITHUB_ORG
+  GITHUB_REPO
+  RSS_FEED
+  DOMAIN
+  IP_ADDRESS
+  USERNAME
+}
+
+model OsintCollection {
+  id          String   @id @default(uuid())
+  sourceId    String
+  source      OsintSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  status      OsintCollectionStatus @default(PENDING)
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  itemsFetched Int    @default(0)
+  itemsNew     Int    @default(0)
+  error       String?
+  findings    OsintFinding[]
+  @@index([sourceId])
+  @@index([status])
+}
+
+enum OsintCollectionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model OsintFinding {
+  id          String   @id @default(uuid())
+  collectionId String
+  collection  OsintCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  url         String?
+  severity    OsintSeverity @default(LOW)
+  confidence  Float    @default(0.5) // 0.0 to 1.0
+  category    OsintCategory
+  tags        Json?    // string[]
+  sourceType  String   // e.g. 'github', 'rss', 'dns', 'whois'
+  rawData     Json?    // original API response
+  location    Json?    // extracted location info (province, city, etc.)
+  collectedAt DateTime @default(now())
+  indicators  OsintIndicator[]
+  alerts      OsintAlert[]
+  @@index([collectionId])
+  @@index([severity])
+  @@index([category])
+  @@index([collectedAt])
+}
+
+enum OsintSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum OsintCategory {
+  EXPOSED_SECRET
+  EXPOSED_INFRA
+  DATA_LEAK
+  VULNERABILITY
+  MALICIOUS_DOMAIN
+  SUSPICIOUS_ACTIVITY
+  GENERAL
+}
+
+model OsintIndicator {
+  id          String   @id @default(uuid())
+  findingId   String
+  finding     OsintFinding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  type        OsintIndicatorType
+  value       String
+  context     String?
+  @@index([findingId])
+  @@index([type])
+  @@index([value])
+}
+
+enum OsintIndicatorType {
+  IP_ADDRESS
+  DOMAIN
+  EMAIL
+  USERNAME
+  API_KEY
+  PASSWORD_HASH
+  BITCOIN_ADDRESS
+  CVE
+  SOCIAL_MEDIA
+  OTHER
+}
+
+model OsintAlert {
+  id          String   @id @default(uuid())
+  findingId   String
+  finding     OsintFinding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  isResolved  Boolean  @default(false)
+  resolvedAt  DateTime?
+  resolvedById String?
+  resolvedBy  User?    @relation(fields: [resolvedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  @@index([findingId])
+  @@index([isResolved])
 }
 
 // ─── Manual Crime Data for Pusiknas Heatmap ─────────────────────────

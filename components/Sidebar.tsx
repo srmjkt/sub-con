@@ -37,6 +37,7 @@ const adminLinks: LinkItem[] = [
   { href: "/admin/inventory", label: "Inventory", icon: "📦" },
   { href: "/admin/map-editor", label: "Map Editor", icon: "🗺️" },
   { href: "/admin/crime-data", label: "Crime Data", icon: "🔥" },
+  { href: "/admin/osint", label: "OSINT", icon: "🕵️" },
 ]
 
 const inputterLinks: LinkItem[] = [

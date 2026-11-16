@@ -110,6 +110,60 @@ async function main() {
   }
 
   console.log('🌱 Crime data seeding complete!')
+
+  // ── OSINT seed data (safe public sources for testing) ──
+  console.log('🕵️ Seeding OSINT sources...')
+
+  const osintSources = [
+    {
+      name: 'Kompas News RSS',
+      type: 'RSS_FEED' as const,
+      target: 'https://indeks.kompas.com/headline/rss.xml',
+      isEnabled: true,
+    },
+    {
+      name: 'Detik News RSS',
+      type: 'RSS_FEED' as const,
+      target: 'https://rss.detik.com/index.php',
+      isEnabled: true,
+    },
+    {
+      name: 'CNN Indonesia RSS',
+      type: 'RSS_FEED' as const,
+      target: 'https://www.cnnindonesia.com/rss',
+      isEnabled: true,
+    },
+    {
+      name: 'GitHub: torvalds/linux',
+      type: 'GITHUB_REPO' as const,
+      target: 'torvalds/linux',
+      isEnabled: true,
+    },
+    {
+      name: 'Domain: google.com',
+      type: 'DOMAIN' as const,
+      target: 'google.com',
+      isEnabled: true,
+    },
+    {
+      name: 'IP: 8.8.8.8',
+      type: 'IP_ADDRESS' as const,
+      target: '8.8.8.8',
+      isEnabled: true,
+    },
+  ]
+
+  for (const source of osintSources) {
+    const existing = await prisma.osintSource.findFirst({ where: { name: source.name } })
+    if (!existing) {
+      await prisma.osintSource.create({ data: source })
+      console.log(`✅ OSINT source seeded: ${source.name}`)
+    } else {
+      console.log(`⏭️  OSINT source already exists: ${source.name}`)
+    }
+  }
+
+  console.log('🕵️ OSINT seeding complete!')
 }
 
 main()
