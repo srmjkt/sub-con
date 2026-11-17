@@ -142,10 +142,6 @@ export default function OsintPage() {
     }
   }, [authLoading, user, fetchStats, fetchSources, fetchFindings]);
 
-  useEffect(() => {
-    fetchFindings();
-  }, [fetchFindings]);
-
   const handleCollectAll = async () => {
     setCollecting(true);
     setError(null);
@@ -263,8 +259,8 @@ export default function OsintPage() {
       const q = searchQuery.toLowerCase();
       return (
         f.title.toLowerCase().includes(q) ||
-        f.description.toLowerCase().includes(q) ||
-        f.tags.some((t) => t.toLowerCase().includes(q))
+        (f.description ?? "").toLowerCase().includes(q) ||
+        (f.tags ?? []).some((t) => t.toLowerCase().includes(q))
       );
     }
     return true;

@@ -291,7 +291,6 @@ export async function getFindings({
     where.OR = [
       { title: { contains: search, mode: 'insensitive' } },
       { description: { contains: search, mode: 'insensitive' } },
-      { tags: { contains: search } },
     ]
   }
 
@@ -309,7 +308,16 @@ export async function getFindings({
     prisma.osintFinding.count({ where }),
   ])
 
-  return { findings, total, page, limit, totalPages: Math.ceil(total / limit) }
+  return {
+    findings: findings.map((f) => ({
+      ...f,
+      tags: (f.tags as string[] | null) ?? [],
+    })),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  }
 }
 
 export async function createSource(data: {
