@@ -251,19 +251,24 @@ export default function OsintPage() {
     );
   }
 
-  const filteredFindings = findings.filter((f) => {
-    if (filterSeverity !== "ALL" && f.severity !== filterSeverity) return false;
-    if (filterCategory !== "ALL" && f.category !== filterCategory) return false;
-    if (filterSourceType !== "ALL" && f.sourceType !== filterSourceType) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        f.title.toLowerCase().includes(q) ||
-        (f.description ?? "").toLowerCase().includes(q) ||
-        (f.tags ?? []).some((t) => t.toLowerCase().includes(q))
-      );
+  const safeFindings = Array.isArray(findings) ? findings : [];
+  const filteredFindings = safeFindings.filter((f) => {
+    try {
+      if (filterSeverity !== "ALL" && f.severity !== filterSeverity) return false;
+      if (filterCategory !== "ALL" && f.category !== filterCategory) return false;
+      if (filterSourceType !== "ALL" && f.sourceType !== filterSourceType) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return (
+          f.title.toLowerCase().includes(q) ||
+          (f.description ?? "").toLowerCase().includes(q) ||
+          (f.tags ?? []).some((t) => t.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    } catch {
+      return true;
     }
-    return true;
   });
 
   return (
@@ -475,7 +480,7 @@ export default function OsintPage() {
                           {f.title}
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-300 capitalize truncate">{f.category}</td>
-                        <td className="px-4 py-3 text-sm text-slate-300 truncate">{f.collection.source.name}</td>
+                        <td className="px-4 py-3 text-sm text-slate-300 truncate">{f.collection?.source?.name ?? "Unknown"}</td>
                         <td className="px-4 py-3 text-sm text-slate-400 text-xs">{f.sourceType}</td>
                         <td className="px-4 py-3 text-sm text-slate-400">
                           {new Date(f.collectedAt).toLocaleString()}
